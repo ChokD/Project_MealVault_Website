@@ -1,0 +1,24 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #fff; /* Adjust as needed */
+  z-index: 1000; /* Ensure it stays on top */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Optional shadow */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 40px; /* Increased padding for spacing */
+  box-sizing: border-box; /* Ensure padding doesn't affect width */
+}
+
+.navbar a {
+  text-decoration: none;
+  color: #333; /* Adjust text color */
+  margin: 0 10px;
+}
+
+.navbar a:hover {
+  color: #007bff; /* Adjust hover color */
+}

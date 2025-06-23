@@ -1,0 +1,141 @@
+### สมัครสมาชิกผู้ใช้ใหม่
+POST http://localhost:3000/api/register
+Content-Type: application/json
+
+{
+  "user_email": "bankNA@gmail.com",
+  "user_fname": "Bank",
+  "user_lname": "Tae",
+  "user_password": "12345",
+  "user_tel": "0876589075"
+}
+### เข้าสู่ระบบ
+POST http://localhost:3000/api/login
+Content-Type: application/json
+
+{
+  "user_email": "bankNA@gmail.com",
+  "user_password": "Bank12345"
+}
+
+### ดึงข้อมูลผู้ใช้ที่กำลัง Login อยู่ (ต้องใช้ Token)
+GET http://localhost:3000/api/me
+Authorization: Bearer 
+
+### ดึงข้อมูลเมนูอาหารทั้งหมด
+GET http://localhost:3000/api/menus
+
+### ดึงข้อมูลเมนูอาหารทั้งหมด
+POST http://localhost:3000/api/menus
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTIzMTc3MiIsImVtYWlsIjoicmVzdC5jbGllbnRAZW1haWwuY29tIn0sImlhdCI6MTc1MDY3MjU1MSwiZXhwIjoxNzUwNjc2MTUxfQ.yqNhWz6roR9WfYU2pM5zaPIOWr_nUUdCwbpKMmxnDPs
+
+{
+  "menu_name": "ไข่เจียวทรงเครื่อง",
+  "menu_description": "ไข่เจียวง่ายๆ ใส่เครื่องแน่นๆ",
+  "menu_recipe": "1. ตอกไข่ 2. ใส่เครื่องปรุง 3. ทอด",
+  "menu_image": "kaijeaw.jpg",
+  "category_id": "C111111"
+}
+### แก้ไขข้อมูลเมนู (ต้องใช้ Token ของ Admin)
+PUT http://localhost:3000/api/menus/M456150
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTgyMDY5NiIsImVtYWlsIjoicmVzdDIuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2NzI5MDMsImV4cCI6MTc1MDY3NjUwM30.YYRZqgvD4dMb1l6KZxspVMJdAj7mQGle8VMNv-1DDiA
+
+{
+  "menu_name": "ไข่เจียวสุดอร่อย (แก้ไข)",
+  "menu_description": "ไข่เจียวง่ายๆ ใส่เครื่องแน่นๆ อร่อยกว่าเดิม",
+  "menu_recipe": "1. ตอกไข่ 2. ใส่เครื่องปรุงเยอะๆ 3. ทอดด้วยไฟกลาง",
+  "menu_image": "kaijeaw_v2.jpg",
+  "category_id": "C222222"
+}
+ 
+### ลบเมนูอาหาร (ต้องใช้ Token ของ Admin)
+DELETE http://localhost:3000/api/menus/M542119
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTgyMDY5NiIsImVtYWlsIjoicmVzdDIuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODIwMzIsImV4cCI6MTc1MDY4NTYzMn0.zIFzflJB-22UuJ75kIq5vuVS6Fv-ko-rkVbivRIEIZo
+
+----------------------------------------------POST----------------------------------------
+
+
+### 1. ดึงโพสต์ทั้งหมด (ไม่ต้องใช้ Token)
+GET http://localhost:3000/api/posts
+
+### 2. ดึงโพสต์เดียว (เช่น โพสต์ ID 1) (ไม่ต้องใช้ Token)
+GET http://localhost:3000/api/posts/1
+
+### 3. สร้างโพสต์ใหม่ (ต้องใช้ Token)
+POST http://localhost:3000/api/posts
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTUzMjI3OCIsImVtYWlsIjoicmVzdDMuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODI5MDEsImV4cCI6MTc1MDY4NjUwMX0.o0nk42vKmj9hia606wCWwpcWx-lBVOSfNPdhxS-pZ24
+
+{  
+  "cpost_title": "ข้าวไข่เจียวสูตรนี้อร่อยมาก!",
+  "cpost_content": "ไข่เจียวเป็นเมนูที่ทำง่ายและอร่อยมาก! วันนี้เรามีสูตรเด็ดมาฝากกันค่ะ"
+}
+
+### 4. เพิ่มคอมเมนต์ในโพสต์ (เช่น โพสต์ ID 1) (ต้องใช้ Token)
+POST http://localhost:3000/api/posts/1/comments
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTUzMjI3OCIsImVtYWlsIjoicmVzdDMuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODI5MDEsImV4cCI6MTc1MDY4NjUwMX0.o0nk42vKmj9hia606wCWwpcWx-lBVOSfNPdhxS-pZ24
+
+{
+  "comment_content": "นี่คือคอมเมนต์แรกของโพสต์นี้!"
+}
+
+### [ADMIN] ลบคอมเมนต์ (ต้องใช้ Token ของ Admin)
+DELETE http://localhost:3000/api/admin/comments/2
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTgyMDY5NiIsImVtYWlsIjoicmVzdDIuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODQ0NjcsImV4cCI6MTc1MDY4ODA2N30.P01ROUESW88dAAVgkyWe_HINVjIs9Kf9suNa_RSscnE
+
+### [ADMIN] ลบผู้ใช้ (ต้องใช้ Token ของ Admin)
+DELETE http://localhost:3000/api/admin/users/U820696
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTgyMDY5NiIsImVtYWlsIjoicmVzdDIuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODQ0NjcsImV4cCI6MTc1MDY4ODA2N30.P01ROUESW88dAAVgkyWe_HINVjIs9Kf9suNa_RSscnE
+
+### ดึงข้อมูลหมวดหมู่ทั้งหมด (Public)
+GET http://localhost:3000/api/categories
+
+### [ADMIN] เพิ่มหมวดหมู่ใหม่ (ต้องใช้ Token ของ Admin)
+POST http://localhost:3000/api/categories
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTgyMDY5NiIsImVtYWlsIjoicmVzdDIuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODQ0NjcsImV4cCI6MTc1MDY4ODA2N30.P01ROUESW88dAAVgkyWe_HINVjIs9Kf9suNa_RSscnE
+
+{
+  "category_name": "ประเภทต้ม"
+}
+
+### ค้นหาเมนูอาหาร (เช่น ค้นหาคำว่า "ไข่")
+GET http://localhost:3000/api/menus/search?q=ไข่
+
+### ค้นหาเมนูอาหาร (เช่น ค้นหาคำว่า "ผัด")
+GET http://localhost:3000/api/menus/search?q=ผัด
+
+### เปลี่ยนรหัสผ่าน (ต้องใช้ Token)
+PUT http://localhost:3000/api/users/change-password
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTk4MDk3MCIsImVtYWlsIjoiYmFua05BQGdtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODcwMDEsImV4cCI6MTc1MDY5MDYwMX0.MI3DqW4IVVzKb_HGmsHQlcsIuxZ4gVMRAu9MaMu6FZI
+
+{
+  "oldPassword": "12345",
+  "newPassword": "Bank12345"
+}
+
+### ส่งรายงานโพสต์ (ต้องใช้ Token)
+POST http://localhost:3000/api/reports
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTk4MDk3MCIsImVtYWlsIjoiYmFua05BQGdtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODcwMDEsImV4cCI6MTc1MDY5MDYwMX0.MI3DqW4IVVzKb_HGmsHQlcsIuxZ4gVMRAu9MaMu6FZI
+
+{
+  "cpost_id": 1,
+  "creport_reason": "โพสต์นี้มีเนื้อหาไม่เหมาะสม"
+}
+
+### [ADMIN] ดึงข้อมูลรายงานทั้งหมด (ต้องใช้ Token ของ Admin)
+GET http://localhost:3000/api/admin/reports
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiVTgyMDY5NiIsImVtYWlsIjoicmVzdDIuY2xpZW50QGVtYWlsLmNvbSJ9LCJpYXQiOjE3NTA2ODQ0NjcsImV4cCI6MTc1MDY4ODA2N30.P01ROUESW88dAAVgkyWe_HINVjIs9Kf9suNa_RSscnE
+
+### แนะนำเมนูจากวัตถุดิบที่มี
+POST http://localhost:3000/api/menus/recommend
+Content-Type: application/json
+
+{
+  "userIngredients": ["หมูสับ", "พริก", "กระเทียม"]
+}
