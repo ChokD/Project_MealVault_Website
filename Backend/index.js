@@ -11,6 +11,7 @@ console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Loaded' : 'NOT LOADED');
 console.log('---------------------------');
 // --- จบส่วน Debug ---
 const express = require('express');
+const cors = require('cors'); //
 const db = require('./config/db');
 const userRoutes = require('./routes/userRoutes'); // <-- ตรวจสอบว่ามีบรรทัดนี้
 const menuRoutes = require('./routes/menuRoutes');
@@ -24,6 +25,7 @@ const recommendRoutes = require('./routes/recommendRoutes');
 const app = express();
 
 // 3. ตั้งค่า Middleware เพื่อรับข้อมูล JSON
+app.use(cors());
 app.use(express.json());
 
 // 4. กำหนดพอร์ต

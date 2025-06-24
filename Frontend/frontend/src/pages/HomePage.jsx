@@ -5,10 +5,16 @@ import Recommended from '../components/Recommended';
 
 function HomePage() {
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <Hero />
-      <Recommended />
+      
+      <main className="flex-grow pt-24">
+        {/* แก้ไขที่บรรทัดนี้ */}
+        <div className="container mx-auto px-6 sm:px-8"> 
+          <Hero />
+          <Recommended />
+        </div>
+      </main>
     </div>
   );
 }

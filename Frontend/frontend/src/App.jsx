@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import './App.css'; // เราจะใช้ไฟล์นี้ในการตกแต่ง
+import SignUpPage from './pages/SignUpPage'; // 1. ตรวจสอบว่า import เข้ามาแล้ว
 
 function App() {
   return (
@@ -10,6 +10,10 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+
+        {/* 2. ตรวจสอบว่ามีบรรทัดนี้อยู่ และ path สะกดถูกต้อง */}
+        <Route path="/register" element={<SignUpPage />} /> 
+
       </Routes>
     </Router>
   );
