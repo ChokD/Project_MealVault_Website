@@ -32,9 +32,9 @@ function Navbar() {
           {token ? (
             // ถ้ามี Token (Login แล้ว)
             <>
-              <span className="text-gray-800 font-semibold">
-                {user ? `สวัสดี, ${user.user_fname}` : 'กำลังโหลด...'}
-              </span>
+              <Link to="/profile" className="text-gray-800 font-semibold hover:text-green-600">
+              {user ? `สวัสดี, ${user.user_fname}` : 'กำลังโหลด...'}
+              </Link>
               <button 
                 onClick={handleLogout}
                 className="px-4 py-2 border border-red-500 text-red-500 font-semibold rounded-lg hover:bg-red-500 hover:text-white transition-colors duration-300"
