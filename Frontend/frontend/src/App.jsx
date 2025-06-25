@@ -6,6 +6,10 @@ import SignUpPage from './pages/SignUpPage'; // 1. ตรวจสอบว่�
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProfilePage from './pages/ProfilePage'; // <-- เพิ่ม
+import CommunityPage from './pages/CommunityPage';
+import CreatePostPage from './pages/CreatePostPage';
+import ProtectedRoute from './ProtectedRoute';
+import PostDetailPage from './pages/PostDetailPage'; // <-- เพิ่ม import
 
 function App() {
   return (
@@ -17,6 +21,13 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/profile" element={<ProfilePage />} /> 
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/create-post" element={<CreatePostPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/create-post" element={<CreatePostPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/posts/:postId" element={<PostDetailPage />} /> 
+        </Route>
       </Routes>
     </Router>
   );

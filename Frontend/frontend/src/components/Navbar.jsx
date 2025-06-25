@@ -14,7 +14,7 @@ function Navbar() {
   return (
     <nav className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
       <div className="container mx-auto px-6 py-3 flex justify-between items-center">
-        <div className="font-bold text-2xl text-green-600">
+        <div className="font-bold text-4xl text-green-600">
           <Link to="/">MealVault</Link>
         </div>
 
@@ -25,7 +25,7 @@ function Navbar() {
           <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">AI Chat Bot</a>
           <Link to="/" className="text-gray-700 hover:text-green-600 transition-colors">หน้าหลัก</Link>
           <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">เมนูอาหาร</a>
-          <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">ชุมชน</a>
+           <Link to="/community" className="text-gray-700 hover:text-green-600 transition-colors">ชุมชน</Link>
           <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">About Us</a>
 
           {/* --- ส่วนที่เปลี่ยนไปตามสถานะ Login --- */}

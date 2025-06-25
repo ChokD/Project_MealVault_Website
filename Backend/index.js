@@ -62,7 +62,7 @@ app.use('/api', adminRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', reportRoutes);
 app.use('/api', recommendRoutes);
-
+app.use('/images', express.static('public/images'));
 // 8. สั่งให้เซิร์ฟเวอร์เริ่มทำงาน
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
