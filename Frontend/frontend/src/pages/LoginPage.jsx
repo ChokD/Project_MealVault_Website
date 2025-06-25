@@ -2,23 +2,24 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
+import SuccessAnimation from '../components/SuccessAnimation';
 
 function LoginPage() {
-  // --- ส่วนที่ขาดไป: การสร้าง State และ Navigate ---
+  // --- ส่วนที่เพิ่มเข้ามา: State ที่จำเป็นสำหรับฟอร์ม ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const navigate = useNavigate();
-  // -----------------------------------------
+  // --------------------------------------------------
 
+  const [showSuccess, setShowSuccess] = useState(false);
   const { login } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
     try {
-      // --- ทำให้ fetch สมบูรณ์ ---
       const response = await fetch('http://localhost:3000/api/login', {
         method: 'POST',
         headers: {
@@ -29,7 +30,6 @@ function LoginPage() {
           user_password: password,
         }),
       });
-      // --------------------------
 
       const data = await response.json();
       if (!response.ok) {
@@ -37,9 +37,13 @@ function LoginPage() {
       }
 
       login(data.token);
+      setShowSuccess(true); // สั่งให้แสดง Animation
 
-      alert('เข้าสู่ระบบสำเร็จ!');
-      navigate('/');
+      // ตั้งเวลา 2 วินาที แล้วค่อยเปลี่ยนหน้าไปหน้าแรก
+      setTimeout(() => {
+        navigate('/');
+      }, 2000); // 2000 milliseconds = 2 วินาที
+
     } catch (err) {
       setError(err.message);
     }
@@ -51,52 +55,64 @@ function LoginPage() {
       <main className="flex-grow flex items-center justify-center p-4 pt-24">
         <div className="w-full bg-white rounded-xl shadow-lg sm:max-w-md">
           <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
-            <h1 className="text-xl font-bold text-center text-gray-900 md:text-2xl">
-              เข้าสู่ระบบ
-            </h1>
-            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-              <div>
-                <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-900">Username</label>
-                <input
-                  type="email"
-                  name="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-900">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                  required
-                />
-              </div>
-              <div className="text-right text-sm">
-                <a href="#" className="font-medium text-gray-500 hover:underline">
-                  Forget Password?
-                </a>
-              </div>
-              {error && (
-                <p className="text-sm text-center text-red-500">{error}</p>
-              )}
-              <button type="submit" className="w-full text-white bg-green-500 hover:bg-green-600 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-full text-sm px-5 py-2.5 text-center transition-colors duration-300">
-                Login
-              </button>
-              <p className="text-sm font-light text-center text-gray-500">
-                Don’t have an account yet?{' '}
-                <Link to="/register" className="font-medium text-red-500 hover:underline">
-                  Sign up
-                </Link>
-              </p>
-            </form>
+
+            {/* --- ส่วนที่เพิ่มเข้ามา: เงื่อนไขการแสดงผล --- */}
+            {showSuccess ? (
+              // ถ้าโชว์ Animation
+              <SuccessAnimation message="เข้าสู่ระบบสำเร็จ!" />
+            ) : (
+              // ถ้ายังไม่โชว์ (แสดงฟอร์มปกติ)
+              <>
+                <h1 className="text-xl font-bold text-center text-gray-900 md:text-2xl">
+                  เข้าสู่ระบบ
+                </h1>
+                <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+                  <div>
+                    <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-900">Username</label>
+                    <input
+                      type="email"
+                      name="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-900">Password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      id="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
+                      required
+                    />
+                  </div>
+                  <div className="text-right text-sm">
+                    <Link to="/forgot-password" className="font-medium text-gray-500 hover:underline">
+                      Forget Password?
+                    </Link>
+                  </div>
+                  {error && (
+                    <p className="text-sm text-center text-red-500">{error}</p>
+                  )}
+                  <button type="submit" className="w-full text-white bg-green-500 hover:bg-green-600 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-full text-sm px-5 py-2.5 text-center transition-colors duration-300">
+                    Login
+                  </button>
+                  <p className="text-sm font-light text-center text-gray-500">
+                    Don’t have an account yet?{' '}
+                    <Link to="/register" className="font-medium text-red-500 hover:underline">
+                      Sign up
+                    </Link>
+                  </p>
+                </form>
+              </>
+            )}
+            {/* ------------------------------------ */}
+
           </div>
         </div>
       </main>

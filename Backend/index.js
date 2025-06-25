@@ -1,15 +1,23 @@
 // 1. นำเข้า library และไฟล์ที่จำเป็น
 require('dotenv').config();
+
 // --- เพิ่มโค้ดส่วนนี้เพื่อ Debug ---
-console.log('--- Environment Variables ---');
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_USER:', process.env.DB_USER);
-// เราจะไม่แสดงรหัสผ่านตรงๆ เพื่อความปลอดภัย
-console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? 'Loaded' : 'NOT LOADED'); 
-console.log('DB_NAME:', process.env.DB_NAME);
-console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Loaded' : 'NOT LOADED');
-console.log('---------------------------');
-// --- จบส่วน Debug ---
+console.log('--- Email Credentials ---');
+console.log('Email User:', process.env.EMAIL_USER);
+console.log('Email Pass:', process.env.EMAIL_PASS ? 'Loaded' : 'NOT LOADED');
+console.log('-------------------------');
+
+// // --- จบส่วน Debug ---
+// // --- เพิ่มโค้ดส่วนนี้เพื่อ Debug ---
+// console.log('--- Environment Variables ---');
+// console.log('DB_HOST:', process.env.DB_HOST);
+// console.log('DB_USER:', process.env.DB_USER);
+// // เราจะไม่แสดงรหัสผ่านตรงๆ เพื่อความปลอดภัย
+// console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? 'Loaded' : 'NOT LOADED'); 
+// console.log('DB_NAME:', process.env.DB_NAME);
+// console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Loaded' : 'NOT LOADED');
+// console.log('---------------------------');
+// --- จบส่วน Debug ---n
 const express = require('express');
 const cors = require('cors'); //
 const db = require('./config/db');
