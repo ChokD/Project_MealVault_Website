@@ -22,7 +22,7 @@ function Navbar() {
         <div className="hidden md:flex items-center space-x-6">
 
           {/* ลิงก์เหล่านี้จะแสดงผลตลอดเวลา */}
-          <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">AI Chat Bot</a>
+          <Link to="/chatbot" className="text-gray-700 hover:text-green-600 transition-colors">AI Chat Bot</Link>
           <Link to="/" className="text-gray-700 hover:text-green-600 transition-colors">หน้าหลัก</Link>
           <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">เมนูอาหาร</a>
            <Link to="/community" className="text-gray-700 hover:text-green-600 transition-colors">ชุมชน</Link>
