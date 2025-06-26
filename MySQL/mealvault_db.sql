@@ -1,1 +1,1 @@
-CREATE SCHEMA `mealvault_db` DEFAULT CHARACTER SET utf8 ;
+SELECT * FROM mealvault_db.user;

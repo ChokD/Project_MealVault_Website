@@ -3,16 +3,95 @@ import Navbar from '../components/Navbar';
 import { Link } from 'react-router-dom';
 
 function MenuPage () {
+    const [openIndex, setOpenIndex] = React.useState(null);
+
+    const menuItems = [
+        {
+            title: "ข้าวผัดกุ้ง",
+            image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80",
+            desc: "ข้าวผัดหอมๆ กับกุ้งสดตัวโต เสิร์ฟพร้อมแตงกวาและมะนาว",
+            detail: "ข้าวผัดกุ้งเป็นเมนูยอดนิยมที่ใช้ข้าวสวยผัดกับกุ้งสด ไข่ และผักต่างๆ ปรุงรสด้วยซอสและเครื่องปรุงไทย เสิร์ฟพร้อมแตงกวาและมะนาวเพื่อเพิ่มความสดชื่น"
+        },
+        {
+            title: "ผัดไทยกุ้งสด",
+            image: "https://images.unsplash.com/photo-1519864600265-abb23847ef2c?auto=format&fit=crop&w=600&q=80",
+            desc: "เส้นจันท์เหนียวนุ่ม ผัดกับซอสสูตรพิเศษและกุ้งสด",
+            detail: "ผัดไทยกุ้งสดเป็นอาหารจานเดียวที่มีเส้นจันท์เหนียวนุ่ม ผัดกับซอสผัดไทยสูตรพิเศษ ใส่กุ้งสด เต้าหู้ ถั่วงอก และโรยถั่วลิสงคั่ว"
+        },
+        {
+            title: "สปาเก็ตตี้คาโบนาร่า",
+            image: "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=600&q=80",
+            desc: "เส้นสปาเก็ตตี้คลุกซอสครีมเข้มข้น โรยเบคอนกรอบ",
+            detail: "สปาเก็ตตี้คาโบนาร่าเป็นเมนูสไตล์อิตาเลียน ใช้เส้นสปาเก็ตตี้คลุกกับซอสครีม ไข่ และชีส โรยหน้าด้วยเบคอนกรอบ"
+        },
+        {
+            title: "ต้มยำกุ้ง",
+            image: "https://images.unsplash.com/photo-1464306076886-debca5e8a6b0?auto=format&fit=crop&w=600&q=80",
+            desc: "ซุปต้มยำรสจัดจ้าน ใส่กุ้งสด เห็ด และสมุนไพรไทย",
+            detail: "ต้มยำกุ้งเป็นซุปไทยรสจัดจ้าน ใช้กุ้งสด เห็ด ข่า ตะไคร้ ใบมะกรูด และพริกสด ปรุงรสเปรี้ยวเผ็ดกลมกล่อม"
+        },
+        {
+            title: "ข้าวมันไก่",
+            image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80",
+            desc: "ข้าวมันหอมกรุ่น เสิร์ฟพร้อมไก่นุ่ม น้ำจิ้มรสเด็ด",
+            detail: "ข้าวมันไก่เป็นอาหารจานเดียวที่ใช้ข้าวหุงกับน้ำซุปไก่ เสิร์ฟพร้อมไก่ต้มเนื้อนุ่มและน้ำจิ้มรสเด็ด"
+        },
+        {
+            title: "ข้าวหน้าเนื้อ",
+            image: "https://images.unsplash.com/photo-1519864600265-abb23847ef2c?auto=format&fit=crop&w=600&q=80",
+            desc: "ข้าวสวยร้อนๆ ราดเนื้อผัดซอสญี่ปุ่น โรยต้นหอม",
+            detail: "ข้าวหน้าเนื้อเป็นเมนูสไตล์ญี่ปุ่น ใช้เนื้อวัวผัดกับซอสญี่ปุ่น ราดบนข้าวสวยร้อนๆ โรยต้นหอม"
+        }
+    ];
+
     return (
-        <div>
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-200">
             <Navbar />
-            <div className="pt-24"></div> {/* Padding to avoid Navbar overlap */}
-            <h1>Menu Page</h1>
-            <p>This is the Menu Page where you can find various food menus.</p>
-            <p>Currently, this page is under construction.</p> 
-            <p>Stay tuned for updates!</p>
-            <p>Thank you for your patience!</p> 
-            <Link to="/">Back to Home</Link>
+            <div className="pt-24 max-w-6xl mx-auto px-4">
+                <h1 className="text-4xl font-bold text-green-700 mb-6 text-center drop-shadow">เมนูอาหาร</h1>
+                <p className="text-lg text-gray-700 mb-10 text-center">
+                    สำรวจเมนูอาหารหลากหลายที่เราคัดสรรมาให้คุณ ทั้งอาหารจานเดียว อาหารไทย อาหารนานาชาติ และของหวานสุดอร่อย!
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {menuItems.map((item, idx) => (
+                        <div key={item.title} className="bg-white rounded-xl shadow-lg overflow-hidden hover:scale-105 transition">
+                            <img src={item.image} alt={item.title} className="w-full h-48 object-cover"/>
+                            <div className="p-5">
+                                <h2 className="text-xl font-semibold text-green-600 mb-2">{item.title}</h2>
+                                <p className="text-gray-600 mb-4">{item.desc}</p>
+                                <button
+                                    onClick={() => setOpenIndex(idx)}
+                                    className="text-green-500 hover:underline font-medium focus:outline-none"
+                                >
+                                    อ่านเพิ่มเติม
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-12 flex justify-center">
+                    <Link to="/" className="px-6 py-2 rounded-full bg-green-500 text-white font-semibold shadow hover:bg-green-600 transition">
+                        กลับสู่หน้าแรก
+                    </Link>
+                </div>
+            </div>
+            {/* Modal */}
+            {openIndex !== null && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative">
+                        <button
+                            onClick={() => setOpenIndex(null)}
+                            className="absolute top-2 right-3 text-gray-400 hover:text-green-600 text-2xl font-bold"
+                            aria-label="ปิด"
+                        >
+                            ×
+                        </button>
+                        <img src={menuItems[openIndex].image} alt={menuItems[openIndex].title} className="w-full h-48 object-cover rounded-lg mb-4"/>
+                        <h2 className="text-2xl font-bold text-green-700 mb-2">{menuItems[openIndex].title}</h2>
+                        <p className="text-gray-700 mb-4">{menuItems[openIndex].detail}</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

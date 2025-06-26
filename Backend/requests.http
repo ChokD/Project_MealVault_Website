@@ -3,24 +3,24 @@ POST http://localhost:3000/api/register
 Content-Type: application/json
 
 {
-  "user_email": "bankNA@gmail.com",
-  "user_fname": "Bank",
-  "user_lname": "Tae",
+  "user_email": "chokdeech9@gmail.com",
+  "user_fname": "Chokdee",
+  "user_lname": "Rungruang",
   "user_password": "12345",
-  "user_tel": "0876589075"
+  "user_tel": "0992547017"
 }
 ### เข้าสู่ระบบ
 POST http://localhost:3000/api/login
 Content-Type: application/json
 
 {
-  "user_email": "bankNA@gmail.com",
-  "user_password": "Bank12345"
+  "user_email": "chokdee@gmail.com",
+  "user_password": "12345"
 }
 
 ### ดึงข้อมูลผู้ใช้ที่กำลัง Login อยู่ (ต้องใช้ Token)
 GET http://localhost:3000/api/me
-Authorization: Bearer 
+Authorization: Bearer
 
 ### ดึงข้อมูลเมนูอาหารทั้งหมด
 GET http://localhost:3000/api/menus
