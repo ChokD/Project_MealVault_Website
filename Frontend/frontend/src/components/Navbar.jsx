@@ -24,9 +24,9 @@ function Navbar() {
           {/* ลิงก์เหล่านี้จะแสดงผลตลอดเวลา */}
           <Link to="/chatbot" className="text-gray-700 hover:text-green-600 transition-colors">AI Chat Bot</Link>
           <Link to="/" className="text-gray-700 hover:text-green-600 transition-colors">หน้าหลัก</Link>
-          <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">เมนูอาหาร</a>
-           <Link to="/community" className="text-gray-700 hover:text-green-600 transition-colors">ชุมชน</Link>
-          <a href="#" className="text-gray-700 hover:text-green-600 transition-colors">About Us</a>
+          <Link to="/menu" className="text-gray-700 hover:text-green-600 transition-colors">เมนูอาหาร</Link>
+          <Link to="/community" className="text-gray-700 hover:text-green-600 transition-colors">ชุมชน</Link>
+          <Link to="/about" className="text-gray-700 hover:text-green-600 transition-colors">About Us</Link>
 
           {/* --- ส่วนที่เปลี่ยนไปตามสถานะ Login --- */}
           {token ? (

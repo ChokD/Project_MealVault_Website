@@ -16,6 +16,8 @@ import ChatbotPage from './pages/ChatbotPage';
 import ProtectedRoute from './ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
 import CreatePostPage from './pages/CreatePostPage';
+import AboutPage from './pages/AboutPage';
+import MenuPage from './pages/MenuPage';
 
 function App() {
   return (
@@ -31,6 +33,8 @@ function App() {
         <Route path="/posts/:postId" element={<PostDetailPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/chatbot" element={<ChatbotPage />} />
+        <Route path="/menu" element={<MenuPage />} />
+        <Route path="/about" element={<AboutPage />} />
 
         {/* --- Protected Routes (ต้อง Login ก่อนถึงจะเข้าได้) --- */}
         <Route element={<ProtectedRoute />}>
