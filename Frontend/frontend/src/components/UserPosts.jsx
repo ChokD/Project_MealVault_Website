@@ -1,28 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import PostCard from './PostCard'; // นำเข้าการ์ดที่เราเพิ่งสร้าง
 
-// Component สำหรับการ์ดเมนูแต่ละอัน
-function RecipeCard({ recipe }) {
-    if (!recipe) return null;
-    return (
-        <Link to={`/menus/${recipe.idMeal}`} className="w-full h-full block group relative overflow-hidden rounded-xl">
-            <img 
-                src={recipe.strMealThumb} 
-                alt={recipe.strMeal} 
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-            <div className="absolute bottom-0 left-0 p-4 text-white">
-                <h3 className="font-bold text-lg">{recipe.strMeal}</h3>
-                <p className="text-sm opacity-80">{recipe.strCategory}</p>
-            </div>
-        </Link>
-    );
-}
-
-function Recommended() {
-  const [recommendedMenus, setRecommendedMenus] = useState([]);
+function UserPosts() {
+  const [latestPosts, setLatestPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -30,32 +11,32 @@ function Recommended() {
   const ITEMS_PER_PAGE = 3;
 
   useEffect(() => {
-    const fetchRecommendedMenus = async () => {
+    const fetchLatestPosts = async () => {
       setLoading(true);
       try {
-        const fetchPromises = Array.from({ length: 6 }, () => 
-          fetch('https://www.themealdb.com/api/json/v1/1/random.php').then(res => res.json())
-        );
-        const results = await Promise.all(fetchPromises);
-        const menus = results.map(result => result.meals[0]).filter(Boolean);
-        setRecommendedMenus(menus);
+        // ดึงข้อมูลโพสต์จาก API ของเราเอง
+        const response = await fetch('http://localhost:3000/api/posts');
+        const data = await response.json();
+        // นำมาแค่ 6 โพสต์ล่าสุดเพื่อทำสไลด์โชว์ 2 หน้า
+        setLatestPosts(data.slice(0, 6)); 
       } catch (error) {
-        console.error("Failed to fetch recommended menus:", error);
+        console.error("Failed to fetch latest posts:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchRecommendedMenus();
+    fetchLatestPosts();
   }, []);
 
+  // ส่วนของ Auto-slide และ Animation
   useEffect(() => {
-    if (recommendedMenus.length > ITEMS_PER_PAGE) {
+    if (latestPosts.length > ITEMS_PER_PAGE) {
       const timer = setTimeout(() => {
         paginate(1);
-      }, 5000);
+      }, 5500); // ตั้งเวลาให้ต่างกันเล็กน้อย
       return () => clearTimeout(timer);
     }
-  }, [page, recommendedMenus]);
+  }, [page, latestPosts]);
 
   const slideVariants = {
     enter: (direction) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0 }),
@@ -63,7 +44,7 @@ function Recommended() {
     exit: (direction) => ({ zIndex: 0, x: direction < 0 ? '100%' : '-100%', opacity: 0 }),
   };
   
-  const totalPages = Math.ceil(recommendedMenus.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(latestPosts.length / ITEMS_PER_PAGE);
 
   const paginate = (newDirection) => {
     setDirection(newDirection);
@@ -74,12 +55,12 @@ function Recommended() {
         return nextPage;
     });
   };
-  
+
   if (loading) {
     return (
       <section className="py-8">
-        <h2 className="text-3xl font-bold mb-8 text-center md:text-left">เมนูแนะนำ</h2>
-        <div className="relative w-full h-64 flex items-center justify-center bg-gray-100 rounded-xl"><p>กำลังโหลดเมนูแนะนำ...</p></div>
+        <h2 className="text-3xl font-bold mb-8">เมนูจากชุมชน</h2>
+        <div className="relative w-full h-64 flex items-center justify-center bg-gray-100 rounded-xl"><p>กำลังโหลดโพสต์ล่าสุด...</p></div>
       </section>
     );
   }
@@ -87,7 +68,7 @@ function Recommended() {
   return (
     <section className="py-8">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold text-center md:text-left">เมนูแนะนำ</h2>
+        <h2 className="text-3xl font-bold">เมนูจากชุมชน</h2>
         <div className="flex space-x-2">
            <button onClick={() => paginate(-1)} className="bg-white text-gray-800 p-2 rounded-full shadow-md hover:bg-gray-100 transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
@@ -113,8 +94,8 @@ function Recommended() {
               opacity: { duration: 0.2 }
             }}
           >
-            {recommendedMenus.slice(page * ITEMS_PER_PAGE, (page * ITEMS_PER_PAGE) + ITEMS_PER_PAGE).map(recipe => (
-                <RecipeCard key={recipe.idMeal} recipe={recipe} />
+            {latestPosts.slice(page * ITEMS_PER_PAGE, (page * ITEMS_PER_PAGE) + ITEMS_PER_PAGE).map(post => (
+                <PostCard key={post.cpost_id} post={post} />
             ))}
           </motion.div>
         </AnimatePresence>
@@ -123,4 +104,4 @@ function Recommended() {
   );
 }
 
-export default Recommended;
+export default UserPosts;

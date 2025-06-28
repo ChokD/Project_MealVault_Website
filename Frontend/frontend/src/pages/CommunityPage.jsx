@@ -13,7 +13,7 @@ function CommunityPage() {
   const [openPostId, setOpenPostId] = useState(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [postToDelete, setPostToDelete] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState({ id: null, type: '' });
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
 
@@ -38,26 +38,38 @@ function CommunityPage() {
     setOpenPostId(openPostId === postId ? null : postId);
   };
 
-  const handleDeleteClick = (postId) => {
-    setPostToDelete(postId);
+  const handleDeletePostClick = (postId) => {
+    setItemToDelete({ id: postId, type: 'post' });
     setIsModalOpen(true);
   };
+  
+  // 1. สร้างฟังก์ชันสำหรับจัดการเมื่อกดลบคอมเมนต์
+  const handleDeleteCommentClick = (commentId) => {
+    setItemToDelete({ id: commentId, type: 'comment' });
+    setIsModalOpen(true);
+  }
 
+  // 2. แก้ไขฟังก์ชัน confirmDelete ให้รองรับทั้งการลบโพสต์และคอมเมนต์
   const confirmDelete = async () => {
     setIsModalOpen(false);
+    const { id, type } = itemToDelete;
+    const url = type === 'post' 
+      ? `http://localhost:3000/api/posts/${id}`
+      : `http://localhost:3000/api/admin/comments/${id}`;
+    
     try {
-      const response = await fetch(`http://localhost:3000/api/posts/${postToDelete}`, {
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || 'ไม่สามารถลบโพสต์ได้');
+        throw new Error(data.message || `ไม่สามารถลบ${type === 'post' ? 'โพสต์' : 'คอมเมนต์'}ได้`);
       }
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
-        fetchPosts();
+        fetchPosts(); // โหลดรายการโพสต์ใหม่ทั้งหมดเพื่ออัปเดต
       }, 2000);
     } catch (error) {
       alert('เกิดข้อผิดพลาด: ' + error.message);
@@ -88,7 +100,8 @@ function CommunityPage() {
                   post={post}
                   isOpen={openPostId === post.cpost_id}
                   onToggle={() => handleToggle(post.cpost_id)}
-                  onDeleteClick={handleDeleteClick} 
+                  onDeleteClick={handleDeletePostClick} 
+                  onDeleteComment={handleDeleteCommentClick} // 3. ส่งฟังก์ชันลบคอมเมนต์ไปให้ลูก
                 />
               ))}
             </div>
@@ -100,13 +113,13 @@ function CommunityPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConfirm={confirmDelete}
-        title="คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?"
+        title={`คุณแน่ใจหรือไม่ว่าต้องการลบ${itemToDelete.type === 'post' ? 'โพสต์' : 'ความคิดเห็น'}นี้?`}
       />
       
       {showSuccess && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-8 rounded-xl shadow-lg">
-                <SuccessAnimation message="ลบโพสต์สำเร็จ!"/>
+                <SuccessAnimation message={`ลบ${itemToDelete.type === 'post' ? 'โพสต์' : 'ความคิดเห็น'}สำเร็จ!`}/>
             </div>
         </div>
       )}

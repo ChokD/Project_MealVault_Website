@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 
-// --- ฟอร์มคอมเมนต์ (เหมือนเดิม) ---
+// --- ฟอร์มคอมเมนต์ ---
 function CommentForm({ postId, onCommentAdded }) {
   const { token } = useContext(AuthContext);
   const [content, setContent] = useState('');
@@ -54,16 +54,26 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
   const [isLoading, setIsLoading] = useState(false);
   const { user, token } = useContext(AuthContext);
 
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(post?.like_count || 0);
+
   useEffect(() => {
     const fetchPostDetails = async () => {
-      if (isOpen && !details) {
+      // 1. ดึงข้อมูลเมื่อ Accordion ถูกเปิดเท่านั้น
+      if (isOpen) { 
         setIsLoading(true);
         try {
-          const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`);
+          const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+          const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, { headers });
           const data = await response.json();
           setDetails(data);
+          // อัปเดตสถานะไลค์จาก API (ถ้ามี)
+          if (data.isLiked !== undefined) {
+            setIsLiked(data.isLiked);
+          }
         } catch (error) {
           console.error("Failed to fetch post details:", error);
+          setDetails(null); // เคลียร์ข้อมูลถ้าเกิด Error
         } finally {
           setIsLoading(false);
         }
@@ -71,12 +81,33 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
     };
     
     fetchPostDetails();
-  }, [isOpen]);
+  }, [isOpen, post.cpost_id, token]); // 2. ให้ดึงใหม่เมื่อสถานะการเปิด, โพสต์, หรือสถานะ login เปลี่ยนไป
+
+  const handleLike = async (e) => {
+    e.stopPropagation();
+    if (!token) return alert('กรุณาเข้าสู่ระบบเพื่อกดไลค์');
+    
+    const originalLiked = isLiked;
+    const originalLikeCount = likeCount;
+    setIsLiked(current => !current);
+    setLikeCount(prev => (originalLiked ? prev - 1 : prev + 1));
+
+    try {
+      await fetch(`http://localhost:3000/api/posts/${post.cpost_id}/like`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+        setIsLiked(originalLiked); 
+        setLikeCount(originalLikeCount);
+        alert('เกิดข้อผิดพลาดในการกดไลค์');
+    }
+  };
 
   const handleCommentAdded = (newComment) => {
     setDetails(prevDetails => ({
       ...prevDetails,
-      comments: [...prevDetails.comments, newComment],
+      comments: [...(prevDetails?.comments || []), newComment],
     }));
   };
 
@@ -84,15 +115,20 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
-      <div 
-        className="p-6 cursor-pointer flex justify-between items-center hover:bg-gray-50 transition-colors"
-        onClick={onToggle}
-      >
-        <div>
+      <div className="p-6 flex justify-between items-center">
+        <div className="flex-grow cursor-pointer" onClick={onToggle}>
           <h3 className="font-bold text-lg text-gray-800">{post.cpost_title}</h3>
           <p className="text-sm text-gray-500">โพสต์โดย: {post.user_fname}</p>
         </div>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.3 }}>
+        
+        <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+            <button onClick={handleLike} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <svg className={`w-6 h-6 transition-colors ${isLiked ? 'text-red-500 fill-current' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z"></path></svg>
+            </button>
+            <span className="font-semibold text-gray-700 w-4 text-center">{likeCount}</span>
+        </div>
+
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.3 }} className="cursor-pointer p-2" onClick={onToggle}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M19 9L12 16L5 9" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -117,7 +153,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteClick(details.cpost_id);
+                          onDeletePost(details.cpost_id);
                         }}
                         className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
                       >
@@ -125,7 +161,6 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                       </button>
                     </div>
                   )}
-
                   <img 
                     src={details.cpost_image ? `http://localhost:3000/images/${details.cpost_image}` : 'https://via.placeholder.com/800x400.png?text=MealVault'}
                     alt={details.cpost_title}
@@ -134,18 +169,15 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                   <div className="prose max-w-none mb-8 text-gray-700" style={{whiteSpace: 'pre-wrap'}}>
                     {details.cpost_content}
                   </div>
-                  
                   <hr className="my-6"/>
-
-                  <h4 className="font-bold text-lg mb-4">ความคิดเห็น ({details.comments.length})</h4>
+                  <h4 className="font-bold text-lg mb-4">ความคิดเห็น ({details.comments?.length || 0})</h4>
                   <div className="space-y-4">
-                    {details.comments.map(comment => (
+                    {details.comments?.map(comment => (
                       <div key={comment.comment_id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-start">
                          <div>
                             <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
                             <p className="text-gray-600">{comment.comment_content}</p>
                          </div>
-                         {/* --- ส่วนที่แก้ไข: เพิ่มปุ่มลบคอมเมนต์สำหรับ Admin กลับเข้ามา --- */}
                          {user && user.isAdmin && (
                             <button
                                 onClick={() => onDeleteComment(comment.comment_id)}
@@ -155,12 +187,10 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                                 ลบ
                             </button>
                          )}
-                         {/* ---------------------------------------------------------------- */}
                       </div>
                     ))}
-                     {details.comments.length === 0 && <p>ยังไม่มีความคิดเห็น</p>}
+                     {details.comments?.length === 0 && <p className="text-gray-500">ยังไม่มีความคิดเห็น</p>}
                   </div>
-
                   {token ? (
                     <CommentForm postId={post.cpost_id} onCommentAdded={handleCommentAdded} />
                   ) : (

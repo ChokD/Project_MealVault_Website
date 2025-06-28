@@ -3,11 +3,9 @@ const router = express.Router();
 const db = require('../config/db');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// สร้าง API Endpoint สำหรับลบคอมเมนต์โดย Admin
-// DELETE /api/admin/comments/:id
-router.delete('/admin/comments/:id', authMiddleware, async (req, res) => {
+// --- Middleware: สำหรับตรวจสอบสิทธิ์ความเป็น Admin ---
+const checkAdmin = async (req, res, next) => {
   try {
-    // 1. ตรวจสอบสิทธิ์ Admin
     const adminId = req.user.id;
     const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
     const [admins] = await db.query(adminSql, [adminId]);
@@ -15,45 +13,19 @@ router.delete('/admin/comments/:id', authMiddleware, async (req, res) => {
     if (admins.length === 0) {
       return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
     }
-
-    // 2. ดึง ID ของคอมเมนต์ที่จะลบจาก URL (params)
-    const { id: commentId } = req.params;
-
-    // 3. เขียนคำสั่ง SQL DELETE
-    const deleteSql = 'DELETE FROM CommunityComment WHERE comment_id = ?';
-    const [result] = await db.query(deleteSql, [commentId]);
-
-    // ตรวจสอบว่ามีการลบเกิดขึ้นจริงหรือไม่
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'ไม่พบความคิดเห็นที่ต้องการลบ' });
-    }
-
-    res.json({ message: 'ลบความคิดเห็นสำเร็จ' });
-
+    next(); // ถ้าเป็น Admin ให้ไปต่อ
   } catch (error) {
-    console.error('Error deleting comment:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบความคิดเห็น' });
+    console.error('Error in checkAdmin middleware:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์' });
   }
-});
+};
 
-// สร้าง API Endpoint สำหรับลบผู้ใช้โดย Admin
-// DELETE /api/admin/users/:id
+// --- Admin Routes ---
+// ทุก Route ในไฟล์นี้จะถูกป้องกันด้วย authMiddleware และ checkAdmin
 
-
-// สร้าง API Endpoint สำหรับให้ Admin ดึงข้อมูลรายงานทั้งหมด
-// GET /api/admin/reports
-router.get('/admin/reports', authMiddleware, async (req, res) => {
+// GET /api/admin/reports - ดึงข้อมูลรายงานทั้งหมด
+router.get('/admin/reports', authMiddleware, checkAdmin, async (req, res) => {
   try {
-    // 1. ตรวจสอบสิทธิ์ Admin
-    const adminId = req.user.id;
-    const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [adminId]);
-
-    if (admins.length === 0) {
-      return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
-    }
-
-    // 2. เขียนคำสั่ง SQL เพื่อดึงข้อมูลรายงานทั้งหมด พร้อมข้อมูลที่เกี่ยวข้อง
     const reportsSql = `
       SELECT
         r.creport_id,
@@ -69,51 +41,42 @@ router.get('/admin/reports', authMiddleware, async (req, res) => {
       ORDER BY r.creport_datetime DESC
     `;
     const [reports] = await db.query(reportsSql);
-
     res.json(reports);
-
   } catch (error) {
     console.error('Error fetching reports:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลรายงาน' });
   }
 });
 
-// ในไฟล์ routes/adminRoutes.js
-
-// ... (โค้ดลบผู้ใช้ที่มีอยู่แล้ว) ...
-
 // DELETE /api/admin/posts/:id - ลบโพสต์โดย Admin
-router.delete('/admin/posts/:id', authMiddleware, async (req, res) => {
-  try {
-    // (โค้ดตรวจสอบสิทธิ์ Admin)
-    // ...
-
-    const { id: postId } = req.params;
-
-    // ลบคอมเมนต์ในโพสต์นั้นก่อน
-    await db.query('DELETE FROM CommunityComment WHERE cpost_id = ?', [postId]);
-    // ลบโพสต์หลัก
-    const [result] = await db.query('DELETE FROM CommunityPost WHERE cpost_id = ?', [postId]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการลบ' });
+router.delete('/admin/posts/:id', authMiddleware, checkAdmin, async (req, res) => {
+    try {
+      const { id: postId } = req.params;
+  
+      // ลบคอมเมนต์ทั้งหมดที่อยู่ในโพสต์นี้ก่อน
+      await db.query('DELETE FROM CommunityComment WHERE cpost_id = ?', [postId]);
+      // ลบไลค์ทั้งหมดที่อยู่ในโพสต์นี้ก่อน
+      await db.query('DELETE FROM PostLike WHERE post_id = ?', [postId]);
+      // ลบโพสต์หลัก
+      const [result] = await db.query('DELETE FROM CommunityPost WHERE cpost_id = ?', [postId]);
+  
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการลบ' });
+      }
+      res.json({ message: 'ลบโพสต์สำเร็จ' });
+    } catch (error) {
+      console.error('Error deleting post by admin:', error);
+      res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบโพสต์' });
     }
-    res.json({ message: 'ลบโพสต์สำเร็จ' });
-  } catch (error) {
-    console.error('Error deleting post by admin:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบโพสต์' });
-  }
 });
 
-// ... (โค้ดลบโพสต์) ...
-
 // DELETE /api/admin/comments/:id - ลบคอมเมนต์โดย Admin
-router.delete('/admin/comments/:id', authMiddleware, async (req, res) => {
+router.delete('/admin/comments/:id', authMiddleware, checkAdmin, async (req, res) => {
   try {
-    // (โค้ดตรวจสอบสิทธิ์ Admin)
-    // ...
-
     const { id: commentId } = req.params;
+
+    // ก่อนลบ ให้ไปลดค่า like_count ในโพสต์ที่เกี่ยวข้องก่อน (ถ้ามีระบบไลค์คอมเมนต์)
+    // ในที่นี้เราจะลบเลย
     const [result] = await db.query('DELETE FROM CommunityComment WHERE comment_id = ?', [commentId]);
 
     if (result.affectedRows === 0) {
@@ -126,6 +89,35 @@ router.delete('/admin/comments/:id', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+// DELETE /api/admin/users/:id - ลบผู้ใช้โดย Admin
+router.delete('/admin/users/:id', authMiddleware, checkAdmin, async (req, res) => {
+    try {
+        const adminId = req.user.id;
+        const { id: userIdToDelete } = req.params;
+    
+        // ป้องกันไม่ให้ Admin ลบตัวเอง
+        if (adminId === userIdToDelete) {
+          return res.status(400).json({ message: 'ผู้ดูแลระบบไม่สามารถลบตัวเองได้' });
+        }
+
+        // ที่นี่ควรจะมีการจัดการที่ซับซ้อน เช่น ลบโพสต์, คอมเมนต์, ไลค์ ของผู้ใช้คนนี้ก่อน
+        // แต่วิธีที่ง่ายที่สุดคือปล่อยให้ Foreign Key Constraint (ON DELETE CASCADE) จัดการ
+        
+        const [result] = await db.query('DELETE FROM User WHERE user_id = ?', [userIdToDelete]);
+    
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ message: 'ไม่พบผู้ใช้ที่ต้องการลบ' });
+        }
+    
+        res.json({ message: 'ลบผู้ใช้สำเร็จ' });
+    } catch (error) {
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(400).json({ message: 'ไม่สามารถลบผู้ใช้นี้ได้ เพราะยังเป็น Admin หรือมีข้อมูลอื่นค้างอยู่' });
+        }
+        console.error('Error deleting user by admin:', error);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบผู้ใช้' });
+    }
+});
+
 
 module.exports = router;

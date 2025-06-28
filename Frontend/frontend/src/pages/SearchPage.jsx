@@ -1,18 +1,37 @@
-import React, { useState } from 'react'; // 1. เพิ่ม useState
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import AccordionItem from '../components/AccordionItem'; // 2. เปลี่ยนมา import AccordionItem
+import RecipeCard from '../components/RecipeCard'; // ใช้ RecipeCard เดิม
 
 function SearchPage() {
-  const location = useLocation();
-  const { results, query } = location.state || { results: [], query: '' };
+  const [searchParams] = useSearchParams();
+  const query = searchParams.get('q'); // 1. ดึงคำค้นหา (q) มาจาก URL
 
-  // 3. เพิ่ม State สำหรับจัดการ Accordion
-  const [openPostId, setOpenPostId] = useState(null);
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleToggle = (postId) => {
-    setOpenPostId(openPostId === postId ? null : postId);
-  };
+  // 2. ใช้ useEffect เพื่อดึงข้อมูลทุกครั้งที่คำค้นหา (query) ใน URL เปลี่ยนไป
+  useEffect(() => {
+    if (!query) {
+      setLoading(false);
+      return;
+    }
+    
+    const fetchRecipes = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${query}`);
+        const data = await response.json();
+        setRecipes(data.meals || []);
+      } catch (error) {
+        console.error("Failed to fetch from TheMealDB:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecipes();
+  }, [query]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -20,28 +39,27 @@ function SearchPage() {
       <main className="flex-grow pt-24">
         <div className="container mx-auto px-6 sm:px-8 py-8">
           <h1 className="text-3xl font-bold mb-2">ผลการค้นหาสำหรับ: "{query}"</h1>
-          <p className="text-gray-600 mb-8">{results.length} เมนูที่พบ</p>
-
-          {results.length > 0 ? (
-            // 4. เปลี่ยนจากการแสดง Grid มาเป็นการแสดง Accordion
-            <div className="space-y-4">
-              {results.map(menu => (
-                // เราจะส่งข้อมูลเมนูไปให้ AccordionItem
-                <AccordionItem 
-                  key={menu.menu_id} 
-                  // แปลงข้อมูลเมนูให้ตรงกับที่ AccordionItem คาดหวัง
-                  post={{ 
-                    cpost_id: menu.menu_id, 
-                    cpost_title: menu.menu_name,
-                    user_fname: 'ระบบ', // อาจจะไม่มีชื่อผู้โพสต์ในผลการค้นหาเมนู
-                  }} 
-                  isOpen={openPostId === menu.menu_id}
-                  onToggle={() => handleToggle(menu.menu_id)}
-                />
-              ))}
-            </div>
+          
+          {loading ? (
+            <p>กำลังค้นหาใน TheMealDB...</p>
           ) : (
-            <p>ไม่พบเมนูที่สามารถทำได้จากวัตถุดิบที่คุณระบุ</p>
+            <>
+              <p className="text-gray-600 mb-8">พบ {recipes.length} เมนู</p>
+              {recipes.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {recipes.map(recipe => (
+                    <RecipeCard key={recipe.idMeal} recipe={recipe} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-lg text-gray-500">ไม่พบเมนูจากวัตถุดิบนี้ใน TheMealDB</p>
+                  <Link to="/" className="mt-4 inline-block text-green-600 font-semibold hover:underline">
+                    กลับไปที่หน้าหลักเพื่อค้นหาใหม่
+                  </Link>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

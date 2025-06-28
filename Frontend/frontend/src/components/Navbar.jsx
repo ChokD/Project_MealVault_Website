@@ -14,26 +14,23 @@ function Navbar() {
   return (
     <nav className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
       <div className="container mx-auto px-6 py-3 flex justify-between items-center">
-        <div className="font-bold text-4xl text-green-600">
+        <div className="font-bold text-2xl text-green-600">
           <Link to="/">MealVault</Link>
         </div>
-
-        {/* เราจะย้าย div ที่ครอบลิงก์ทั้งหมดมาไว้นอกเงื่อนไข */}
+        
         <div className="hidden md:flex items-center space-x-6">
-
-          {/* ลิงก์เหล่านี้จะแสดงผลตลอดเวลา */}
           <Link to="/chatbot" className="text-gray-700 hover:text-green-600 transition-colors">AI Chat Bot</Link>
           <Link to="/" className="text-gray-700 hover:text-green-600 transition-colors">หน้าหลัก</Link>
-          <Link to="/menu" className="text-gray-700 hover:text-green-600 transition-colors">เมนูอาหาร</Link>
+          <Link to="/menus" className="text-gray-700 hover:text-green-600 transition-colors">เมนูอาหาร</Link>
           <Link to="/community" className="text-gray-700 hover:text-green-600 transition-colors">ชุมชน</Link>
+          
+          {/* แก้ไขลิงก์ About Us */}
           <Link to="/about" className="text-gray-700 hover:text-green-600 transition-colors">About Us</Link>
-
-          {/* --- ส่วนที่เปลี่ยนไปตามสถานะ Login --- */}
+          
           {token ? (
-            // ถ้ามี Token (Login แล้ว)
             <>
               <Link to="/profile" className="text-gray-800 font-semibold hover:text-green-600">
-              {user ? `สวัสดี, ${user.user_fname}` : 'กำลังโหลด...'}
+                {user ? `สวัสดี, ${user.user_fname}` : 'กำลังโหลด...'}
               </Link>
               <button 
                 onClick={handleLogout}
@@ -43,14 +40,11 @@ function Navbar() {
               </button>
             </>
           ) : (
-            // ถ้าไม่มี Token (ยังไม่ Login)
             <Link to="/login" className="px-4 py-2 border border-green-600 text-green-600 font-semibold rounded-lg hover:bg-green-600 hover:text-white transition-colors duration-300">
               เข้าสู่ระบบ
             </Link>
           )}
-          {/* ------------------------------------ */}
         </div>
-
       </div>
     </nav>
   );
