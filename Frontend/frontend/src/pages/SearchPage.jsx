@@ -1,11 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react'; // 1. เพิ่ม useState
 import { useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import PostSummaryCard from '../components/PostSummaryCard'; // เราจะใช้การ์ดเดิมมาแสดงผล
+import AccordionItem from '../components/AccordionItem'; // 2. เปลี่ยนมา import AccordionItem
 
 function SearchPage() {
   const location = useLocation();
-  const { results, query } = location.state || { results: [], query: '' }; // รับผลลัพธ์และคำค้นหา
+  const { results, query } = location.state || { results: [], query: '' };
+
+  // 3. เพิ่ม State สำหรับจัดการ Accordion
+  const [openPostId, setOpenPostId] = useState(null);
+
+  const handleToggle = (postId) => {
+    setOpenPostId(openPostId === postId ? null : postId);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -16,18 +23,20 @@ function SearchPage() {
           <p className="text-gray-600 mb-8">{results.length} เมนูที่พบ</p>
 
           {results.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* เราจะใช้ PostSummaryCard มาแสดงผลเมนู แต่ต้องปรับแก้เล็กน้อย */}
+            // 4. เปลี่ยนจากการแสดง Grid มาเป็นการแสดง Accordion
+            <div className="space-y-4">
               {results.map(menu => (
-                // ในอนาคตอาจจะสร้าง MenuCard แยก แต่ตอนนี้ใช้ PostCard ไปก่อน
-                // เราต้องส่งข้อมูลให้ตรงกับที่ PostSummaryCard คาดหวัง
-                <PostSummaryCard 
+                // เราจะส่งข้อมูลเมนูไปให้ AccordionItem
+                <AccordionItem 
                   key={menu.menu_id} 
+                  // แปลงข้อมูลเมนูให้ตรงกับที่ AccordionItem คาดหวัง
                   post={{ 
                     cpost_id: menu.menu_id, 
                     cpost_title: menu.menu_name,
-                    // อาจจะต้องเพิ่ม user_fname หรือปรับแก้ Card
+                    user_fname: 'ระบบ', // อาจจะไม่มีชื่อผู้โพสต์ในผลการค้นหาเมนู
                   }} 
+                  isOpen={openPostId === menu.menu_id}
+                  onToggle={() => handleToggle(menu.menu_id)}
                 />
               ))}
             </div>

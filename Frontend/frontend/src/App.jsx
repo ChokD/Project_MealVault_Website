@@ -8,7 +8,6 @@ import SignUpPage from './pages/SignUpPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CommunityPage from './pages/CommunityPage';
-import PostDetailPage from './pages/PostDetailPage';
 import SearchPage from './pages/SearchPage'; // <-- แก้ไขที่บรรทัดนี้แล้ว
 import ChatbotPage from './pages/ChatbotPage';
 
@@ -30,7 +29,6 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/community" element={<CommunityPage />} />
-        <Route path="/posts/:postId" element={<PostDetailPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/chatbot" element={<ChatbotPage />} />
         <Route path="/menu" element={<MenuPage />} />
