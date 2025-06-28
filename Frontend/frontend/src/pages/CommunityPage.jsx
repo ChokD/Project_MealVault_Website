@@ -11,7 +11,7 @@ function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const { token } = useContext(AuthContext);
   const [openPostId, setOpenPostId] = useState(null);
-
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -57,7 +57,7 @@ function CommunityPage() {
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
-        fetchPosts(); // โหลดรายการโพสต์ใหม่หลังจากลบสำเร็จ
+        fetchPosts();
       }, 2000);
     } catch (error) {
       alert('เกิดข้อผิดพลาด: ' + error.message);
@@ -65,7 +65,6 @@ function CommunityPage() {
   };
 
   return (
-    // --- โครงสร้าง Layout ที่ถูกต้อง ---
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
       <main className="flex-grow pt-24">
@@ -78,7 +77,7 @@ function CommunityPage() {
               </Link>
             )}
           </div>
-
+          
           {loading ? (
             <p>กำลังโหลดโพสต์...</p>
           ) : (
@@ -89,7 +88,7 @@ function CommunityPage() {
                   post={post}
                   isOpen={openPostId === post.cpost_id}
                   onToggle={() => handleToggle(post.cpost_id)}
-                  onDeleteClick={handleDeleteClick}
+                  onDeleteClick={handleDeleteClick} 
                 />
               ))}
             </div>
@@ -103,7 +102,7 @@ function CommunityPage() {
         onConfirm={confirmDelete}
         title="คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?"
       />
-
+      
       {showSuccess && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-8 rounded-xl shadow-lg">

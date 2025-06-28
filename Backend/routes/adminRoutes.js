@@ -78,4 +78,54 @@ router.get('/admin/reports', authMiddleware, async (req, res) => {
   }
 });
 
+// ในไฟล์ routes/adminRoutes.js
+
+// ... (โค้ดลบผู้ใช้ที่มีอยู่แล้ว) ...
+
+// DELETE /api/admin/posts/:id - ลบโพสต์โดย Admin
+router.delete('/admin/posts/:id', authMiddleware, async (req, res) => {
+  try {
+    // (โค้ดตรวจสอบสิทธิ์ Admin)
+    // ...
+
+    const { id: postId } = req.params;
+
+    // ลบคอมเมนต์ในโพสต์นั้นก่อน
+    await db.query('DELETE FROM CommunityComment WHERE cpost_id = ?', [postId]);
+    // ลบโพสต์หลัก
+    const [result] = await db.query('DELETE FROM CommunityPost WHERE cpost_id = ?', [postId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการลบ' });
+    }
+    res.json({ message: 'ลบโพสต์สำเร็จ' });
+  } catch (error) {
+    console.error('Error deleting post by admin:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบโพสต์' });
+  }
+});
+
+// ... (โค้ดลบโพสต์) ...
+
+// DELETE /api/admin/comments/:id - ลบคอมเมนต์โดย Admin
+router.delete('/admin/comments/:id', authMiddleware, async (req, res) => {
+  try {
+    // (โค้ดตรวจสอบสิทธิ์ Admin)
+    // ...
+
+    const { id: commentId } = req.params;
+    const [result] = await db.query('DELETE FROM CommunityComment WHERE comment_id = ?', [commentId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'ไม่พบความคิดเห็นที่ต้องการลบ' });
+    }
+    res.json({ message: 'ลบความคิดเห็นสำเร็จ' });
+  } catch (error) {
+    console.error('Error deleting comment by admin:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบความคิดเห็น' });
+  }
+});
+
+module.exports = router;
+
 module.exports = router;

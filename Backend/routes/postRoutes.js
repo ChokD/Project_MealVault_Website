@@ -9,15 +9,15 @@ const upload = require('../middleware/uploadMiddleware');
 // --- PUBLIC ROUTES ---
 
 // GET /api/posts - ดึงข้อมูลโพสต์ทั้งหมด
+// GET /api/posts - ดึงข้อมูลโพสต์ทั้งหมด
 router.get('/posts', async (req, res) => {
   try {
-    // แก้ไขตรงนี้: เพิ่ม p.cpost_image เข้าไปใน SELECT
+    // แก้ไขตรงนี้: เพิ่ม p.user_id เข้าไปใน SELECT
     const sql = `
       SELECT p.cpost_id, p.cpost_title, p.cpost_datetime, p.cpost_image, u.user_fname, p.user_id 
       FROM CommunityPost p 
       JOIN User u ON p.user_id = u.user_id 
-      ORDER BY p.cpost_datetime DESC
-    `;
+      ORDER BY p.cpost_datetime DESC`;
       
     const [posts] = await db.query(sql);
     res.json(posts);

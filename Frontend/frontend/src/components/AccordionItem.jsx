@@ -48,35 +48,30 @@ function CommentForm({ postId, onCommentAdded }) {
 }
 
 
-// --- Accordion Item หลัก (แก้ไขตรรกะใหม่) ---
-function AccordionItem({ post, isOpen, onToggle, onDeleteClick }) {
+// --- Accordion Item หลัก ---
+function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment }) {
   const [details, setDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const { user, token } = useContext(AuthContext);
 
   useEffect(() => {
     const fetchPostDetails = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`);
-        const data = await response.json();
-        setDetails(data);
-      } catch (error) {
-        console.error("Failed to fetch post details:", error);
-      } finally {
-        setIsLoading(false);
+      if (isOpen && !details) {
+        setIsLoading(true);
+        try {
+          const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`);
+          const data = await response.json();
+          setDetails(data);
+        } catch (error) {
+          console.error("Failed to fetch post details:", error);
+        } finally {
+          setIsLoading(false);
+        }
       }
     };
-
-    // --- ตรรกะใหม่ที่แก้ไขแล้ว ---
-    if (isOpen) {
-      // ถ้าถูกเปิด ให้ดึงข้อมูล
-      fetchPostDetails();
-    } else {
-      // ถ้าถูกปิด ให้เคลียร์ข้อมูลเก่าทิ้ง เพื่อให้ครั้งต่อไปดึงใหม่เสมอ
-      setDetails(null); 
-    }
-  }, [isOpen, post.cpost_id]); // ให้ทำงานเมื่อ isOpen หรือ post เปลี่ยนไป
+    
+    fetchPostDetails();
+  }, [isOpen]);
 
   const handleCommentAdded = (newComment) => {
     setDetails(prevDetails => ({
@@ -85,7 +80,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick }) {
     }));
   };
 
-  const canDelete = user && post && (user.isAdmin || user.user_id === post.user_id);
+  const canDeletePost = user && post && (user.isAdmin || user.user_id === post.user_id);
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -117,10 +112,13 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick }) {
               {isLoading && <p>กำลังโหลดรายละเอียด...</p>}
               {details && (
                 <div>
-                  {canDelete && (
+                  {canDeletePost && (
                     <div className="flex justify-end mb-4">
                       <button 
-                        onClick={() => onDeleteClick(details.cpost_id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteClick(details.cpost_id);
+                        }}
                         className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
                       >
                         ลบโพสต์นี้
@@ -133,7 +131,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick }) {
                     alt={details.cpost_title}
                     className="w-full h-auto max-h-96 object-cover rounded-lg mb-6 shadow-sm"
                   />
-                  <div className="prose max-w-none mb-8 text-gray-700">
+                  <div className="prose max-w-none mb-8 text-gray-700" style={{whiteSpace: 'pre-wrap'}}>
                     {details.cpost_content}
                   </div>
                   
@@ -142,9 +140,22 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick }) {
                   <h4 className="font-bold text-lg mb-4">ความคิดเห็น ({details.comments.length})</h4>
                   <div className="space-y-4">
                     {details.comments.map(comment => (
-                      <div key={comment.comment_id} className="bg-gray-50 p-3 rounded-lg">
-                        <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
-                        <p className="text-gray-600">{comment.comment_content}</p>
+                      <div key={comment.comment_id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-start">
+                         <div>
+                            <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
+                            <p className="text-gray-600">{comment.comment_content}</p>
+                         </div>
+                         {/* --- ส่วนที่แก้ไข: เพิ่มปุ่มลบคอมเมนต์สำหรับ Admin กลับเข้ามา --- */}
+                         {user && user.isAdmin && (
+                            <button
+                                onClick={() => onDeleteComment(comment.comment_id)}
+                                className="text-xs text-red-600 hover:underline ml-2 flex-shrink-0"
+                                title="ลบคอมเมนต์นี้"
+                            >
+                                ลบ
+                            </button>
+                         )}
+                         {/* ---------------------------------------------------------------- */}
                       </div>
                     ))}
                      {details.comments.length === 0 && <p>ยังไม่มีความคิดเห็น</p>}

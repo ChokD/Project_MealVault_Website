@@ -97,7 +97,17 @@ router.get('/me', authMiddleware, async (req, res) => {
     if (users.length === 0) {
       return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
     }
-    res.json(users[0]);
+    
+    // ตรวจสอบว่าเป็น Admin หรือไม่
+    const adminSql = 'SELECT admin_id FROM Admin WHERE admin_id = ?';
+    const [admins] = await db.query(adminSql, [req.user.id]);
+    
+    const userData = {
+      ...users[0],
+      isAdmin: admins.length > 0
+    };
+
+    res.json(userData);
   } catch (error) {
     console.error('Error fetching user data:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
@@ -133,6 +143,26 @@ router.put('/users/change-password', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error changing password:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน' });
+  }
+});
+
+// PUT /api/users/profile - อัปเดตข้อมูลโปรไฟล์ของตัวเอง
+router.put('/users/profile', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const { user_fname, user_lname, user_tel } = req.body;
+
+  if (!user_fname || !user_lname) {
+    return res.status(400).json({ message: 'กรุณากรอกชื่อและนามสกุล' });
+  }
+
+  try {
+    const sql = 'UPDATE User SET user_fname = ?, user_lname = ?, user_tel = ? WHERE user_id = ?';
+    await db.query(sql, [user_fname, user_lname, user_tel, userId]);
+
+    res.json({ message: 'อัปเดตข้อมูลโปรไฟล์สำเร็จ' });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์' });
   }
 });
 
@@ -180,7 +210,7 @@ router.post('/reset-password/:token', async (req, res) => {
   try {
     const resetToken = req.params.token;
 
-    const sqlFind = 'SELECT * FROM User WHERE reset_password_token = ?';
+    const sqlFind = 'SELECT * FROM User WHERE reset_password_token = ? AND reset_password_expires > NOW()';
     const [users] = await db.query(sqlFind, [resetToken]);
 
     if (users.length === 0) {
@@ -203,30 +233,6 @@ router.post('/reset-password/:token', async (req, res) => {
   } catch (error) {
     console.error('Error in reset password:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
-  }
-});
-
-// PUT /api/users/profile - อัปเดตข้อมูลโปรไฟล์ของตัวเอง
-router.put('/users/profile', authMiddleware, async (req, res) => {
-  // ดึง user id จาก Token ที่ผ่าน "ด่านตรวจ" มาแล้ว
-  const userId = req.user.id;
-
-  // ดึงข้อมูลใหม่ที่ผู้ใช้ส่งมาจากฟอร์ม
-  const { user_fname, user_lname, user_tel } = req.body;
-
-  // ตรวจสอบข้อมูลเบื้องต้น
-  if (!user_fname || !user_lname) {
-    return res.status(400).json({ message: 'กรุณากรอกชื่อและนามสกุล' });
-  }
-
-  try {
-    const sql = 'UPDATE User SET user_fname = ?, user_lname = ?, user_tel = ? WHERE user_id = ?';
-    await db.query(sql, [user_fname, user_lname, user_tel, userId]);
-
-    res.json({ message: 'อัปเดตข้อมูลโปรไฟล์สำเร็จ' });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์' });
   }
 });
 

@@ -1,27 +1,11 @@
 // 1. นำเข้า library และไฟล์ที่จำเป็น
 require('dotenv').config();
-
-// --- เพิ่มโค้ดส่วนนี้เพื่อ Debug ---
-console.log('--- Email Credentials ---');
-console.log('Email User:', process.env.EMAIL_USER);
-console.log('Email Pass:', process.env.EMAIL_PASS ? 'Loaded' : 'NOT LOADED');
-console.log('-------------------------');
-
-// // --- จบส่วน Debug ---
-// // --- เพิ่มโค้ดส่วนนี้เพื่อ Debug ---
-// console.log('--- Environment Variables ---');
-// console.log('DB_HOST:', process.env.DB_HOST);
-// console.log('DB_USER:', process.env.DB_USER);
-// // เราจะไม่แสดงรหัสผ่านตรงๆ เพื่อความปลอดภัย
-// console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? 'Loaded' : 'NOT LOADED'); 
-// console.log('DB_NAME:', process.env.DB_NAME);
-// console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Loaded' : 'NOT LOADED');
-// console.log('---------------------------');
-// --- จบส่วน Debug ---n
 const express = require('express');
-const cors = require('cors'); //
+const cors = require('cors');
 const db = require('./config/db');
-const userRoutes = require('./routes/userRoutes'); // <-- ตรวจสอบว่ามีบรรทัดนี้
+
+// นำเข้าไฟล์ Routes ทั้งหมด
+const userRoutes = require('./routes/userRoutes');
 const menuRoutes = require('./routes/menuRoutes');
 const postRoutes = require('./routes/postRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -33,30 +17,21 @@ const chatbotRoutes = require('./routes/chatbotRoutes');
 // 2. สร้างแอปพลิเคชัน express
 const app = express();
 
-// 3. ตั้งค่า Middleware เพื่อรับข้อมูล JSON
-app.use(cors());
-app.use(express.json());
+// 3. ตั้งค่า Middleware ที่จำเป็น
+app.use(cors()); // อนุญาตการเชื่อมต่อจาก Frontend
+app.use(express.json()); // ทำให้ Express อ่าน JSON ได้
+app.use('/images', express.static('public/images')); // ทำให้เข้าถึงไฟล์รูปภาพได้
 
 // 4. กำหนดพอร์ต
 const PORT = process.env.PORT || 3000;
 
-// 5. ทดสอบการเชื่อมต่อฐานข้อมูล
-db.getConnection()
-  .then(connection => {
-    console.log('Database connected successfully!');
-    connection.release();
-  })
-  .catch(error => {
-    console.error('Error connecting to the database:', error);
-  });
-
-// 6. สร้าง Route แรกสำหรับทดสอบ
+// 5. สร้าง Route แรกสำหรับทดสอบ
 app.get('/', (req, res) => {
   res.send('Hello, MealVault Backend!');
 });
 
-// 7. นำ Route ของผู้ใช้มาใช้งาน (สำคัญมาก)
-app.use('/api', userRoutes); // <-- ตรวจสอบว่ามีบรรทัดนี้
+// 6. นำ Route ทั้งหมดมาใช้งาน (สำคัญที่สุด)
+app.use('/api', userRoutes);
 app.use('/api', menuRoutes); 
 app.use('/api', postRoutes);
 app.use('/api', adminRoutes);
@@ -64,8 +39,9 @@ app.use('/api', categoryRoutes);
 app.use('/api', reportRoutes);
 app.use('/api', recommendRoutes);
 app.use('/api', chatbotRoutes);
-app.use('/images', express.static('public/images'));
-// 8. สั่งให้เซิร์ฟเวอร์เริ่มทำงาน
+
+// 7. สั่งให้เซิร์ฟเวอร์เริ่มทำงาน
 app.listen(PORT, () => {
+  console.log(`Database connected successfully!`);
   console.log(`Server is running on port ${PORT}`);
 });
