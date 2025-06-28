@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 
-// --- ฟอร์มคอมเมนต์ ---
+// --- ฟอร์มคอมเมนต์ (เหมือนเดิม) ---
 function CommentForm({ postId, onCommentAdded }) {
   const { token } = useContext(AuthContext);
   const [content, setContent] = useState('');
@@ -59,21 +59,19 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
 
   useEffect(() => {
     const fetchPostDetails = async () => {
-      // 1. ดึงข้อมูลเมื่อ Accordion ถูกเปิดเท่านั้น
-      if (isOpen) { 
+      if (isOpen) {
         setIsLoading(true);
         try {
           const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
           const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, { headers });
           const data = await response.json();
           setDetails(data);
-          // อัปเดตสถานะไลค์จาก API (ถ้ามี)
           if (data.isLiked !== undefined) {
             setIsLiked(data.isLiked);
           }
         } catch (error) {
           console.error("Failed to fetch post details:", error);
-          setDetails(null); // เคลียร์ข้อมูลถ้าเกิด Error
+          setDetails(null);
         } finally {
           setIsLoading(false);
         }
@@ -81,7 +79,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
     };
     
     fetchPostDetails();
-  }, [isOpen, post.cpost_id, token]); // 2. ให้ดึงใหม่เมื่อสถานะการเปิด, โพสต์, หรือสถานะ login เปลี่ยนไป
+  }, [isOpen]);
 
   const handleLike = async (e) => {
     e.stopPropagation();
@@ -150,10 +148,11 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                 <div>
                   {canDeletePost && (
                     <div className="flex justify-end mb-4">
+                      {/* --- แก้ไขตรงนี้: เปลี่ยน onDeletePost เป็น onDeleteClick --- */}
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeletePost(details.cpost_id);
+                          onDeleteClick(details.cpost_id);
                         }}
                         className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
                       >

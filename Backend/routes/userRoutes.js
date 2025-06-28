@@ -88,26 +88,29 @@ router.post('/login', async (req, res) => {
 
 // --- USER PROFILE ROUTES (Protected) ---
 
-// GET /api/me - ดึงข้อมูลผู้ใช้ที่ Login อยู่
+// GET /api/me - ดึงข้อมูลผู้ใช้ที่ Login อยู่ (เวอร์ชันแก้ไขล่าสุด)
 router.get('/me', authMiddleware, async (req, res) => {
   try {
+    // 1. ดึงข้อมูลผู้ใช้พื้นฐาน
     const sql = 'SELECT user_id, user_email, user_fname, user_lname, user_tel FROM User WHERE user_id = ?';
     const [users] = await db.query(sql, [req.user.id]);
 
     if (users.length === 0) {
       return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
     }
-    
-    // ตรวจสอบว่าเป็น Admin หรือไม่
+
+    // 2. ตรวจสอบว่าผู้ใช้คนนี้เป็น Admin หรือไม่
     const adminSql = 'SELECT admin_id FROM Admin WHERE admin_id = ?';
     const [admins] = await db.query(adminSql, [req.user.id]);
     
+    // 3. สร้างข้อมูล User object ใหม่ พร้อมระบุสิทธิ์ isAdmin
     const userData = {
-      ...users[0],
-      isAdmin: admins.length > 0
+      ...users[0], // นำข้อมูลเดิมทั้งหมดของ user มา
+      isAdmin: admins.length > 0 // เพิ่ม key ใหม่: ถ้าเจอในตาราง Admin ค่าจะเป็น true
     };
 
-    res.json(userData);
+    res.json(userData); // ส่งข้อมูลที่สมบูรณ์กลับไป
+
   } catch (error) {
     console.error('Error fetching user data:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
