@@ -4,14 +4,18 @@ import { Link } from 'react-router-dom';
 function PostCard({ post }) {
   if (!post) return null;
 
-  // สร้าง URL รูปภาพไปยัง Backend ของเรา
   const imageUrl = post.cpost_image 
     ? `http://localhost:3000/images/${post.cpost_image}`
     : 'https://via.placeholder.com/400x300.png?text=MealVault';
 
   return (
-    // ทำให้การ์ดทั้งใบเป็นลิงก์ไปยังหน้ารายละเอียดของโพสต์
-    <Link to={`/posts/${post.cpost_id}`} className="w-full h-full block group relative overflow-hidden rounded-xl">
+    // 1. เปลี่ยน to ให้ไปที่ /community
+    // 2. เพิ่ม state เพื่อส่งข้อมูล ID ของโพสต์ที่ต้องการให้เปิดไปด้วย
+    <Link 
+      to="/community" 
+      state={{ openPostId: post.cpost_id }}
+      className="w-full h-full block group relative overflow-hidden rounded-xl"
+    >
       <img 
         src={imageUrl} 
         alt={post.cpost_title} 

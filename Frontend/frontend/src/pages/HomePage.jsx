@@ -13,7 +13,7 @@ function HomePage() {
         {/* แก้ไขที่บรรทัดนี้ */}
         <div className="container mx-auto px-6 sm:px-8"> 
           <Hero />
-          <Recommended />
+          <Recommended /> 
           <UserPosts />
         </div>
       </main>
