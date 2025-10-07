@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // สร้าง API Endpoint สำหรับส่งรายงาน
@@ -21,11 +21,11 @@ router.post('/reports', authMiddleware, async (req, res) => {
       cpost_id,
       creport_reason,
       user_id,
-      creport_datetime: new Date()
+      creport_datetime: new Date().toISOString()
     };
 
-    const sql = 'INSERT INTO CommunityReport SET ?';
-    await db.query(sql, newReport);
+    const { error } = await supabase.from('CommunityReport').insert([newReport]);
+    if (error) throw error;
 
     res.status(201).json({ message: 'ส่งรายงานสำเร็จ' });
 

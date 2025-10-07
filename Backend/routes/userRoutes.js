@@ -4,7 +4,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
+const { supabase } = require('../config/supabase');
 const sendEmail = require('../utils/sendEmail');
 const authMiddleware = require('../middleware/authMiddleware');
 
@@ -31,8 +31,8 @@ router.post('/register', async (req, res) => {
       user_tel
     };
 
-    const sql = 'INSERT INTO User SET ?';
-    await db.query(sql, newUser);
+    const { error } = await supabase.from('User').insert([newUser]);
+    if (error) throw error;
 
     res.status(201).json({ message: 'สมัครสมาชิกสำเร็จ' });
   } catch (error) {
@@ -50,10 +50,14 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const sql = 'SELECT * FROM User WHERE user_email = ?';
-    const [users] = await db.query(sql, [user_email]);
+    const { data: users, error } = await supabase
+      .from('User')
+      .select('*')
+      .eq('user_email', user_email)
+      .limit(1);
+    if (error) throw error;
 
-    if (users.length === 0) {
+    if (!users || users.length === 0) {
       return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
     }
     const user = users[0];
@@ -91,25 +95,29 @@ router.post('/login', async (req, res) => {
 // GET /api/me - ดึงข้อมูลผู้ใช้ที่ Login อยู่ (เวอร์ชันแก้ไขล่าสุด)
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    // 1. ดึงข้อมูลผู้ใช้พื้นฐาน
-    const sql = 'SELECT user_id, user_email, user_fname, user_lname, user_tel FROM User WHERE user_id = ?';
-    const [users] = await db.query(sql, [req.user.id]);
-
-    if (users.length === 0) {
+    const { data: users, error: userErr } = await supabase
+      .from('User')
+      .select('user_id, user_email, user_fname, user_lname, user_tel')
+      .eq('user_id', req.user.id)
+      .limit(1);
+    if (userErr) throw userErr;
+    if (!users || users.length === 0) {
       return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
     }
 
-    // 2. ตรวจสอบว่าผู้ใช้คนนี้เป็น Admin หรือไม่
-    const adminSql = 'SELECT admin_id FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [req.user.id]);
-    
-    // 3. สร้างข้อมูล User object ใหม่ พร้อมระบุสิทธิ์ isAdmin
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', req.user.id)
+      .limit(1);
+    if (adminErr) throw adminErr;
+
     const userData = {
-      ...users[0], // นำข้อมูลเดิมทั้งหมดของ user มา
-      isAdmin: admins.length > 0 // เพิ่ม key ใหม่: ถ้าเจอในตาราง Admin ค่าจะเป็น true
+      ...users[0],
+      isAdmin: !!(admins && admins.length > 0)
     };
 
-    res.json(userData); // ส่งข้อมูลที่สมบูรณ์กลับไป
+    res.json(userData);
 
   } catch (error) {
     console.error('Error fetching user data:', error);
@@ -127,9 +135,13 @@ router.put('/users/change-password', authMiddleware, async (req, res) => {
   }
 
   try {
-    const userSql = 'SELECT * FROM User WHERE user_id = ?';
-    const [users] = await db.query(userSql, [userId]);
-    const user = users[0];
+    const { data: users, error: findErr } = await supabase
+      .from('User')
+      .select('*')
+      .eq('user_id', userId)
+      .limit(1);
+    if (findErr) throw findErr;
+    const user = users && users[0];
 
     const isMatch = await bcrypt.compare(oldPassword, user.user_password);
     if (!isMatch) {
@@ -139,8 +151,11 @@ router.put('/users/change-password', authMiddleware, async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedNewPassword = await bcrypt.hash(newPassword, salt);
 
-    const updateSql = 'UPDATE User SET user_password = ? WHERE user_id = ?';
-    await db.query(updateSql, [hashedNewPassword, userId]);
+    const { error: updErr } = await supabase
+      .from('User')
+      .update({ user_password: hashedNewPassword })
+      .eq('user_id', userId);
+    if (updErr) throw updErr;
 
     res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
   } catch (error) {
@@ -159,8 +174,11 @@ router.put('/users/profile', authMiddleware, async (req, res) => {
   }
 
   try {
-    const sql = 'UPDATE User SET user_fname = ?, user_lname = ?, user_tel = ? WHERE user_id = ?';
-    await db.query(sql, [user_fname, user_lname, user_tel, userId]);
+    const { error } = await supabase
+      .from('User')
+      .update({ user_fname, user_lname, user_tel })
+      .eq('user_id', userId);
+    if (error) throw error;
 
     res.json({ message: 'อัปเดตข้อมูลโปรไฟล์สำเร็จ' });
   } catch (error) {
@@ -176,15 +194,23 @@ router.put('/users/profile', authMiddleware, async (req, res) => {
 router.post('/forgot-password', async (req, res) => {
   try {
     const { user_email } = req.body;
-    const sqlFind = 'SELECT * FROM User WHERE user_email = ?';
-    const [users] = await db.query(sqlFind, [user_email]);
+    const { data: users, error: findErr } = await supabase
+      .from('User')
+      .select('*')
+      .eq('user_email', user_email)
+      .limit(1);
+    if (findErr) throw findErr;
 
-    if (users.length > 0) {
+    if (users && users.length > 0) {
       const user = users[0];
       const resetToken = crypto.randomBytes(20).toString('hex');
 
-      const sqlUpdate = 'UPDATE User SET reset_password_token = ?, reset_password_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE user_id = ?';
-      await db.query(sqlUpdate, [resetToken, user.user_id]);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      const { error: updErr } = await supabase
+        .from('User')
+        .update({ reset_password_token: resetToken, reset_password_expires: expiresAt })
+        .eq('user_id', user.user_id);
+      if (updErr) throw updErr;
 
       const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
       const message = `
@@ -213,10 +239,14 @@ router.post('/reset-password/:token', async (req, res) => {
   try {
     const resetToken = req.params.token;
 
-    const sqlFind = 'SELECT * FROM User WHERE reset_password_token = ? AND reset_password_expires > NOW()';
-    const [users] = await db.query(sqlFind, [resetToken]);
+    const { data: users, error: findErr } = await supabase
+      .from('User')
+      .select('*')
+      .eq('reset_password_token', resetToken)
+      .limit(1);
+    if (findErr) throw findErr;
 
-    if (users.length === 0) {
+    if (!users || users.length === 0 || (users[0].reset_password_expires && new Date(users[0].reset_password_expires) <= new Date())) {
       return res.status(400).json({ message: 'Token สำหรับรีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว' });
     }
     const user = users[0];
@@ -229,13 +259,56 @@ router.post('/reset-password/:token', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    const sqlUpdate = 'UPDATE User SET user_password = ?, reset_password_token = NULL, reset_password_expires = NULL WHERE user_id = ?';
-    await db.query(sqlUpdate, [hashedPassword, user.user_id]);
+    const { error: updErr } = await supabase
+      .from('User')
+      .update({ user_password: hashedPassword, reset_password_token: null, reset_password_expires: null })
+      .eq('user_id', user.user_id);
+    if (updErr) throw updErr;
 
     res.json({ message: 'ตั้งรหัสผ่านใหม่สำเร็จ' });
   } catch (error) {
     console.error('Error in reset password:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
+  }
+});
+
+// --- USER PREFERENCES (calorie limit and allergens) ---
+
+// GET /api/preferences (stored in User table)
+router.get('/preferences', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { data, error } = await supabase
+      .from('User')
+      .select('calorie_limit, allergies')
+      .eq('user_id', userId)
+      .limit(1);
+    if (error) throw error;
+    if (!data || data.length === 0) return res.json({ calorie_limit: null, allergens: [] });
+    const row = data[0];
+    const allergens = row.allergies ? String(row.allergies).split(',').map(s => s.trim()).filter(Boolean) : [];
+    res.json({ calorie_limit: row.calorie_limit ?? null, allergens });
+  } catch (error) {
+    console.error('Error fetching preferences:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงค่าการตั้งค่า' });
+  }
+});
+
+// PUT /api/preferences (stored in User table)
+router.put('/preferences', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { calorie_limit, allergens } = req.body;
+    const allergies = Array.isArray(allergens) ? allergens.join(',') : null;
+    const { error } = await supabase
+      .from('User')
+      .update({ calorie_limit, allergies })
+      .eq('user_id', userId);
+    if (error) throw error;
+    res.json({ message: 'อัปเดตการตั้งค่าสำเร็จ' });
+  } catch (error) {
+    console.error('Error updating preferences:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตการตั้งค่า' });
   }
 });
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const { supabase } = require('../config/supabase');
 
 router.post('/menus/recommend', async (req, res) => {
   const { userIngredients } = req.body; // e.g., ["หมู", "พริก"]
@@ -10,55 +10,20 @@ router.post('/menus/recommend', async (req, res) => {
   }
 
   try {
-    const sql = `
-      SELECT 
-        m.menu_id, 
-        m.menu_name,
-        m.menu_image, 
-        i.ingredient_name 
-      FROM Menu AS m
-      JOIN MenuIngredient AS mi ON m.menu_id = mi.menu_id
-      JOIN Ingredient AS i ON mi.ingredient_id = i.ingredient_id
-    `;
-    const [allMenuRequirements] = await db.query(sql);
+    // ไม่มีตาราง Ingredient/Mapping ใน Supabase schema ปัจจุบัน
+    // จึงใช้การแม็ตช์ข้อความจาก menu_recipe/menu_description แทน
+    const { data: menus, error } = await supabase
+      .from('Menu')
+      .select('menu_id, menu_name, menu_image, menu_recipe, menu_description');
+    if (error) throw error;
 
-    const menuRequirements = allMenuRequirements.reduce((acc, row) => {
-      if (!acc[row.menu_id]) {
-        acc[row.menu_id] = { 
-          menu_id: row.menu_id, 
-          menu_name: row.menu_name, 
-          menu_image: row.menu_image,
-          required: [] 
-        };
-      }
-      acc[row.menu_id].required.push(row.ingredient_name);
-      return acc;
-    }, {});
+    const results = (menus || []).filter(m => {
+      const hay = `${m.menu_recipe || ''} ${m.menu_description || ''}`.toLowerCase();
+      // ต้องพบวัตถุดิบของผู้ใช้ทุกตัวในข้อความเมนู
+      return userIngredients.every(ing => hay.includes(String(ing).toLowerCase()));
+    }).map(m => ({ menu_id: m.menu_id, menu_name: m.menu_name, menu_image: m.menu_image }));
 
-    // --- ตรรกะการค้นหาที่แก้ไขใหม่ ---
-    const recommendedMenus = [];
-    for (const menuId in menuRequirements) {
-      const menu = menuRequirements[menuId];
-      
-      // ตรวจสอบว่า "ทุก" วัตถุดิบที่เมนูต้องการ (required)
-      // มี "อย่างน้อยหนึ่ง" วัตถุดิบของผู้ใช้ (userIngredients) ที่เป็นส่วนหนึ่งของมัน
-      const canMake = menu.required.every(requiredIngredient =>
-        userIngredients.some(userIngredient => 
-          requiredIngredient.toLowerCase().includes(userIngredient.toLowerCase())
-        )
-      );
-      
-      if (canMake) {
-        recommendedMenus.push({ 
-          menu_id: menu.menu_id, 
-          menu_name: menu.menu_name,
-          menu_image: menu.menu_image
-        });
-      }
-    }
-    // --- จบส่วนที่แก้ไข ---
-
-    res.json(recommendedMenus);
+    res.json(results);
 
   } catch (error) {
     console.error('Error recommending menus:', error);

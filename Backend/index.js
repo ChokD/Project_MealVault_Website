@@ -13,6 +13,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const recommendRoutes = require('./routes/recommendRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
+const mealCalendarRoutes = require('./routes/mealCalendarRoutes');
 
 // 2. สร้างแอปพลิเคชัน express
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api', categoryRoutes);
 app.use('/api', reportRoutes);
 app.use('/api', recommendRoutes);
 app.use('/api', chatbotRoutes);
+app.use('/api', mealCalendarRoutes);
 
 // 7. สั่งให้เซิร์ฟเวอร์เริ่มทำงาน
 app.listen(PORT, () => {

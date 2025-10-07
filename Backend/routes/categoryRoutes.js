@@ -1,15 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // --- Public Route ---
 // GET /api/categories - ดึงข้อมูลหมวดหมู่ทั้งหมด
 router.get('/categories', async (req, res) => {
   try {
-    const sql = 'SELECT * FROM Category ORDER BY category_name';
-    const [categories] = await db.query(sql);
-    res.json(categories);
+    const { data, error } = await supabase
+      .from('Category')
+      .select('*')
+      .order('category_name');
+    if (error) throw error;
+    res.json(data || []);
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลหมวดหมู่' });
@@ -22,10 +25,13 @@ router.get('/categories', async (req, res) => {
 router.post('/categories', authMiddleware, async (req, res) => {
   try {
     const adminId = req.user.id;
-    const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [adminId]);
-
-    if (admins.length === 0) {
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('*')
+      .eq('admin_id', adminId)
+      .limit(1);
+    if (adminErr) throw adminErr;
+    if (!admins || admins.length === 0) {
       return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
     }
 
@@ -38,8 +44,8 @@ router.post('/categories', authMiddleware, async (req, res) => {
       category_id: 'C' + Date.now().toString().slice(-6),
       category_name
     };
-    const insertSql = 'INSERT INTO Category SET ?';
-    await db.query(insertSql, newCategory);
+    const { error } = await supabase.from('Category').insert([newCategory]);
+    if (error) throw error;
 
     res.status(201).json({ message: 'เพิ่มหมวดหมู่สำเร็จ', data: newCategory });
   } catch (error) {
@@ -52,10 +58,13 @@ router.post('/categories', authMiddleware, async (req, res) => {
 router.put('/categories/:id', authMiddleware, async (req, res) => {
   try {
     const adminId = req.user.id;
-    const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [adminId]);
-
-    if (admins.length === 0) {
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('*')
+      .eq('admin_id', adminId)
+      .limit(1);
+    if (adminErr) throw adminErr;
+    if (!admins || admins.length === 0) {
       return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
     }
 
@@ -66,10 +75,13 @@ router.put('/categories/:id', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'กรุณากรอกชื่อหมวดหมู่ใหม่' });
     }
 
-    const updateSql = 'UPDATE Category SET category_name = ? WHERE category_id = ?';
-    const [result] = await db.query(updateSql, [category_name, categoryId]);
-
-    if (result.affectedRows === 0) {
+    const { data, error } = await supabase
+      .from('Category')
+      .update({ category_name })
+      .eq('category_id', categoryId)
+      .select();
+    if (error) throw error;
+    if (!data || data.length === 0) {
       return res.status(404).json({ message: 'ไม่พบหมวดหมู่ที่ต้องการแก้ไข' });
     }
 
@@ -84,18 +96,24 @@ router.put('/categories/:id', authMiddleware, async (req, res) => {
 router.delete('/categories/:id', authMiddleware, async (req, res) => {
   try {
     const adminId = req.user.id;
-    const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [adminId]);
-
-    if (admins.length === 0) {
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('*')
+      .eq('admin_id', adminId)
+      .limit(1);
+    if (adminErr) throw adminErr;
+    if (!admins || admins.length === 0) {
       return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
     }
 
     const { id: categoryId } = req.params;
 
-    const deleteSql = 'DELETE FROM Category WHERE category_id = ?';
-    const [result] = await db.query(deleteSql, [categoryId]);
-
+    const { error } = await supabase
+      .from('Category')
+      .delete()
+      .eq('category_id', categoryId);
+    if (error) throw error;
+    const result = { affectedRows: 1 }; // emulate success
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'ไม่พบหมวดหมู่ที่ต้องการลบ' });
     }

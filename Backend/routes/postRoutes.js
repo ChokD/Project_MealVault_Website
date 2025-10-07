@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
@@ -9,13 +9,13 @@ const upload = require('../middleware/uploadMiddleware');
 // GET /api/posts - ดึงข้อมูลโพสต์ทั้งหมด (เพิ่ม like_count)
 router.get('/posts', async (req, res) => {
   try {
-    const sql = `
-      SELECT p.cpost_id, p.cpost_title, p.cpost_datetime, p.cpost_image, p.like_count, u.user_fname, p.user_id 
-      FROM CommunityPost p 
-      JOIN User u ON p.user_id = u.user_id 
-      ORDER BY p.cpost_datetime DESC`;
-    const [posts] = await db.query(sql);
-    res.json(posts);
+    const { data: posts, error } = await supabase
+      .from('CommunityPost')
+      .select('cpost_id, cpost_title, cpost_datetime, cpost_image, like_count, user_id')
+      .order('cpost_datetime', { ascending: false });
+    if (error) throw error;
+    // Note: user_fname join omitted; frontend can fetch separately or denormalize later
+    res.json(posts || []);
   } catch (error) {
     console.error('Error fetching posts:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลโพสต์' });
@@ -29,25 +29,30 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
     const loggedInUserId = req.user.id; // ID ของผู้ใช้ที่กำลังดู
 
     // ดึงข้อมูลโพสต์หลัก
-    const postSql = `
-      SELECT p.*, u.user_fname 
-      FROM CommunityPost p JOIN User u ON p.user_id = u.user_id 
-      WHERE p.cpost_id = ?`;
-    const [posts] = await db.query(postSql, [postId]);
-    if (posts.length === 0) return res.status(404).json({ message: 'ไม่พบโพสต์' });
+    const { data: posts, error: postErr } = await supabase
+      .from('CommunityPost')
+      .select('*')
+      .eq('cpost_id', postId)
+      .limit(1);
+    if (postErr) throw postErr;
+    if (!posts || posts.length === 0) return res.status(404).json({ message: 'ไม่พบโพสต์' });
 
     // ดึงคอมเมนต์
-    const commentSql = `
-      SELECT c.*, u.user_fname 
-      FROM CommunityComment c 
-      JOIN User u ON c.user_id = u.user_id 
-      WHERE c.cpost_id = ? 
-      ORDER BY c.comment_datetime ASC`;
-    const [comments] = await db.query(commentSql, [postId]);
+    const { data: comments, error: commentErr } = await supabase
+      .from('CommunityComment')
+      .select('*')
+      .eq('cpost_id', postId)
+      .order('comment_datetime', { ascending: true });
+    if (commentErr) throw commentErr;
 
     // ตรวจสอบว่าผู้ใช้คนนี้เคยกดไลค์โพสต์นี้หรือยัง
-    const likeSql = 'SELECT * FROM PostLike WHERE post_id = ? AND user_id = ?';
-    const [likes] = await db.query(likeSql, [postId, loggedInUserId]);
+    const { data: likes, error: likeErr } = await supabase
+      .from('PostLike')
+      .select('*')
+      .eq('post_id', postId)
+      .eq('user_id', loggedInUserId)
+      .limit(1);
+    if (likeErr) throw likeErr;
 
     const postData = {
       ...posts[0],
@@ -66,7 +71,7 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
 
 // POST /api/posts - สร้างโพสต์ใหม่พร้อมรูปภาพ
 router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, res) => {
-  const { cpost_title, cpost_content } = req.body;
+  const { cpost_title } = req.body;
   const user_id = req.user.id;
 
   if (!cpost_title || !cpost_content) {
@@ -76,14 +81,13 @@ router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, 
   try {
     const newPost = {
       cpost_title,
-      cpost_content,
       user_id,
       cpost_datetime: new Date(),
       cpost_image: req.file ? req.file.filename : null,
     };
 
-    const sql = 'INSERT INTO CommunityPost SET ?';
-    await db.query(sql, newPost);
+    const { error } = await supabase.from('CommunityPost').insert([newPost]);
+    if (error) throw error;
     res.status(201).json({ message: 'สร้างโพสต์สำเร็จ' });
   } catch (error) {
     console.error('Error creating post:', error);
@@ -102,22 +106,17 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
     }
     try {
       const newComment = {
-        comment_content,
+        comment_text: comment_content,
         cpost_id,
         user_id,
-        comment_datetime: new Date()
+        comment_datetime: new Date().toISOString()
       };
-      const sql = 'INSERT INTO CommunityComment SET ?';
-      await db.query(sql, newComment);
-      
-      const getNewCommentSql = `
-        SELECT c.*, u.user_fname 
-        FROM CommunityComment c 
-        JOIN User u ON c.user_id = u.user_id 
-        WHERE c.comment_id = (SELECT LAST_INSERT_ID())`;
-      const [newlyCreatedComment] = await db.query(getNewCommentSql);
-  
-      res.status(201).json(newlyCreatedComment[0]);
+      const { data, error } = await supabase
+        .from('CommunityComment')
+        .insert([newComment])
+        .select();
+      if (error) throw error;
+      res.status(201).json(data && data[0] ? data[0] : newComment);
     } catch (error) {
       console.error('Error creating comment:', error);
       res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเพิ่มความคิดเห็น' });
@@ -129,29 +128,40 @@ router.delete('/posts/:id', authMiddleware, async (req, res) => {
     try {
       const loggedInUserId = req.user.id;
       const { id: postIdToDelete } = req.params;
-  
-      const findPostSql = 'SELECT user_id FROM CommunityPost WHERE cpost_id = ?';
-      const [posts] = await db.query(findPostSql, [postIdToDelete]);
-  
-      if (posts.length === 0) {
-        return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการลบ' });
-      }
+
+      const { data: posts, error: findErr } = await supabase
+        .from('CommunityPost')
+        .select('user_id')
+        .eq('cpost_id', postIdToDelete)
+        .limit(1);
+      if (findErr) throw findErr;
+      if (!posts || posts.length === 0) return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการลบ' });
       const postOwnerId = posts[0].user_id;
-  
-      const adminSql = 'SELECT admin_id FROM Admin WHERE admin_id = ?';
-      const [admins] = await db.query(adminSql, [loggedInUserId]);
-      const isAdmin = admins.length > 0;
-  
+
+      const { data: admins, error: adminErr } = await supabase
+        .from('Admin')
+        .select('admin_id')
+        .eq('admin_id', loggedInUserId)
+        .limit(1);
+      if (adminErr) throw adminErr;
+      const isAdmin = !!(admins && admins.length > 0);
+
       if (!isAdmin && loggedInUserId !== postOwnerId) {
         return res.status(403).json({ message: 'คุณไม่มีสิทธิ์ลบโพสต์นี้' });
       }
-  
-      const deleteCommentsSql = 'DELETE FROM CommunityComment WHERE cpost_id = ?';
-      await db.query(deleteCommentsSql, [postIdToDelete]);
-  
-      const deletePostSql = 'DELETE FROM CommunityPost WHERE cpost_id = ?';
-      await db.query(deletePostSql, [postIdToDelete]);
-  
+
+      const { error: delCommentsErr } = await supabase
+        .from('CommunityComment')
+        .delete()
+        .eq('cpost_id', postIdToDelete);
+      if (delCommentsErr) throw delCommentsErr;
+
+      const { error: delPostErr } = await supabase
+        .from('CommunityPost')
+        .delete()
+        .eq('cpost_id', postIdToDelete);
+      if (delPostErr) throw delPostErr;
+
       res.json({ message: 'ลบโพสต์สำเร็จ' });
     } catch (error) {
       console.error('Error deleting post:', error);
@@ -164,31 +174,56 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
     const { id: postId } = req.params;
     const userId = req.user.id;
 
-    const connection = await db.getConnection(); // ใช้ Transaction เพื่อความปลอดภัย
     try {
-        await connection.beginTransaction();
+      const { data: likes, error: likeFindErr } = await supabase
+        .from('PostLike')
+        .select('*')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .limit(1);
+      if (likeFindErr) throw likeFindErr;
 
-        const [likes] = await connection.query('SELECT * FROM PostLike WHERE post_id = ? AND user_id = ?', [postId, userId]);
-
-        if (likes.length > 0) {
-            // ถ้าเคยไลค์แล้ว -> ให้ยกเลิกไลค์ (Unlike)
-            await connection.query('DELETE FROM PostLike WHERE post_id = ? AND user_id = ?', [postId, userId]);
-            await connection.query('UPDATE CommunityPost SET like_count = like_count - 1 WHERE cpost_id = ? AND like_count > 0', [postId]);
-            await connection.commit();
-            res.json({ message: 'ยกเลิกไลค์สำเร็จ', liked: false });
-        } else {
-            // ถ้ายังไม่เคยไลค์ -> ให้กดไลค์ (Like)
-            await connection.query('INSERT INTO PostLike (post_id, user_id) VALUES (?, ?)', [postId, userId]);
-            await connection.query('UPDATE CommunityPost SET like_count = like_count + 1 WHERE cpost_id = ?', [postId]);
-            await connection.commit();
-            res.json({ message: 'ไลค์สำเร็จ', liked: true });
-        }
+      if (likes && likes.length > 0) {
+        const { error: delErr } = await supabase
+          .from('PostLike')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', userId);
+        if (delErr) throw delErr;
+        // decrement like_count
+        await supabase
+          .from('CommunityPost')
+          .update({ like_count: supabase.rpc })
+        // fallback manual fetch and update
+        const { data: postRow } = await supabase
+          .from('CommunityPost')
+          .select('like_count')
+          .eq('cpost_id', postId)
+          .limit(1);
+        const newCount = Math.max(0, ((postRow && postRow[0] && postRow[0].like_count) || 0) - 1);
+        await supabase
+          .from('CommunityPost')
+          .update({ like_count: newCount })
+          .eq('cpost_id', postId);
+        res.json({ message: 'ยกเลิกไลค์สำเร็จ', liked: false });
+      } else {
+        const { error: insErr } = await supabase.from('PostLike').insert([{ post_id: postId, user_id: userId }]);
+        if (insErr) throw insErr;
+        const { data: postRow } = await supabase
+          .from('CommunityPost')
+          .select('like_count')
+          .eq('cpost_id', postId)
+          .limit(1);
+        const newCount = ((postRow && postRow[0] && postRow[0].like_count) || 0) + 1;
+        await supabase
+          .from('CommunityPost')
+          .update({ like_count: newCount })
+          .eq('cpost_id', postId);
+        res.json({ message: 'ไลค์สำเร็จ', liked: true });
+      }
     } catch (error) {
-        await connection.rollback();
-        console.error('Error toggling like:', error);
-        res.status(500).json({ message: 'เกิดข้อผิดพลาด' });
-    } finally {
-        connection.release();
+      console.error('Error toggling like:', error);
+      res.status(500).json({ message: 'เกิดข้อผิดพลาด' });
     }
 });
 

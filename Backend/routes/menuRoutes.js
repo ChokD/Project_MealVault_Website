@@ -1,7 +1,7 @@
 const authMiddleware = require('../middleware/authMiddleware'); 
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const { supabase } = require('../config/supabase');
 
 
 // สร้าง API Endpoint สำหรับค้นหาเมนูอาหาร
@@ -20,12 +20,12 @@ router.get('/menus/search', async (req, res) => {
     // เครื่องหมาย % หมายถึง "ตัวอักษรอะไรก็ได้ จำนวนเท่าไหร่ก็ได้"
     // ดังนั้น '%ไข่%' จะหมายถึง ค้นหาคำที่มี "ไข่" อยู่ตรงไหนก็ได้ในชื่อ
     const searchTerm = `%${q}%`;
-
-    // 3. เขียนคำสั่ง SQL เพื่อค้นหา
-    const sql = 'SELECT * FROM Menu WHERE menu_name LIKE ?';
-    const [menus] = await db.query(sql, [searchTerm]);
-
-    res.json(menus);
+    const { data: menus, error } = await supabase
+      .from('Menu')
+      .select('*')
+      .ilike('menu_name', searchTerm);
+    if (error) throw error;
+    res.json(menus || []);
 
   } catch (error) {
     console.error('Error searching menus:', error);
@@ -39,21 +39,12 @@ router.get('/menus/search', async (req, res) => {
 // GET /api/menus (ทุกคนสามารถดูได้)
 router.get('/menus', async (req, res) => {
   try {
-    // ใช้ LEFT JOIN เพื่อดึงชื่อผู้สร้างเมนูมาด้วย (ถ้ามี)
-    const sql = `
-      SELECT 
-        Menu.*, 
-        User.user_fname 
-      FROM 
-        Menu 
-      LEFT JOIN User ON Menu.user_id = User.user_id
-      ORDER BY 
-        menu_datetime DESC
-    `;
-    const [menus] = await db.query(sql);
-
-    res.json(menus); // ส่งข้อมูลเมนูทั้งหมดกลับไป
-
+    const { data: menus, error } = await supabase
+      .from('Menu')
+      .select('*')
+      .order('menu_datetime', { ascending: false });
+    if (error) throw error;
+    res.json(menus || []);
   } catch (error) {
     console.error('Error fetching menus:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลเมนู' });
@@ -67,11 +58,13 @@ router.post('/menus', authMiddleware, async (req, res) => {
     // 1. ตรวจสอบสิทธิ์ Admin
     // ดึง user_id จาก Token ที่ผ่าน middleware มาแล้ว
     const adminId = req.user.id; 
-    const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [adminId]);
-
-    // ถ้าไม่พบ user คนนี้ในตาราง Admin ให้ปฏิเสธการเข้าถึง
-    if (admins.length === 0) {
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('*')
+      .eq('admin_id', adminId)
+      .limit(1);
+    if (adminErr) throw adminErr;
+    if (!admins || admins.length === 0) {
       return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
     }
 
@@ -93,8 +86,8 @@ router.post('/menus', authMiddleware, async (req, res) => {
       category_id
     };
 
-    const insertSql = 'INSERT INTO Menu SET ?';
-    await db.query(insertSql, newMenu);
+    const { error } = await supabase.from('Menu').insert([newMenu]);
+    if (error) throw error;
 
     res.status(201).json({ message: 'เพิ่มเมนูใหม่สำเร็จ' });
 
@@ -110,10 +103,13 @@ router.put('/menus/:id', authMiddleware, async (req, res) => {
   try {
     // 1. ตรวจสอบสิทธิ์ Admin (เหมือนเดิม)
     const adminId = req.user.id;
-    const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [adminId]);
-
-    if (admins.length === 0) {
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('*')
+      .eq('admin_id', adminId)
+      .limit(1);
+    if (adminErr) throw adminErr;
+    if (!admins || admins.length === 0) {
       return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
     }
 
@@ -128,15 +124,13 @@ router.put('/menus/:id', authMiddleware, async (req, res) => {
     }
 
     // 4. เขียนคำสั่ง SQL UPDATE
-    const updateSql = `
-      UPDATE Menu 
-      SET menu_name = ?, menu_description = ?, menu_recipe = ?, menu_image = ?, category_id = ? 
-      WHERE menu_id = ?
-    `;
-    const [result] = await db.query(updateSql, [menu_name, menu_description, menu_recipe, menu_image, category_id, menuId]);
-
-    // ตรวจสอบว่ามีการอัปเดตเกิดขึ้นจริงหรือไม่
-    if (result.affectedRows === 0) {
+    const { data, error } = await supabase
+      .from('Menu')
+      .update({ menu_name, menu_description, menu_recipe, menu_image, category_id })
+      .eq('menu_id', menuId)
+      .select();
+    if (error) throw error;
+    if (!data || data.length === 0) {
       return res.status(404).json({ message: 'ไม่พบเมนูที่ต้องการแก้ไข' });
     }
 
@@ -154,10 +148,13 @@ router.delete('/menus/:id', authMiddleware, async (req, res) => {
   try {
     // 1. ตรวจสอบสิทธิ์ Admin (ใช้โค้ดชุดเดียวกับตอน POST และ PUT)
     const adminId = req.user.id;
-    const adminSql = 'SELECT * FROM Admin WHERE admin_id = ?';
-    const [admins] = await db.query(adminSql, [adminId]);
-
-    if (admins.length === 0) {
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('*')
+      .eq('admin_id', adminId)
+      .limit(1);
+    if (adminErr) throw adminErr;
+    if (!admins || admins.length === 0) {
       return res.status(403).json({ message: 'การเข้าถึงถูกปฏิเสธ: เฉพาะผู้ดูแลระบบเท่านั้น' });
     }
 
@@ -165,10 +162,13 @@ router.delete('/menus/:id', authMiddleware, async (req, res) => {
     const { id: menuId } = req.params;
 
     // 3. เขียนคำสั่ง SQL DELETE
-    const deleteSql = 'DELETE FROM Menu WHERE menu_id = ?';
-    const [result] = await db.query(deleteSql, [menuId]);
+    const { error } = await supabase
+      .from('Menu')
+      .delete()
+      .eq('menu_id', menuId);
+    if (error) throw error;
 
-    // ตรวจสอบว่ามีการลบเกิดขึ้นจริงหรือไม่ (ถ้าใส่ ID ที่ไม่มีอยู่จริง affectedRows จะเป็น 0)
+    const result = { affectedRows: 1 };
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'ไม่พบเมนูที่ต้องการลบ' });
     }
