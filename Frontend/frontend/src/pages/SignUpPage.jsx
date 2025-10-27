@@ -47,10 +47,16 @@ function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-white flex flex-col relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 right-10 w-72 h-72 bg-emerald-200 rounded-full opacity-10 blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 left-10 w-96 h-96 bg-green-200 rounded-full opacity-10 blur-3xl animate-pulse delay-75"></div>
+      </div>
+      
       <Navbar />
-      <main className="flex-grow flex items-center justify-center p-4 pt-24">
-        <div className="w-full bg-white rounded-xl shadow-lg sm:max-w-md">
+      <main className="flex-grow flex items-center justify-center p-4 pt-24 relative z-10">
+        <div className="w-full bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl sm:max-w-md border border-emerald-100 max-h-[90vh] overflow-y-auto">
           <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
             
             {/* 4. เพิ่มเงื่อนไขการแสดงผล */}
@@ -58,9 +64,17 @@ function SignUpPage() {
               <SuccessAnimation message="สมัครสมาชิกสำเร็จ!" />
             ) : (
               <>
-                <h1 className="text-xl font-bold text-center text-gray-900 md:text-2xl">
-                  สร้างบัญชีใหม่
-                </h1>
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full mb-4 shadow-lg">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                  </div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent md:text-4xl">
+                    สร้างบัญชีใหม่
+                  </h1>
+                  <p className="text-gray-500 mt-2">เริ่มต้นการเดินทางของคุณ</p>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
                   {/* ... โค้ดของฟอร์มทั้งหมดเหมือนเดิม ... */}
                   <div className="flex space-x-4">
@@ -86,7 +100,7 @@ function SignUpPage() {
                     <input type="tel" name="user_tel" id="user_tel" onChange={handleChange} className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" required />
                   </div>
                   {error && <p className="text-sm text-center text-red-500">{error}</p>}
-                  <button type="submit" className="w-full text-white bg-green-500 hover:bg-green-600 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-full text-sm px-5 py-2.5 text-center transition-colors duration-300">
+                  <button type="submit" className="w-full text-white bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 focus:ring-4 focus:outline-none focus:ring-emerald-300 font-bold rounded-xl text-lg px-5 py-3.5 text-center transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl shadow-lg">
                     สมัครสมาชิก
                   </button>
                   <p className="text-sm font-light text-center text-gray-500">

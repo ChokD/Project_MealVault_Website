@@ -6,16 +6,16 @@ import { Link } from 'react-router-dom';
 function RecipeCard({ recipe }) {
     if (!recipe) return null;
     return (
-        <Link to={`/menus/${recipe.idMeal}`} className="w-full h-full block group relative overflow-hidden rounded-xl">
+        <Link to={`/menus/${recipe.idMeal}`} className="w-full h-full block group relative overflow-hidden rounded-xl shadow-lg">
             <img 
                 src={recipe.strMealThumb} 
                 alt={recipe.strMeal} 
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"></div>
             <div className="absolute bottom-0 left-0 p-4 text-white">
-                <h3 className="font-bold text-lg">{recipe.strMeal}</h3>
-                <p className="text-sm opacity-80">{recipe.strCategory}</p>
+                <h3 className="font-bold text-lg mb-1">{recipe.strMeal}</h3>
+                <p className="text-sm opacity-90 bg-green-500 px-3 py-1 rounded-full inline-block">{recipe.strCategory}</p>
             </div>
         </Link>
     );
@@ -87,18 +87,23 @@ function Recommended() {
   return (
     <section className="py-8">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold text-center md:text-left">เมนูแนะนำ</h2>
+        <div className="flex items-center space-x-3">
+          <div className="w-1 h-10 bg-gradient-to-b from-green-500 to-emerald-500 rounded-full"></div>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            เมนูแนะนำ
+          </h2>
+        </div>
         <div className="flex space-x-2">
-           <button onClick={() => paginate(-1)} className="bg-white text-gray-800 p-2 rounded-full shadow-md hover:bg-gray-100 transition-all">
+           <button onClick={() => paginate(-1)} className="bg-white text-green-600 p-3 rounded-full shadow-lg hover:bg-green-50 hover:shadow-xl transition-all transform hover:scale-110">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
-          <button onClick={() => paginate(1)} className="bg-white text-gray-800 p-2 rounded-full shadow-md hover:bg-gray-100 transition-all">
+          <button onClick={() => paginate(1)} className="bg-white text-green-600 p-3 rounded-full shadow-lg hover:bg-green-50 hover:shadow-xl transition-all transform hover:scale-110">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
       </div>
       
-      <div className="relative w-full mx-auto h-64 overflow-hidden">
+      <div className="relative w-full mx-auto h-64 overflow-hidden rounded-2xl shadow-xl bg-gradient-to-br from-green-50 to-white">
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
             key={page}

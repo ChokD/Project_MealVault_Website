@@ -68,18 +68,23 @@ function UserPosts() {
   return (
     <section className="py-8">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold">หมวดหมู่อาหาร</h2>
+        <div className="flex items-center space-x-3">
+          <div className="w-1 h-10 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full"></div>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+            หมวดหมู่อาหาร
+          </h2>
+        </div>
         <div className="flex space-x-2">
-           <button onClick={() => paginate(-1)} className="bg-white text-gray-800 p-2 rounded-full shadow-md hover:bg-gray-100 transition-all">
+           <button onClick={() => paginate(-1)} className="bg-white text-emerald-600 p-3 rounded-full shadow-lg hover:bg-emerald-50 hover:shadow-xl transition-all transform hover:scale-110">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
-          <button onClick={() => paginate(1)} className="bg-white text-gray-800 p-2 rounded-full shadow-md hover:bg-gray-100 transition-all">
+          <button onClick={() => paginate(1)} className="bg-white text-emerald-600 p-3 rounded-full shadow-lg hover:bg-emerald-50 hover:shadow-xl transition-all transform hover:scale-110">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
       </div>
       
-      <div className="relative w-full mx-auto h-64 overflow-hidden">
+      <div className="relative w-full mx-auto h-64 overflow-hidden rounded-2xl shadow-xl bg-gradient-to-br from-emerald-50 to-white">
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
             key={page}
