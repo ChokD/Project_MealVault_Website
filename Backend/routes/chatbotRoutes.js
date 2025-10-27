@@ -3,36 +3,48 @@ const router = express.Router();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // นำ API Key มาจาก .env
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// ตรวจสอบว่ามี API Key หรือไม่
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.error('⚠️ WARNING: GEMINI_API_KEY is not set in .env file!');
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // สร้าง API Endpoint สำหรับ Chatbot
 // POST /api/chatbot/send
 router.post('/chatbot/send', async (req, res) => {
   try {
+    // ตรวจสอบ API Key ก่อน
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY กรุณาใส่ API Key ในไฟล์ .env' });
+    }
+
     const { message } = req.body;
     if (!message) {
       return res.status(400).json({ error: 'กรุณาส่งข้อความ' });
     }
 
-    // 1. กำหนดบทบาทและกฎให้ AI
-    const systemInstruction = `
-      คุณคือ "Mealer AI" ผู้ช่วยเชี่ยวชาญด้านอาหารและสูตรอาหารเท่านั้น 
-      หน้าที่ของคุณคือการตอบคำถาม, ให้คำแนะนำ, และสนทนาในเรื่องที่เกี่ยวข้องกับอาหาร, การทำอาหาร, วัตถุดิบ, และโภชนาการ
+    // สร้าง prompt แบบง่ายๆ สำหรับ AI
+    const prompt = `คุณคือ Mealer AI ผู้ช่วยด้านอาหาร ตอบคำถามเกี่ยวกับ:
+- แนะนำเมนูอาหารจากวัตถุดิบเหลือใช้
+- วิธีเก็บรักษาวัตถุดิบ
+- วิธีทำอาหารและสูตรอาหาร
+- คำแนะนำโภชนาการ
 
-      ห้ามตอบคำถามนอกเหนือจากเรื่องเหล่านี้เด็ดขาด. 
+ตอบเป็นภาษาไทย อย่างเป็นมิตรและมีประโยชน์
 
-      หากผู้ใช้ถามเรื่องอื่นที่ไม่เกี่ยวกับอาหาร เช่น การเมือง, ประวัติศาสตร์, เขียนโค้ด, หรือเรื่องส่วนตัว 
-      ให้คุณตอบกลับอย่างสุภาพและเป็นมิตรว่า "ขออภัยค่ะ ฉันสามารถให้ข้อมูลได้เฉพาะเรื่องที่เกี่ยวกับอาหารเท่านั้น" 
-      แล้วไม่ต้องพยายามตอบคำถามนั้นต่อ.
-    `;
+คำถาม: ${message}`;
 
-    // 2. ส่งกฎนี้เข้าไปตอนที่เลือกโมเดล
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
-      systemInstruction: systemInstruction, // <-- เพิ่มส่วนนี้
-    });
+    // ใช้ generative model - ต้องระบุ model name
+    // ต้องตรวจสอบว่า genAI ถูกสร้างถูกต้อง
+    if (!genAI) {
+      throw new Error('ไม่สามารถสร้าง GoogleGenerativeAI instance ได้');
+    }
+    
+    // ใช้ model gemini-2.5-flash ตาม Google Quickstart ล่าสุด
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    const result = await model.generateContent(message);
+    const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
 
@@ -40,7 +52,20 @@ router.post('/chatbot/send', async (req, res) => {
 
   } catch (error) {
     console.error('Error with Gemini API:', error);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการสื่อสารกับ AI' });
+    console.error('API Key:', process.env.GEMINI_API_KEY ? 'มีอยู่' : 'ไม่มี');
+    console.error('Error message:', error.message);
+    
+    // ตรวจสอบว่าเป็นปัญหา API Key หรือไม่
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ในไฟล์ .env กรุณาตรวจสอบการตั้งค่า' });
+    }
+    
+    // แสดง error แบบละเอียด
+    const errorMsg = error.message || 'Unknown error';
+    res.status(500).json({ 
+      error: `เกิดข้อผิดพลาด: ${errorMsg}`,
+      details: 'กรุณาตรวจสอบ API Key และลองสร้างใหม่'
+    });
   }
 });
 
