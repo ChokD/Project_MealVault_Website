@@ -18,9 +18,34 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน' });
   }
 
+  // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+  if (!supabase) {
+    console.error('Supabase client is not initialized');
+    return res.status(500).json({ message: 'Database connection error' });
+  }
+
   try {
+    // ตรวจสอบว่ามี email นี้อยู่แล้วหรือไม่
+    const { data: existingUsers, error: checkError } = await supabase
+      .from('User')
+      .select('user_email')
+      .eq('user_email', user_email)
+      .limit(1);
+    
+    if (checkError) {
+      console.error('Error checking existing user:', checkError);
+      throw checkError;
+    }
+
+    if (existingUsers && existingUsers.length > 0) {
+      return res.status(400).json({ message: 'อีเมลนี้ถูกใช้งานแล้ว' });
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(user_password, salt);
+
+    console.log(`Registering new user: ${user_email}`);
+    console.log(`Password hash generated: ${hashedPassword.substring(0, 20)}...`);
 
     const newUser = {
       user_id: 'U' + Date.now().toString().slice(-6),
@@ -31,13 +56,21 @@ router.post('/register', async (req, res) => {
       user_tel
     };
 
-    const { error } = await supabase.from('User').insert([newUser]);
-    if (error) throw error;
+    const { data, error } = await supabase.from('User').insert([newUser]).select();
+    
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw error;
+    }
 
+    console.log(`User registered successfully: ${user_email}`);
     res.status(201).json({ message: 'สมัครสมาชิกสำเร็จ' });
   } catch (error) {
     console.error('Error during registration:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสมัครสมาชิก' });
+    res.status(500).json({ 
+      message: 'เกิดข้อผิดพลาดในการสมัครสมาชิก',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -49,22 +82,72 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'กรุณากรอกอีเมลและรหัสผ่าน' });
   }
 
+  // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+  if (!supabase) {
+    console.error('Supabase client is not initialized');
+    return res.status(500).json({ message: 'Database connection error' });
+  }
+
   try {
     const { data: users, error } = await supabase
       .from('User')
       .select('*')
       .eq('user_email', user_email)
       .limit(1);
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
 
     if (!users || users.length === 0) {
+      console.log(`Login attempt failed: User not found for email: ${user_email}`);
       return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
     }
+    
     const user = users[0];
+    
+    // ตรวจสอบว่า user_password มีค่า
+    if (!user.user_password) {
+      console.error('User password is missing in database');
+      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
+    }
 
+    // Debug: แสดงข้อมูลที่สำคัญ (ไม่แสดง password)
+    console.log(`\n=== Login Attempt ===`);
+    console.log(`Email: ${user_email}`);
+    console.log(`User found: Yes`);
+    console.log(`User ID: ${user.user_id}`);
+    console.log(`Password hash exists: ${!!user.user_password}`);
+    console.log(`Password hash length: ${user.user_password?.length || 0}`);
+    console.log(`Password hash starts with: ${user.user_password?.substring(0, 7) || 'N/A'}`);
+    console.log(`Input password length: ${user_password?.length || 0}`);
+
+    // ทดสอบ password comparison
+    console.log(`\nComparing passwords...`);
     const isMatch = await bcrypt.compare(user_password, user.user_password);
+    console.log(`Password match result: ${isMatch}`);
+    
     if (!isMatch) {
+      console.log(`❌ Password mismatch for user: ${user_email}`);
+      console.log(`   Hash in DB: ${user.user_password?.substring(0, 20)}...`);
+      
+      // ทดสอบด้วยการ hash ใหม่เพื่อ debug
+      const testHash = await bcrypt.hash(user_password, 10);
+      console.log(`   Test hash of input: ${testHash.substring(0, 20)}...`);
+      console.log(`   Hashes are different (expected - bcrypt generates unique hashes each time)\n`);
+      
       return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
+    }
+    
+    console.log(`✅ Login successful for user: ${user_email}\n`);
+
+    // ตรวจสอบว่า JWT_SECRET ถูกตั้งค่าไว้
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET is not set in .env file');
+      return res.status(500).json({ 
+        message: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ - JWT_SECRET not configured' 
+      });
     }
 
     const payload = {
@@ -79,7 +162,10 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' },
       (err, token) => {
-        if (err) throw err;
+        if (err) {
+          console.error('JWT signing error:', err);
+          return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้าง token' });
+        }
         res.json({ token });
       }
     );

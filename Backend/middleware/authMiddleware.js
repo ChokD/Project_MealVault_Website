@@ -13,10 +13,16 @@ const authMiddleware = (req, res, next) => {
   }
 
   try {
-    // 3. แยกเอาเฉพาะส่วนของ Token
+    // 3. ตรวจสอบว่า JWT_SECRET ถูกตั้งค่าไว้
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET is not set in .env file');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
+    // 4. แยกเอาเฉพาะส่วนของ Token
     const token = authHeader.split(' ')[1];
 
-    // 4. ตรวจสอบความถูกต้องของ Token
+    // 5. ตรวจสอบความถูกต้องของ Token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // 5. เก็บข้อมูล user ไว้ใน request
