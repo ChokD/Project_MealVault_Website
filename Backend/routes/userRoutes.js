@@ -53,7 +53,7 @@ router.post('/register', async (req, res) => {
       user_fname,
       user_lname,
       user_password: hashedPassword,
-      user_tel
+      user_tel: user_tel || null // เบอร์โทรเป็น optional
     };
 
     const { data, error } = await supabase.from('User').insert([newUser]).select();
@@ -250,22 +250,87 @@ router.put('/users/change-password', authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/users/profile - อัปเดตข้อมูลโปรไฟล์ของตัวเอง
+// PUT /api/users/profile - อัปเดตข้อมูลโปรไฟล์ของตัวเอง (รวมถึงรหัสผ่าน)
 router.put('/users/profile', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  const { user_fname, user_lname, user_tel } = req.body;
+  const { user_fname, user_lname, user_tel, oldPassword, newPassword } = req.body;
 
-  if (!user_fname || !user_lname) {
-    return res.status(400).json({ message: 'กรุณากรอกชื่อและนามสกุล' });
+  if (!user_fname) {
+    return res.status(400).json({ message: 'กรุณากรอกชื่อ' });
+  }
+
+  // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+  if (!supabase) {
+    console.error('Supabase client is not initialized');
+    return res.status(500).json({ message: 'Database connection error' });
   }
 
   try {
+    // ถ้ามีการแก้ไขรหัสผ่าน
+    if (oldPassword && newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร' });
+      }
+
+      // ดึงข้อมูลผู้ใช้เพื่อตรวจสอบรหัสผ่านเดิม
+      const { data: users, error: findErr } = await supabase
+        .from('User')
+        .select('user_password')
+        .eq('user_id', userId)
+        .limit(1);
+      
+      if (findErr) throw findErr;
+      
+      if (!users || users.length === 0) {
+        return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+      }
+
+      const user = users[0];
+      
+      // ตรวจสอบรหัสผ่านเดิม
+      const isMatch = await bcrypt.compare(oldPassword, user.user_password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+      }
+
+      // Hash รหัสผ่านใหม่
+      const salt = await bcrypt.genSalt(10);
+      const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+      // อัปเดตข้อมูลทั้งหมด (รวมรหัสผ่าน)
+      const updateData = {
+        user_fname,
+        user_lname: user_lname || null,
+        user_tel: user_tel || null,
+        user_password: hashedNewPassword
+      };
+
+      const { error } = await supabase
+        .from('User')
+        .update(updateData)
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+
+      console.log(`Profile and password updated for user: ${userId}`);
+      return res.json({ message: 'อัปเดตข้อมูลโปรไฟล์และรหัสผ่านสำเร็จ' });
+    }
+
+    // ถ้าไม่มีการแก้ไขรหัสผ่าน (อัปเดตแค่ข้อมูลโปรไฟล์)
+    const updateData = {
+      user_fname,
+      user_lname: user_lname || null,
+      user_tel: user_tel || null
+    };
+
     const { error } = await supabase
       .from('User')
-      .update({ user_fname, user_lname, user_tel })
+      .update(updateData)
       .eq('user_id', userId);
+    
     if (error) throw error;
 
+    console.log(`Profile updated for user: ${userId}`);
     res.json({ message: 'อัปเดตข้อมูลโปรไฟล์สำเร็จ' });
   } catch (error) {
     console.error('Error updating profile:', error);

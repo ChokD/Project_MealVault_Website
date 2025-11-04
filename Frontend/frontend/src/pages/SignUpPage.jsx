@@ -96,8 +96,8 @@ function SignUpPage() {
                     <input type="password" name="user_password" id="user_password" onChange={handleChange} className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" required />
                   </div>
                   <div>
-                    <label htmlFor="user_tel" className="block mb-2 text-sm font-medium text-gray-900">เบอร์โทรศัพท์</label>
-                    <input type="tel" name="user_tel" id="user_tel" onChange={handleChange} className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" required />
+                    <label htmlFor="user_tel" className="block mb-2 text-sm font-medium text-gray-900">เบอร์โทรศัพท์ <span className="text-gray-500 font-normal">(optional)</span></label>
+                    <input type="tel" name="user_tel" id="user_tel" onChange={handleChange} className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" />
                   </div>
                   {error && <p className="text-sm text-center text-red-500">{error}</p>}
                   <button type="submit" className="w-full text-white bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 focus:ring-4 focus:outline-none focus:ring-emerald-300 font-bold rounded-xl text-lg px-5 py-3.5 text-center transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl shadow-lg">
