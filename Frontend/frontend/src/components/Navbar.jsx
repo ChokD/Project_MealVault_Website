@@ -32,6 +32,7 @@ function Navbar() {
           </Link>
           <Link to="/" className="text-gray-700 hover:text-green-600 transition-colors font-medium">หน้าหลัก</Link>
           <Link to="/menus" className="text-gray-700 hover:text-green-600 transition-colors font-medium">เมนูอาหาร</Link>
+          <Link to="/weekly-plan" className="text-gray-700 hover:text-green-600 transition-colors font-medium">วางแผนสัปดาห์</Link>
           <Link to="/community" className="text-gray-700 hover:text-green-600 transition-colors font-medium">ชุมชน</Link>
           <Link to="/about" className="text-gray-700 hover:text-green-600 transition-colors font-medium">About Us</Link>
           
@@ -59,3 +60,4 @@ function Navbar() {
 }
 
 export default Navbar;
+

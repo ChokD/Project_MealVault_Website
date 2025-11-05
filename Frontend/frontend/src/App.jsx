@@ -14,6 +14,7 @@ import AboutPage from './pages/AboutPage';
 import MenuPage from './pages/MenuPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import SearchPage from './pages/SearchPage';
+import WeeklyMealPlanPage from './pages/WeeklyMealPlanPage';
 import ChatbotPage from './pages/ChatbotPage';
 
 // Import Protected Routes and their pages
@@ -45,6 +46,7 @@ function App() {
         {/* --- Protected Routes (ต้อง Login ก่อนถึงจะเข้าได้) --- */}
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/weekly-plan" element={<WeeklyMealPlanPage />} />
           <Route path="/meal-calendar" element={<MealCalendarPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />
           {/* สามารถเพิ่ม Route ที่ต้องการป้องกันอื่นๆ ได้ที่นี่ในอนาคต */}
