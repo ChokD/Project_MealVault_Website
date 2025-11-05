@@ -10,7 +10,7 @@ function RecipeAccordionItem({ recipe, isOpen, onToggle }) {
     const fetchRecipeDetails = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${recipe.idMeal}`);
+        const response = await fetch(`http://localhost:3000/api/thai-food/lookup.php?i=${recipe.idMeal}`);
         const data = await response.json();
         setDetails(data.meals ? data.meals[0] : null);
       } catch (error) {

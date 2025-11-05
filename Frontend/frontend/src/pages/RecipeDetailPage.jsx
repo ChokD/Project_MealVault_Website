@@ -42,7 +42,7 @@ function RecipeDetailPage() {
     const fetchRecipeDetails = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${recipeId}`);
+        const response = await fetch(`http://localhost:3000/api/thai-food/lookup.php?i=${recipeId}`);
         const data = await response.json();
         setRecipe(data.meals ? data.meals[0] : null);
       } catch (error) {

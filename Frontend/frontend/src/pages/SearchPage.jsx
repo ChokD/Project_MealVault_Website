@@ -20,7 +20,7 @@ function SearchPage() {
     const fetchRecipes = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${query}`);
+        const response = await fetch(`http://localhost:3000/api/thai-food/filter.php?i=${query}`);
         const data = await response.json();
         setRecipes(data.meals || []);
       } catch (error) {

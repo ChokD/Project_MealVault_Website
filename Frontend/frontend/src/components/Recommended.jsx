@@ -33,12 +33,16 @@ function Recommended() {
     const fetchRecommendedMenus = async () => {
       setLoading(true);
       try {
-        const fetchPromises = Array.from({ length: 6 }, () => 
-          fetch('https://www.themealdb.com/api/json/v1/1/random.php').then(res => res.json())
-        );
-        const results = await Promise.all(fetchPromises);
-        const menus = results.map(result => result.meals[0]).filter(Boolean);
-        setRecommendedMenus(menus);
+        // ดึงเมนูทั้งหมดจาก API ใหม่ แล้วสุ่มเลือก 6 เมนู
+        const response = await fetch('http://localhost:3000/api/thai-food/filter.php');
+        const data = await response.json();
+        const allMenus = data.meals || [];
+        
+        // สุ่มเลือก 6 เมนู
+        const shuffled = [...allMenus].sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, 6);
+        
+        setRecommendedMenus(selected);
       } catch (error) {
         console.error("Failed to fetch recommended menus:", error);
       } finally {

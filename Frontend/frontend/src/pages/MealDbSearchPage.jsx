@@ -20,8 +20,8 @@ function MealDbSearchPage() {
     const fetchRecipesByIngredient = async () => {
       setLoading(true);
       try {
-        // ยิง API ไปที่ TheMealDB เพื่อกรองด้วยวัตถุดิบ
-        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${query}`);
+        // ยิง API ไปที่ API ใหม่เพื่อกรองด้วยวัตถุดิบ
+        const response = await fetch(`http://localhost:3000/api/thai-food/filter.php?i=${query}`);
         const data = await response.json();
         setRecipes(data.meals || []);
       } catch (error) {
