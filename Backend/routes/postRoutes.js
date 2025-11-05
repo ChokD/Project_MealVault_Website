@@ -208,6 +208,91 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
     }
 });
   
+// PUT /api/posts/:id - แก้ไขโพสต์ (สำหรับเจ้าของโพสต์ หรือ Admin)
+router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (req, res) => {
+  try {
+    const { id: postId } = req.params;
+    const { cpost_title, cpost_content } = req.body;
+    const loggedInUserId = req.user.id;
+
+    // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    if (!cpost_title) {
+      return res.status(400).json({ message: 'กรุณากรอกหัวข้อโพสต์' });
+    }
+
+    // ดึงข้อมูลโพสต์เพื่อตรวจสอบเจ้าของ
+    const { data: posts, error: findErr } = await supabase
+      .from('CommunityPost')
+      .select('user_id')
+      .eq('cpost_id', postId)
+      .limit(1);
+    
+    if (findErr) {
+      console.error('Supabase query error:', findErr);
+      throw findErr;
+    }
+    
+    if (!posts || posts.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการแก้ไข' });
+    }
+
+    const postOwnerId = posts[0].user_id;
+
+    // ตรวจสอบว่าเป็น Admin หรือไม่
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', loggedInUserId)
+      .limit(1);
+    
+    if (adminErr) {
+      console.error('Supabase query error:', adminErr);
+      throw adminErr;
+    }
+    
+    const isAdmin = !!(admins && admins.length > 0);
+
+    // ตรวจสอบสิทธิ์: ต้องเป็นเจ้าของโพสต์หรือ Admin
+    if (!isAdmin && loggedInUserId !== postOwnerId) {
+      return res.status(403).json({ message: 'คุณไม่มีสิทธิ์แก้ไขโพสต์นี้' });
+    }
+
+    // เตรียมข้อมูลสำหรับอัปเดต
+    const updateData = {
+      cpost_title,
+      cpost_content: cpost_content || null
+    };
+
+    // ถ้ามีการอัปโหลดรูปภาพใหม่ ให้เพิ่มเข้าไป
+    if (req.file) {
+      updateData.cpost_image = req.file.filename;
+    }
+
+    // อัปเดตโพสต์
+    const { data: updatedPost, error: updErr } = await supabase
+      .from('CommunityPost')
+      .update(updateData)
+      .eq('cpost_id', postId)
+      .select();
+    
+    if (updErr) {
+      console.error('Supabase update error:', updErr);
+      throw updErr;
+    }
+
+    console.log(`Post updated successfully: ${postId}`);
+    res.json({ message: 'แก้ไขโพสต์สำเร็จ', post: updatedPost?.[0] });
+  } catch (error) {
+    console.error('Error updating post:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขโพสต์' });
+  }
+});
+
 // DELETE /api/posts/:id - ลบโพสต์ (สำหรับเจ้าของโพสต์ หรือ Admin)
 router.delete('/posts/:id', authMiddleware, async (req, res) => {
     try {
@@ -252,6 +337,74 @@ router.delete('/posts/:id', authMiddleware, async (req, res) => {
       console.error('Error deleting post:', error);
       res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบโพสต์' });
     }
+});
+
+// DELETE /api/posts/comments/:id - ลบคอมเมนต์ (เจ้าของคอมเมนต์หรือ Admin)
+router.delete('/posts/comments/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id: commentId } = req.params;
+    const loggedInUserId = req.user.id;
+
+    // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    // ดึงข้อมูลคอมเมนต์เพื่อตรวจสอบเจ้าของ
+    const { data: comments, error: findErr } = await supabase
+      .from('CommunityComment')
+      .select('user_id')
+      .eq('comment_id', commentId)
+      .limit(1);
+    
+    if (findErr) {
+      console.error('Supabase query error:', findErr);
+      throw findErr;
+    }
+    
+    if (!comments || comments.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบความคิดเห็นที่ต้องการลบ' });
+    }
+
+    const commentOwnerId = comments[0].user_id;
+
+    // ตรวจสอบว่าเป็น Admin หรือไม่
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', loggedInUserId)
+      .limit(1);
+    
+    if (adminErr) {
+      console.error('Supabase query error:', adminErr);
+      throw adminErr;
+    }
+    
+    const isAdmin = !!(admins && admins.length > 0);
+
+    // ตรวจสอบสิทธิ์: ต้องเป็นเจ้าของคอมเมนต์หรือ Admin
+    if (!isAdmin && loggedInUserId !== commentOwnerId) {
+      return res.status(403).json({ message: 'คุณไม่มีสิทธิ์ลบความคิดเห็นนี้' });
+    }
+
+    // ลบคอมเมนต์
+    const { error: delErr } = await supabase
+      .from('CommunityComment')
+      .delete()
+      .eq('comment_id', commentId);
+    
+    if (delErr) {
+      console.error('Supabase delete error:', delErr);
+      throw delErr;
+    }
+
+    console.log(`Comment deleted successfully: ${commentId}`);
+    res.json({ message: 'ลบความคิดเห็นสำเร็จ' });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบความคิดเห็น' });
+  }
 });
 
 // POST /api/posts/:id/like - สำหรับกดไลค์/ยกเลิกไลค์

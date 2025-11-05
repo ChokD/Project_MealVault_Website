@@ -21,6 +21,7 @@ import ChatbotPage from './pages/ChatbotPage';
 import ProtectedRoute from './ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
 import CreatePostPage from './pages/CreatePostPage';
+import EditPostPage from './pages/EditPostPage';
 import MealCalendarPage from './pages/MealCalendarPage';
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
           <Route path="/weekly-plan" element={<WeeklyMealPlanPage />} />
           <Route path="/meal-calendar" element={<MealCalendarPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />
+          <Route path="/edit-post/:id" element={<EditPostPage />} />
           {/* สามารถเพิ่ม Route ที่ต้องการป้องกันอื่นๆ ได้ที่นี่ในอนาคต */}
         </Route>
         

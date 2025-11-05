@@ -4,9 +4,11 @@ import { AuthContext } from '../context/AuthContext';
 
 // --- ฟอร์มคอมเมนต์ (เหมือนเดิม) ---
 function CommentForm({ postId, onCommentAdded }) {
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
+  
+  const isAdmin = user?.isAdmin || false;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +42,10 @@ function CommentForm({ postId, onCommentAdded }) {
         required
       ></textarea>
       {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-      <button type="submit" className="mt-2 bg-green-500 text-white font-bold rounded-full px-6 py-2 hover:bg-green-600 transition-colors">
+      <button 
+        type="submit" 
+        className={`mt-2 ${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold rounded-full px-6 py-2 transition-colors`}
+      >
         ส่งความคิดเห็น
       </button>
     </form>
@@ -139,7 +144,11 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
     }
   };
 
-  const canDeletePost = user && post && (user.isAdmin || user.user_id === post.user_id);
+  // ตรวจสอบสิทธิ์จาก details (เมื่อโหลดเสร็จแล้ว) หรือจาก post (ตอนเริ่มต้น)
+  const postUserId = details?.user_id || post?.user_id;
+  const canDeletePost = user && (user.isAdmin || user.user_id === postUserId);
+  const canEditPost = user && (user.isAdmin || user.user_id === postUserId);
+  const isAdmin = user?.isAdmin || false;
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -176,18 +185,30 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
               {isLoading && <p>กำลังโหลดรายละเอียด...</p>}
               {details && (
                 <div>
-                  {canDeletePost && (
-                    <div className="flex justify-end mb-4">
-                      {/* --- แก้ไขตรงนี้: เปลี่ยน onDeletePost เป็น onDeleteClick --- */}
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteClick(details.cpost_id);
-                        }}
-                        className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
-                      >
-                        ลบโพสต์นี้
-                      </button>
+                  {(canEditPost || canDeletePost) && (
+                    <div className="flex justify-end gap-2 mb-4">
+                      {canEditPost && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `/edit-post/${details.cpost_id}`;
+                          }}
+                          className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold text-sm rounded-full px-4 py-1 transition-colors`}
+                        >
+                          แก้ไขโพสต์
+                        </button>
+                      )}
+                      {canDeletePost && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteClick(details.cpost_id);
+                          }}
+                          className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
+                        >
+                          ลบโพสต์นี้
+                        </button>
+                      )}
                     </div>
                   )}
                   {details.cpost_image && (
@@ -209,29 +230,37 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                   <hr className="my-6"/>
                   <h4 className="font-bold text-lg mb-4">ความคิดเห็น ({details.comments?.length || 0})</h4>
                   <div className="space-y-4">
-                    {details.comments?.map(comment => (
-                      <div key={comment.comment_id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-start">
-                         <div>
-                            <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
-                            <p className="text-gray-600">{comment.comment_content || comment.comment_text}</p>
-                         </div>
-                         {user && user.isAdmin && (
-                            <button
-                                onClick={() => onDeleteComment(comment.comment_id)}
-                                className="text-xs text-red-600 hover:underline ml-2 flex-shrink-0"
-                                title="ลบคอมเมนต์นี้"
-                            >
-                                ลบ
-                            </button>
-                         )}
-                      </div>
-                    ))}
+                    {details.comments?.map(comment => {
+                      // ตรวจสอบว่าเป็นเจ้าของคอมเมนต์หรือ Admin
+                      const canDeleteComment = user && (user.isAdmin || user.user_id === comment.user_id);
+                      
+                      return (
+                        <div key={comment.comment_id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-start">
+                           <div className="flex-grow">
+                              <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
+                              <p className="text-gray-600">{comment.comment_content || comment.comment_text}</p>
+                           </div>
+                           {canDeleteComment && (
+                              <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteComment(comment.comment_id);
+                                  }}
+                                  className="text-xs text-red-600 hover:underline ml-2 flex-shrink-0 px-2 py-1 hover:bg-red-50 rounded"
+                                  title="ลบคอมเมนต์นี้"
+                              >
+                                  ลบ
+                              </button>
+                           )}
+                        </div>
+                      );
+                    })}
                      {details.comments?.length === 0 && <p className="text-gray-500">ยังไม่มีความคิดเห็น</p>}
                   </div>
                   {token ? (
                     <CommentForm postId={post.cpost_id} onCommentAdded={handleCommentAdded} />
                   ) : (
-                    <p className="mt-8 text-center text-gray-500">กรุณา <a href="/login" className="text-green-600 font-bold hover:underline">เข้าสู่ระบบ</a> เพื่อแสดงความคิดเห็น</p>
+                    <p className="mt-8 text-center text-gray-500">กรุณา <a href="/login" className={`${isAdmin ? 'text-red-600' : 'text-green-600'} font-bold hover:underline`}>เข้าสู่ระบบ</a> เพื่อแสดงความคิดเห็น</p>
                   )}
                 </div>
               )}

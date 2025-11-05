@@ -9,13 +9,16 @@ import SuccessAnimation from '../components/SuccessAnimation';
 function CommunityPage() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
   const [openPostId, setOpenPostId] = useState(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState({ id: null, type: '' });
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
+
+  // ตรวจสอบว่าเป็น Admin หรือไม่
+  const isAdmin = user?.isAdmin || false;
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -53,9 +56,11 @@ function CommunityPage() {
   const confirmDelete = async () => {
     setIsModalOpen(false);
     const { id, type } = itemToDelete;
+    
+    // ใช้ route ใหม่สำหรับลบคอมเมนต์ (รองรับทั้งเจ้าของและ Admin)
     const url = type === 'post' 
       ? `http://localhost:3000/api/posts/${id}`
-      : `http://localhost:3000/api/admin/comments/${id}`;
+      : `http://localhost:3000/api/posts/comments/${id}`;
     
     try {
       const response = await fetch(url, {
@@ -82,9 +87,14 @@ function CommunityPage() {
       <main className="flex-grow pt-24">
         <div className="container mx-auto px-6 sm:px-8 py-8">
           <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold">ชุมชน MealVault</h1>
+            <h1 className={`text-3xl font-bold ${isAdmin ? 'text-red-600' : 'text-gray-800'}`}>
+              ชุมชน MealVault {isAdmin && <span className="text-sm text-red-500">[Admin Mode]</span>}
+            </h1>
             {token && (
-              <Link to="/create-post" className="bg-green-500 text-white font-bold rounded-full px-6 py-2 hover:bg-green-600 transition-colors">
+              <Link 
+                to="/create-post" 
+                className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold rounded-full px-6 py-2 transition-colors`}
+              >
                 สร้างโพสต์ใหม่
               </Link>
             )}
