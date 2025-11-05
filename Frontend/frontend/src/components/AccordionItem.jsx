@@ -64,6 +64,9 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
         try {
           const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
           const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, { headers });
+          if (!response.ok) {
+            throw new Error('Failed to fetch post details');
+          }
           const data = await response.json();
           setDetails(data);
           if (data.isLiked !== undefined) {
@@ -75,11 +78,14 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
         } finally {
           setIsLoading(false);
         }
+      } else {
+        // Reset details when closed to ensure fresh data on next open
+        setDetails(null);
       }
     };
     
     fetchPostDetails();
-  }, [isOpen]);
+  }, [isOpen, post.cpost_id, token]);
 
   const handleLike = async (e) => {
     e.stopPropagation();
@@ -102,11 +108,35 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
     }
   };
 
-  const handleCommentAdded = (newComment) => {
-    setDetails(prevDetails => ({
-      ...prevDetails,
-      comments: [...(prevDetails?.comments || []), newComment],
-    }));
+  const handleCommentAdded = async (newComment) => {
+    // Re-fetch post details เพื่อให้ได้ข้อมูลคอมเมนต์ที่ถูกต้องจาก backend
+    if (isOpen && token) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data) {
+          setDetails(data);
+          if (data.isLiked !== undefined) {
+            setIsLiked(data.isLiked);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to refresh post details:", error);
+        // Fallback: เพิ่มคอมเมนต์ใหม่เข้าไปใน state
+        setDetails(prevDetails => ({
+          ...prevDetails,
+          comments: [...(prevDetails?.comments || []), newComment],
+        }));
+      }
+    } else {
+      // Fallback: เพิ่มคอมเมนต์ใหม่เข้าไปใน state
+      setDetails(prevDetails => ({
+        ...prevDetails,
+        comments: [...(prevDetails?.comments || []), newComment],
+      }));
+    }
   };
 
   const canDeletePost = user && post && (user.isAdmin || user.user_id === post.user_id);
@@ -160,11 +190,19 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                       </button>
                     </div>
                   )}
-                  <img 
-                    src={details.cpost_image ? `http://localhost:3000/images/${details.cpost_image}` : 'https://via.placeholder.com/800x400.png?text=MealVault'}
-                    alt={details.cpost_title}
-                    className="w-full h-auto max-h-96 object-cover rounded-lg mb-6 shadow-sm"
-                  />
+                  {details.cpost_image && (
+                    <div className="mb-6 rounded-lg overflow-hidden shadow-sm">
+                      <img 
+                        src={`http://localhost:3000/images/${details.cpost_image}`}
+                        alt={details.cpost_title}
+                        className="w-full h-auto max-h-96 object-contain bg-gray-100"
+                        style={{ maxWidth: '100%', height: 'auto' }}
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/800x400.png?text=MealVault';
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="prose max-w-none mb-8 text-gray-700" style={{whiteSpace: 'pre-wrap'}}>
                     {details.cpost_content}
                   </div>
@@ -175,7 +213,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                       <div key={comment.comment_id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-start">
                          <div>
                             <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
-                            <p className="text-gray-600">{comment.comment_content}</p>
+                            <p className="text-gray-600">{comment.comment_content || comment.comment_text}</p>
                          </div>
                          {user && user.isAdmin && (
                             <button

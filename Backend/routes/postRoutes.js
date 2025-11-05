@@ -6,16 +6,41 @@ const upload = require('../middleware/uploadMiddleware');
 
 // --- PUBLIC ROUTES ---
 
-// GET /api/posts - ดึงข้อมูลโพสต์ทั้งหมด (เพิ่ม like_count)
+// GET /api/posts - ดึงข้อมูลโพสต์ทั้งหมด (รวมข้อมูลผู้ใช้)
 router.get('/posts', async (req, res) => {
   try {
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    // ดึงโพสต์ทั้งหมดพร้อมข้อมูลผู้ใช้
     const { data: posts, error } = await supabase
       .from('CommunityPost')
-      .select('cpost_id, cpost_title, cpost_datetime, cpost_image, like_count, user_id')
+      .select(`
+        cpost_id, 
+        cpost_title, 
+        cpost_datetime, 
+        cpost_image, 
+        like_count, 
+        user_id,
+        User:user_id (user_fname, user_lname)
+      `)
       .order('cpost_datetime', { ascending: false });
-    if (error) throw error;
-    // Note: user_fname join omitted; frontend can fetch separately or denormalize later
-    res.json(posts || []);
+    
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
+
+    // แปลงข้อมูลให้ Frontend ใช้งานง่าย
+    const formattedPosts = (posts || []).map(post => ({
+      ...post,
+      user_fname: post.User?.user_fname || 'Unknown',
+      User: undefined // ลบ nested object ออก
+    }));
+
+    res.json(formattedPosts);
   } catch (error) {
     console.error('Error fetching posts:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลโพสต์' });
@@ -28,22 +53,41 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
     const { id: postId } = req.params;
     const loggedInUserId = req.user.id; // ID ของผู้ใช้ที่กำลังดู
 
-    // ดึงข้อมูลโพสต์หลัก
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    // ดึงข้อมูลโพสต์หลักพร้อมข้อมูลผู้ใช้
     const { data: posts, error: postErr } = await supabase
       .from('CommunityPost')
-      .select('*')
+      .select(`
+        *,
+        User:user_id (user_fname, user_lname)
+      `)
       .eq('cpost_id', postId)
       .limit(1);
-    if (postErr) throw postErr;
+    
+    if (postErr) {
+      console.error('Supabase query error:', postErr);
+      throw postErr;
+    }
     if (!posts || posts.length === 0) return res.status(404).json({ message: 'ไม่พบโพสต์' });
 
-    // ดึงคอมเมนต์
+    // ดึงคอมเมนต์พร้อมข้อมูลผู้ใช้
     const { data: comments, error: commentErr } = await supabase
       .from('CommunityComment')
-      .select('*')
+      .select(`
+        *,
+        User:user_id (user_fname, user_lname)
+      `)
       .eq('cpost_id', postId)
       .order('comment_datetime', { ascending: true });
-    if (commentErr) throw commentErr;
+    
+    if (commentErr) {
+      console.error('Supabase query error:', commentErr);
+      throw commentErr;
+    }
 
     // ตรวจสอบว่าผู้ใช้คนนี้เคยกดไลค์โพสต์นี้หรือยัง
     const { data: likes, error: likeErr } = await supabase
@@ -52,13 +96,28 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
       .eq('post_id', postId)
       .eq('user_id', loggedInUserId)
       .limit(1);
-    if (likeErr) throw likeErr;
+    
+    if (likeErr) {
+      console.error('Supabase query error:', likeErr);
+      throw likeErr;
+    }
+
+    // แปลงข้อมูลคอมเมนต์
+    const formattedComments = (comments || []).map(comment => ({
+      ...comment,
+      user_fname: comment.User?.user_fname || 'Unknown',
+      comment_content: comment.comment_text, // เพิ่ม alias สำหรับ Frontend
+      User: undefined // ลบ nested object ออก
+    }));
 
     const postData = {
       ...posts[0],
-      comments: comments,
-      isLiked: likes.length > 0 // เพิ่ม key ใหม่: ถ้าเจอข้อมูลไลค์จะเป็น true
+      user_fname: posts[0].User?.user_fname || 'Unknown',
+      User: undefined, // ลบ nested object ออก
+      comments: formattedComments,
+      isLiked: likes && likes.length > 0 // เพิ่ม key ใหม่: ถ้าเจอข้อมูลไลค์จะเป็น true
     };
+    
     res.json(postData);
   } catch (error) {
     console.error('Error fetching single post:', error);
@@ -71,24 +130,38 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
 
 // POST /api/posts - สร้างโพสต์ใหม่พร้อมรูปภาพ
 router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, res) => {
-  const { cpost_title } = req.body;
+  const { cpost_title, cpost_content } = req.body;
   const user_id = req.user.id;
 
-  if (!cpost_title || !cpost_content) {
-    return res.status(400).json({ message: 'กรุณากรอกหัวข้อและเนื้อหา' });
+  if (!cpost_title) {
+    return res.status(400).json({ message: 'กรุณากรอกหัวข้อโพสต์' });
+  }
+
+  // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+  if (!supabase) {
+    console.error('Supabase client is not initialized');
+    return res.status(500).json({ message: 'Database connection error' });
   }
 
   try {
     const newPost = {
+      cpost_id: 'CP' + Date.now().toString(),
       cpost_title,
+      cpost_content: cpost_content || null, // เนื้อหาเป็น optional
       user_id,
-      cpost_datetime: new Date(),
+      cpost_datetime: new Date().toISOString(),
       cpost_image: req.file ? req.file.filename : null,
+      like_count: 0
     };
 
-    const { error } = await supabase.from('CommunityPost').insert([newPost]);
-    if (error) throw error;
-    res.status(201).json({ message: 'สร้างโพสต์สำเร็จ' });
+    const { data, error } = await supabase.from('CommunityPost').insert([newPost]).select();
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw error;
+    }
+    
+    console.log(`Post created successfully: ${newPost.cpost_id}`);
+    res.status(201).json({ message: 'สร้างโพสต์สำเร็จ', post: data?.[0] || newPost });
   } catch (error) {
     console.error('Error creating post:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างโพสต์' });
@@ -104,8 +177,16 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
     if (!comment_content) {
       return res.status(400).json({ message: 'กรุณากรอกความคิดเห็น' });
     }
+
+    // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
     try {
       const newComment = {
+        comment_id: 'CM' + Date.now().toString(),
         comment_text: comment_content,
         cpost_id,
         user_id,
@@ -115,7 +196,11 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
         .from('CommunityComment')
         .insert([newComment])
         .select();
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw error;
+      }
+      console.log(`Comment created successfully: ${newComment.comment_id}`);
       res.status(201).json(data && data[0] ? data[0] : newComment);
     } catch (error) {
       console.error('Error creating comment:', error);
