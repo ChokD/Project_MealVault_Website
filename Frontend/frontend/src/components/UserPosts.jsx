@@ -59,7 +59,7 @@ function UserPosts() {
   if (loading) {
     return (
       <section className="py-8">
-        <h2 className="text-3xl font-bold mb-8">หมวดหมู่อาหาร</h2>
+        <h2 className="text-3xl font-bold mb-8">หมวดหมู่ชุมชน</h2>
         <div className="relative w-full h-64 flex items-center justify-center bg-gray-100 rounded-xl"><p>กำลังโหลดโพสต์ล่าสุด...</p></div>
       </section>
     );
@@ -71,7 +71,7 @@ function UserPosts() {
         <div className="flex items-center space-x-3">
           <div className="w-1 h-10 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full"></div>
           <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-            หมวดหมู่อาหาร
+            หมวดหมู่ชุมชน
           </h2>
         </div>
         <div className="flex space-x-2">

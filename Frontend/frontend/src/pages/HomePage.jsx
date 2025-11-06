@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
+import MenuSuggestion from '../components/MenuSuggestion';
 import Recommended from '../components/Recommended';
 import UserPosts from '../components/UserPosts';
 
@@ -16,9 +17,12 @@ function HomePage() {
             <Hero />
           </div>
           
-          {/* Recommended Section with modern card design */}
+          {/* Recommended on top, AI Suggestion below */}
           <div className="mb-16">
             <Recommended />
+          </div>
+          <div className="mb-16">
+            <MenuSuggestion />
           </div>
           
           {/* User Posts Section */}
