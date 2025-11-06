@@ -203,6 +203,32 @@ router.delete('/weekly-meal-plan/:planId', authMiddleware, async (req, res) => {
   }
 });
 
+// ฟังก์ชันลบจำนวนออกจากชื่อส่วนผสม
+function removeQuantityFromIngredientName(ingredientName) {
+  if (!ingredientName) return ingredientName;
+  
+  let cleaned = ingredientName.trim();
+  
+  // ลบเศษส่วนและจำนวนที่ตามด้วยหน่วย (เช่น "1/2 ช้อนโต๊ะ", "1 ช้อนชา")
+  // รองรับทั้งจำนวนเต็ม เศษส่วน และทศนิยม
+  cleaned = cleaned.replace(/\s*\d+(\/\d+)?(\.\d+)?\s*(ช้อนชา|ช้อนโต๊ะ|ถ้วย|กิโลกรัม|กรัม|มิลลิลิตร|ลิตร|ชิ้น|อัน|หัว|กลีบ|ใบ|ต้น|ก้าน|ผล|เม็ด|ฟอง|ตัว|แผ่น|ก้อน|กี่โล|กก|แก้ว|ถุง|ซอง|ขวด|กระป๋อง|ห่อ|แพ็ค|กล่อง)\s*/gi, '');
+  
+  // ลบเศษส่วนและจำนวนที่อยู่ท้ายชื่อ (เช่น "กะปิ 1/2", "เนื้อหมู 1/", "มันแกว 1/")
+  // รองรับทั้ง "1/2", "1/", "1" ที่อยู่ท้าย รวมถึงทศนิยม
+  // จับทั้ง "1/" และ "1/2" ที่ท้าย
+  cleaned = cleaned.replace(/\s+\d+\/\d*\s*$/g, ''); // จับ "1/2" หรือ "1/" ที่ท้าย
+  cleaned = cleaned.replace(/\s+\d+(\.\d+)?\s*$/g, ''); // จับ "1" หรือ "1.5" ที่ท้าย
+  
+  // ลบเศษส่วนและจำนวนที่อยู่หน้าชื่อ (เช่น "1/2 กะปิ", "1 เนื้อหมู")
+  cleaned = cleaned.replace(/^\d+(\/\d+)?(\.\d+)?\s+\/?/g, '');
+  
+  // ลบเศษส่วนและจำนวนที่อยู่กลางชื่อ (เช่น "กะปิ 1/2 ช้อนโต๊ะ" -> "กะปิ")
+  // แต่ต้องระวังไม่ให้ลบชื่อส่วนผสมที่มีตัวเลขเป็นส่วนหนึ่งของชื่อ
+  cleaned = cleaned.replace(/\s+\d+(\/\d+)?(\.\d+)?\/?\s+/g, ' ');
+  
+  return cleaned.trim();
+}
+
 // GET /api/weekly-meal-plan/shopping-list - สร้างรายการของซื้อจาก weekly meal plan
 router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) => {
   try {
@@ -248,10 +274,12 @@ router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) =
       if (menu.MenuIngredient && menu.MenuIngredient.length > 0) {
         for (const mi of menu.MenuIngredient) {
           if (mi.Ingredient) {
-            const key = mi.Ingredient.ingredient_name.toLowerCase();
+            // ลบจำนวนออกจากชื่อส่วนผสม
+            const cleanedName = removeQuantityFromIngredientName(mi.Ingredient.ingredient_name);
+            const key = cleanedName.toLowerCase();
             if (!ingredientMap.has(key)) {
               ingredientMap.set(key, {
-                name: mi.Ingredient.ingredient_name,
+                name: cleanedName,
                 count: 0
               });
             }

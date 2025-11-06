@@ -318,7 +318,6 @@ function WeeklyMealPlanPage() {
                     <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                     <div>
                       <span className="font-medium text-gray-800">{it.name}</span>
-                      {it.measure && <span className="text-gray-600"> — {it.measure}</span>}
                     </div>
                   </li>
                 ))}
