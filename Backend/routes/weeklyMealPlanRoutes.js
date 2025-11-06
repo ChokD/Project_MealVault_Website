@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // GET /api/weekly-meal-plan - ดึง weekly meal plan ของ user
 router.get('/weekly-meal-plan', authMiddleware, async (req, res) => {
@@ -228,6 +229,184 @@ function removeQuantityFromIngredientName(ingredientName) {
   
   return cleaned.trim();
 }
+
+// GET /api/weekly-meal-plan/calculate-calories - คำนวณแคลอรี่จาก weekly meal plan โดยใช้ Gemini AI
+router.get('/weekly-meal-plan/calculate-calories', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // ตรวจสอบ API Key
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY กรุณาใส่ API Key ในไฟล์ .env' });
+    }
+
+    // ดึงข้อมูล calorie_limit ของ user
+    const { data: userData, error: userError } = await supabase
+      .from('User')
+      .select('calorie_limit')
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (userError) throw userError;
+    const calorieLimit = userData && userData.length > 0 ? userData[0].calorie_limit : null;
+
+    // ดึง weekly meal plan
+    const { data: planItems, error: planError } = await supabase
+      .from('WeeklyMealPlan')
+      .select('day, meal_type, menu_id')
+      .eq('user_id', userId)
+      .order('day')
+      .order('meal_type');
+
+    if (planError) throw planError;
+
+    if (!planItems || planItems.length === 0) {
+      return res.json({
+        total_calories: 0,
+        daily_calories: {},
+        weekly_total: 0,
+        calorie_limit: calorieLimit,
+        warnings: [],
+        message: 'ยังไม่มีเมนูในแผนรายสัปดาห์'
+      });
+    }
+
+    // ดึงข้อมูลเมนูทั้งหมด
+    const uniqueMenuIds = [...new Set(planItems.map(item => item.menu_id))];
+    const { data: menus, error: menusError } = await supabase
+      .from('Menu')
+      .select('menu_id, menu_name, menu_description, menu_recipe')
+      .in('menu_id', uniqueMenuIds);
+
+    if (menusError) throw menusError;
+
+    const menuMap = new Map();
+    if (menus) {
+      for (const menu of menus) {
+        menuMap.set(menu.menu_id, menu);
+      }
+    }
+
+    // จัดกลุ่มเมนูตามวันและมื้อ
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+    const mealPlanByDay = {};
+
+    for (const day of DAYS) {
+      mealPlanByDay[day] = {};
+      for (const meal of MEALS) {
+        mealPlanByDay[day][meal] = [];
+      }
+    }
+
+    for (const item of planItems) {
+      const menu = menuMap.get(item.menu_id);
+      if (menu && mealPlanByDay[item.day] && mealPlanByDay[item.day][item.meal_type]) {
+        mealPlanByDay[item.day][item.meal_type].push(menu.menu_name);
+      }
+    }
+
+    // สร้าง prompt สำหรับ Gemini
+    let prompt = `คุณคือผู้เชี่ยวชาญด้านโภชนาการ กรุณาคำนวณจำนวนแคลอรี่จากรายการเมนูอาหารต่อไปนี้:
+
+`;
+    
+    for (const day of DAYS) {
+      const dayMenus = [];
+      for (const meal of MEALS) {
+        if (mealPlanByDay[day][meal].length > 0) {
+          dayMenus.push(`${meal}: ${mealPlanByDay[day][meal].join(', ')}`);
+        }
+      }
+      if (dayMenus.length > 0) {
+        prompt += `${day}:\n${dayMenus.join('\n')}\n\n`;
+      }
+    }
+
+    prompt += `กรุณาคำนวณและตอบกลับในรูปแบบ JSON เท่านั้น โดยมีโครงสร้างดังนี้:
+{
+  "daily_calories": {
+    "Sun": 0,
+    "Mon": 0,
+    "Tue": 0,
+    "Wed": 0,
+    "Thu": 0,
+    "Fri": 0,
+    "Sat": 0
+  },
+  "weekly_total": 0,
+  "meal_details": {
+    "Sun": {
+      "breakfast": 0,
+      "lunch": 0,
+      "dinner": 0,
+      "snack": 0
+    }
+  }
+}
+
+กรุณาตอบกลับเฉพาะ JSON เท่านั้น ไม่ต้องมีข้อความอื่น`;
+
+    // เรียก Gemini API
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Parse JSON จาก response
+    let caloriesData;
+    try {
+      // ลบ markdown code blocks ถ้ามี
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      caloriesData = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('Error parsing Gemini response:', parseError);
+      console.error('Raw response:', text);
+      throw new Error('ไม่สามารถแปลงผลลัพธ์จาก AI ได้ กรุณาลองใหม่อีกครั้ง');
+    }
+
+    // ตรวจสอบและคำนวณ warnings
+    const warnings = [];
+    const dailyCalories = caloriesData.daily_calories || {};
+    const weeklyTotal = caloriesData.weekly_total || 0;
+
+    if (calorieLimit) {
+      for (const day of DAYS) {
+        const dayCalories = dailyCalories[day] || 0;
+        if (dayCalories > calorieLimit) {
+          const excess = dayCalories - calorieLimit;
+          warnings.push({
+            day: day,
+            calories: dayCalories,
+            limit: calorieLimit,
+            excess: excess,
+            message: `${day}: เกิน ${excess} แคลอรี่ (${dayCalories}/${calorieLimit})`
+          });
+        }
+      }
+    }
+
+    res.json({
+      total_calories: weeklyTotal,
+      daily_calories: dailyCalories,
+      meal_details: caloriesData.meal_details || {},
+      weekly_total: weeklyTotal,
+      calorie_limit: calorieLimit,
+      warnings: warnings,
+      has_warnings: warnings.length > 0
+    });
+
+  } catch (error) {
+    console.error('Error calculating calories:', error);
+    const errorMsg = error.message || 'เกิดข้อผิดพลาดในการคำนวณแคลอรี่';
+    res.status(500).json({ 
+      error: errorMsg,
+      details: error.toString()
+    });
+  }
+});
 
 // GET /api/weekly-meal-plan/shopping-list - สร้างรายการของซื้อจาก weekly meal plan
 router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) => {

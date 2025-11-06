@@ -119,6 +119,9 @@ function WeeklyMealPlanPage() {
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [caloriesData, setCaloriesData] = useState(null);
+  const [calculating, setCalculating] = useState(false);
+  const [showCaloriesModal, setShowCaloriesModal] = useState(false);
   const QUICK_KEYWORDS = ['ไก่', 'หมู', 'เนื้อ', 'กุ้ง', 'ปลา', 'ผัด', 'แกง', 'ต้ม'];
 
   useEffect(() => {
@@ -251,6 +254,30 @@ function WeeklyMealPlanPage() {
     }
   };
 
+  const calculateCalories = async () => {
+    if (!token) return;
+    setCalculating(true);
+    try {
+      const resp = await fetch(`${API_URL}/weekly-meal-plan/calculate-calories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!resp.ok) {
+        const errorData = await resp.json();
+        throw new Error(errorData.error || 'Failed to calculate calories');
+      }
+      const data = await resp.json();
+      setCaloriesData(data);
+      setShowCaloriesModal(true);
+    } catch (error) {
+      console.error('Error calculating calories:', error);
+      alert(error.message || 'เกิดข้อผิดพลาดในการคำนวณแคลอรี่');
+    } finally {
+      setCalculating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
@@ -261,10 +288,16 @@ function WeeklyMealPlanPage() {
               <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">แผนเมนูรายสัปดาห์</h1>
               <p className="mt-1 text-sm text-gray-500">จัดตารางอาหารของคุณตลอดสัปดาห์ เพิ่มเมนูได้อย่างรวดเร็ว</p>
             </div>
-            <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed">
-              <span className="i-heroicons-shopping-cart-20-solid" />
-              {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={calculateCalories} disabled={calculating || !token} className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span>🔥</span>
+                {calculating ? 'กำลังคำนวณ...' : 'คำนวณแคลอรี่'}
+              </button>
+              <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span className="i-heroicons-shopping-cart-20-solid" />
+                {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
+              </button>
+            </div>
           </div>
           {loadingPlan && (
             <div className="text-center py-8 text-gray-500">กำลังโหลดข้อมูล...</div>
@@ -328,6 +361,140 @@ function WeeklyMealPlanPage() {
           )}
         </div>
       </main>
+
+      {showCaloriesModal && caloriesData && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 grid place-items-center text-xl">🔥</div>
+                <div>
+                  <h2 className="font-semibold text-gray-900">ผลการคำนวณแคลอรี่</h2>
+                  {caloriesData.calorie_limit && (
+                    <p className="text-xs text-gray-500">เป้าหมาย: {caloriesData.calorie_limit} แคลอรี่/วัน</p>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => setShowCaloriesModal(false)} className="text-gray-500 hover:text-black text-xl">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {/* แสดงการแจ้งเตือนถ้าเกิน */}
+              {caloriesData.has_warnings && caloriesData.warnings && caloriesData.warnings.length > 0 && (
+                <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start gap-2 mb-2">
+                    <span className="text-red-600 text-lg">⚠️</span>
+                    <h3 className="font-semibold text-red-800">แจ้งเตือน: แคลอรี่เกินเป้าหมาย</h3>
+                  </div>
+                  <ul className="space-y-2">
+                    {caloriesData.warnings.map((warning, idx) => (
+                      <li key={idx} className="text-sm text-red-700 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                        <span>{warning.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* สรุปแคลอรี่รวม */}
+              <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">แคลอรี่รวมทั้งสัปดาห์:</span>
+                  <span className="text-2xl font-bold text-blue-700">{caloriesData.weekly_total || caloriesData.total_calories || 0} kcal</span>
+                </div>
+                {caloriesData.calorie_limit && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    เฉลี่ยต่อวัน: {Math.round((caloriesData.weekly_total || 0) / 7)} kcal
+                    {caloriesData.calorie_limit && (
+                      <span className={`ml-2 ${Math.round((caloriesData.weekly_total || 0) / 7) > caloriesData.calorie_limit ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+                        (เป้าหมาย: {caloriesData.calorie_limit} kcal/วัน)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* แคลอรี่รายวัน */}
+              <div className="mb-4">
+                <h3 className="font-semibold text-gray-900 mb-3">แคลอรี่รายวัน</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {DAYS.map(day => {
+                    const dayCalories = caloriesData.daily_calories?.[day] || 0;
+                    const isOverLimit = caloriesData.calorie_limit && dayCalories > caloriesData.calorie_limit;
+                    return (
+                      <div key={day} className={`p-3 rounded-lg border ${isOverLimit ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-gray-700">{day}</span>
+                          <span className={`text-lg font-bold ${isOverLimit ? 'text-red-600' : 'text-gray-800'}`}>
+                            {dayCalories} kcal
+                          </span>
+                        </div>
+                        {caloriesData.calorie_limit && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${isOverLimit ? 'bg-red-500' : dayCalories > caloriesData.calorie_limit * 0.9 ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                                style={{ width: `${Math.min(100, (dayCalories / caloriesData.calorie_limit) * 100)}%` }}
+                              ></div>
+                            </div>
+                            {isOverLimit && (
+                              <span className="text-xs text-red-600 font-medium">
+                                +{dayCalories - caloriesData.calorie_limit}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* แคลอรี่รายมื้อ (ถ้ามี) */}
+              {caloriesData.meal_details && Object.keys(caloriesData.meal_details).length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3">แคลอรี่รายมื้อ</h3>
+                  <div className="space-y-3">
+                    {DAYS.map(day => {
+                      const mealDetails = caloriesData.meal_details[day];
+                      if (!mealDetails) return null;
+                      return (
+                        <div key={day} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="text-sm font-medium text-gray-700 mb-2">{day}</div>
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            {MEALS.map(meal => (
+                              <div key={meal} className="text-center">
+                                <div className="text-gray-500 mb-1">{meal}</div>
+                                <div className="font-semibold text-gray-800">
+                                  {mealDetails[meal] || 0} kcal
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {caloriesData.message && (
+                <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 text-center">
+                  {caloriesData.message}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t bg-gray-50">
+              <button 
+                onClick={() => setShowCaloriesModal(false)} 
+                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
