@@ -88,11 +88,23 @@ create table if not exists "MealCalendar" (
   unique (user_id, meal_date, meal_type)
 );
 
+-- Weekly Meal Plan (allows multiple menus per day/meal)
+create table if not exists "WeeklyMealPlan" (
+  id uuid primary key default gen_random_uuid(),
+  user_id text references "User"(user_id) on delete cascade,
+  day text not null check (day in ('Sun','Mon','Tue','Wed','Thu','Fri','Sat')),
+  meal_type text not null check (meal_type in ('breakfast','lunch','dinner','snack')),
+  menu_id text references "Menu"(menu_id) on delete cascade,
+  order_index integer default 0,
+  created_at timestamptz default now()
+);
+
 -- Indexes
 create index if not exists idx_menu_name on "Menu" (menu_name);
 create index if not exists idx_category_name on "Category" (category_name);
 create index if not exists idx_post_datetime on "CommunityPost" (cpost_datetime desc);
 create index if not exists idx_comment_post on "CommunityComment" (cpost_id);
+create index if not exists idx_weeklymealplan_user on "WeeklyMealPlan" (user_id);
 
 -- RLS policies (example: enable for anon/service as needed)
 alter table "User" enable row level security;
@@ -103,6 +115,7 @@ alter table "CommunityComment" enable row level security;
 alter table "PostLike" enable row level security;
 alter table "CommunityReport" enable row level security;
 alter table "MealCalendar" enable row level security;
+alter table "WeeklyMealPlan" enable row level security;
 alter table "Ingredient" enable row level security;
 alter table "MenuIngredient" enable row level security;
 
@@ -130,6 +143,9 @@ create policy report_all on "CommunityReport" for all using (true) with check (t
 
 drop policy if exists mealcal_all on "MealCalendar";
 create policy mealcal_all on "MealCalendar" for all using (true) with check (true);
+
+drop policy if exists weeklymealplan_all on "WeeklyMealPlan";
+create policy weeklymealplan_all on "WeeklyMealPlan" for all using (true) with check (true);
 
 drop policy if exists ingredient_all on "Ingredient";
 create policy ingredient_all on "Ingredient" for all using (true) with check (true);

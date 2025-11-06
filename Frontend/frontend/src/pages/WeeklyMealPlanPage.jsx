@@ -1,25 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import Navbar from '../components/Navbar';
+import { AuthContext } from '../context/AuthContext';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
-
-const STORAGE_KEY = 'weeklyMealPlan';
-
-function loadPlan() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createEmptyPlan();
-    const parsed = JSON.parse(raw);
-    return normalizePlan(parsed);
-  } catch {
-    return createEmptyPlan();
-  }
-}
-
-function savePlan(plan) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
-}
+const API_URL = 'http://localhost:3000/api';
 
 function createEmptyPlan() {
   const plan = {};
@@ -32,42 +17,97 @@ function createEmptyPlan() {
   return plan;
 }
 
-function normalizePlan(value) {
-  const base = createEmptyPlan();
-  for (const day of DAYS) {
-    for (const meal of MEALS) {
-      base[day][meal] = Array.isArray(value?.[day]?.[meal]) ? value[day][meal] : [];
-    }
+async function fetchPlanFromAPI(token) {
+  try {
+    const resp = await fetch(`${API_URL}/weekly-meal-plan`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!resp.ok) throw new Error('Failed to fetch plan');
+    const data = await resp.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching plan:', error);
+    return createEmptyPlan();
   }
-  return base;
 }
 
-async function fetchRecipeByName(query) {
-  const resp = await fetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(query)}`);
-  const data = await resp.json();
-  return data.meals || [];
-}
-
-async function fetchRecipeById(id) {
-  const resp = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${id}`);
-  const data = await resp.json();
-  return data.meals && data.meals[0] ? data.meals[0] : null;
-}
-
-function parseIngredients(recipe) {
-  const items = [];
-  if (!recipe) return items;
-  for (let i = 1; i <= 20; i++) {
-    const name = recipe[`strIngredient${i}`];
-    const measure = recipe[`strMeasure${i}`];
-    if (name && String(name).trim() !== '') {
-      items.push({ name: name.trim(), measure: (measure || '').trim() });
-    }
+async function searchMenus(query) {
+  try {
+    const resp = await fetch(`${API_URL}/menus/search?q=${encodeURIComponent(query)}`);
+    if (!resp.ok) throw new Error('Failed to search menus');
+    const data = await resp.json();
+    return data || [];
+  } catch (error) {
+    console.error('Error searching menus:', error);
+    return [];
   }
-  return items;
+}
+
+async function addMenuToPlan(day, mealType, menuId, token) {
+  try {
+    const resp = await fetch(`${API_URL}/weekly-meal-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        day,
+        meal_type: mealType,
+        menu_id: menuId
+      })
+    });
+    if (!resp.ok) {
+      const errorData = await resp.json();
+      console.error('API Error Response:', errorData);
+      // ใช้ error message ที่ชัดเจนขึ้น
+      const errorMsg = errorData.error || errorData.message || 'Failed to add menu';
+      throw new Error(errorMsg);
+    }
+    const data = await resp.json();
+    return data;
+  } catch (error) {
+    console.error('Error adding menu:', error);
+    throw error;
+  }
+}
+
+async function removeMenuFromPlan(planId, token) {
+  try {
+    const resp = await fetch(`${API_URL}/weekly-meal-plan/${planId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!resp.ok) throw new Error('Failed to remove menu');
+    return true;
+  } catch (error) {
+    console.error('Error removing menu:', error);
+    throw error;
+  }
+}
+
+async function generateShoppingListFromAPI(token) {
+  try {
+    const resp = await fetch(`${API_URL}/weekly-meal-plan/shopping-list`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!resp.ok) throw new Error('Failed to generate shopping list');
+    const data = await resp.json();
+    return data || [];
+  } catch (error) {
+    console.error('Error generating shopping list:', error);
+    return [];
+  }
 }
 
 function WeeklyMealPlanPage() {
+  const { token } = useContext(AuthContext);
   const [plan, setPlan] = useState(createEmptyPlan());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTarget, setModalTarget] = useState({ day: null, meal: null });
@@ -76,14 +116,25 @@ function WeeklyMealPlanPage() {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [shopping, setShopping] = useState([]);
   const [generating, setGenerating] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState(true);
 
   useEffect(() => {
-    setPlan(loadPlan());
-  }, []);
+    if (token) {
+      loadPlan();
+    } else {
+      setLoadingPlan(false);
+    }
+  }, [token]);
 
-  useEffect(() => {
-    savePlan(plan);
-  }, [plan]);
+  const loadPlan = async () => {
+    setLoadingPlan(true);
+    try {
+      const data = await fetchPlanFromAPI(token);
+      setPlan(data);
+    } finally {
+      setLoadingPlan(false);
+    }
+  };
 
   const openAddModal = (day, meal) => {
     setModalTarget({ day, meal });
@@ -92,65 +143,58 @@ function WeeklyMealPlanPage() {
     setIsModalOpen(true);
   };
 
-  const addRecipeToTarget = (recipe) => {
-    if (!modalTarget.day || !modalTarget.meal) return;
-    setPlan(prev => {
-      const next = { ...prev, [modalTarget.day]: { ...prev[modalTarget.day] } };
-      const list = [...next[modalTarget.day][modalTarget.meal]];
-      const item = { id: recipe.idMeal, name: recipe.strMeal, thumb: recipe.strMealThumb };
-      // avoid duplicates in same slot
-      if (!list.some(r => r.id === item.id)) list.push(item);
-      next[modalTarget.day][modalTarget.meal] = list;
-      return next;
-    });
-    setIsModalOpen(false);
+  const addRecipeToTarget = async (menu) => {
+    if (!modalTarget.day || !modalTarget.meal || !token) return;
+    try {
+      const newItem = await addMenuToPlan(modalTarget.day, modalTarget.meal, menu.menu_id, token);
+      setPlan(prev => {
+        const next = { ...prev, [modalTarget.day]: { ...prev[modalTarget.day] } };
+        const list = [...next[modalTarget.day][modalTarget.meal]];
+        // avoid duplicates in same slot
+        if (!list.some(r => r.id === newItem.id)) {
+          list.push(newItem);
+        }
+        next[modalTarget.day][modalTarget.meal] = list;
+        return next;
+      });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error in addRecipeToTarget:', error);
+      const errorMsg = error.message || 'เกิดข้อผิดพลาดในการเพิ่มเมนู';
+      alert(errorMsg);
+    }
   };
 
-  const removeRecipe = (day, meal, id) => {
-    setPlan(prev => {
-      const next = { ...prev, [day]: { ...prev[day] } };
-      next[day][meal] = prev[day][meal].filter(r => r.id !== id);
-      return next;
-    });
+  const removeRecipe = async (item) => {
+    if (!item.planId || !token) return;
+    try {
+      await removeMenuFromPlan(item.planId, token);
+      setPlan(prev => {
+        const next = { ...prev, [item.day]: { ...prev[item.day] } };
+        next[item.day][item.meal] = prev[item.day][item.meal].filter(r => r.planId !== item.planId);
+        return next;
+      });
+    } catch (error) {
+      alert(error.message || 'เกิดข้อผิดพลาดในการลบเมนู');
+    }
   };
 
   const handleSearch = async (e) => {
     e.preventDefault();
     setLoadingSearch(true);
     try {
-      const meals = await fetchRecipeByName(search.trim());
-      setResults(meals);
+      const menus = await searchMenus(search.trim());
+      setResults(menus);
     } finally {
       setLoadingSearch(false);
     }
   };
 
-  const allRecipeIds = useMemo(() => {
-    const ids = [];
-    for (const day of DAYS) {
-      for (const meal of MEALS) {
-        for (const r of plan[day][meal]) ids.push(r.id);
-      }
-    }
-    return Array.from(new Set(ids));
-  }, [plan]);
-
   const generateShoppingList = async () => {
+    if (!token) return;
     setGenerating(true);
     try {
-      const recipes = await Promise.all(allRecipeIds.map(id => fetchRecipeById(id)));
-      const all = recipes.flatMap(parseIngredients);
-      const map = new Map();
-      for (const { name, measure } of all) {
-        const key = name.toLowerCase();
-        if (!map.has(key)) map.set(key, { name, measures: [] });
-        if (measure) map.get(key).measures.push(measure);
-      }
-      // Combine measures as simple joined text (unit math can be complex; keep simple)
-      const list = Array.from(map.values()).map(it => ({
-        name: it.name,
-        measure: it.measures.filter(Boolean).join(' + ')
-      })).sort((a, b) => a.name.localeCompare(b.name));
+      const list = await generateShoppingListFromAPI(token);
       setShopping(list);
     } finally {
       setGenerating(false);
@@ -164,11 +208,19 @@ function WeeklyMealPlanPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold">แผนเมนูรายสัปดาห์</h1>
-            <button onClick={generateShoppingList} className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700">
-              สร้างรายการของซื้อ
+            <button onClick={generateShoppingList} disabled={generating || !token} className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
             </button>
           </div>
+          {loadingPlan && (
+            <div className="text-center py-8 text-gray-500">กำลังโหลดข้อมูล...</div>
+          )}
+          {!loadingPlan && !token && (
+            <div className="text-center py-8 text-gray-500">กรุณาเข้าสู่ระบบเพื่อใช้งานฟีเจอร์นี้</div>
+          )}
 
+          {!loadingPlan && token && (
+            <>
           <div className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-6">
             {DAYS.map(day => (
               <div key={day} className="bg-white rounded-xl shadow p-3">
@@ -182,10 +234,10 @@ function WeeklyMealPlanPage() {
                     </div>
                     <div className="space-y-2">
                       {plan[day][meal].map(r => (
-                        <div key={r.id} className="flex items-center gap-2 bg-gray-50 rounded p-2">
-                          <img src={r.thumb} alt="" className="w-10 h-10 object-cover rounded" />
+                        <div key={r.planId || r.id} className="flex items-center gap-2 bg-gray-50 rounded p-2">
+                          <img src={r.thumb || '/images/no-image.png'} alt="" className="w-10 h-10 object-cover rounded" onError={(e) => { e.target.src = '/images/no-image.png'; }} />
                           <div className="text-sm flex-1 truncate" title={r.name}>{r.name}</div>
-                          <button onClick={() => removeRecipe(day, meal, r.id)} className="text-red-600 text-xs hover:underline">ลบ</button>
+                          <button onClick={() => removeRecipe({ ...r, day, meal })} className="text-red-600 text-xs hover:underline">ลบ</button>
                         </div>
                       ))}
                       {plan[day][meal].length === 0 && (
@@ -216,6 +268,8 @@ function WeeklyMealPlanPage() {
               </ul>
             )}
           </div>
+            </>
+          )}
         </div>
       </main>
 
@@ -233,14 +287,16 @@ function WeeklyMealPlanPage() {
               </button>
             </form>
             <div className="max-h-96 overflow-auto divide-y">
-              {results.map(rec => (
-                <div key={rec.idMeal} className="p-2 flex items-center gap-3">
-                  <img src={rec.strMealThumb} alt="" className="w-14 h-14 rounded object-cover" />
+              {results.map(menu => (
+                <div key={menu.menu_id} className="p-2 flex items-center gap-3">
+                  <img src={menu.menu_image || '/images/no-image.png'} alt="" className="w-14 h-14 rounded object-cover" onError={(e) => { e.target.src = '/images/no-image.png'; }} />
                   <div className="flex-1">
-                    <div className="font-medium">{rec.strMeal}</div>
-                    <div className="text-xs text-gray-500">{rec.strCategory} • {rec.strArea}</div>
+                    <div className="font-medium">{menu.menu_name}</div>
+                    {menu.menu_description && (
+                      <div className="text-xs text-gray-500 line-clamp-2">{menu.menu_description}</div>
+                    )}
                   </div>
-                  <button onClick={() => addRecipeToTarget(rec)} className="text-sm bg-gray-100 hover:bg-gray-200 rounded px-3 py-1">เพิ่ม</button>
+                  <button onClick={() => addRecipeToTarget(menu)} className="text-sm bg-gray-100 hover:bg-gray-200 rounded px-3 py-1">เพิ่ม</button>
                 </div>
               ))}
               {results.length === 0 && !loadingSearch && (

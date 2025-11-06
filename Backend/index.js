@@ -14,6 +14,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const recommendRoutes = require('./routes/recommendRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const mealCalendarRoutes = require('./routes/mealCalendarRoutes');
+const weeklyMealPlanRoutes = require('./routes/weeklyMealPlanRoutes');
 const thaiFoodRoutes = require('./routes/thaiFoodRoutes');
 const debugRoutes = require('./routes/debugRoutes'); // Debug routes
 
@@ -43,6 +44,7 @@ app.use('/api', reportRoutes);
 app.use('/api', recommendRoutes);
 app.use('/api', chatbotRoutes);
 app.use('/api', mealCalendarRoutes);
+app.use('/api', weeklyMealPlanRoutes);
 app.use('/api', thaiFoodRoutes);
 app.use('/api/debug', debugRoutes); // Debug routes (ลบออกเมื่อเสร็จแล้ว)
 
