@@ -1,42 +1,80 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { AuthContext } from '../context/AuthContext';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
-const STORAGE_KEY = 'weeklyMealPlan';
+const API_URL = 'http://localhost:3000/api';
 
-function addToWeeklyPlan({ idMeal, strMeal, strMealThumb }, day, meal) {
+async function fetchPlanFromAPI(token) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const base = createEmptyPlan();
-    const plan = raw ? { ...base, ...JSON.parse(raw) } : base;
-    if (!Array.isArray(plan?.[day]?.[meal])) plan[day][meal] = [];
-    const exists = plan[day][meal].some(r => r.id === idMeal);
-    if (!exists) plan[day][meal].push({ id: idMeal, name: strMeal, thumb: strMealThumb });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
-    return true;
-  } catch {
-    return false;
+    const resp = await fetch(`${API_URL}/weekly-meal-plan`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching plan:', error);
+    return null;
   }
 }
 
-function createEmptyPlan() {
-  const plan = {};
-  for (const d of DAYS) {
-    plan[d] = {};
-    for (const m of MEALS) plan[d][m] = [];
+async function findMenuIdByName(menuName) {
+  try {
+    const resp = await fetch(`${API_URL}/menus/search?q=${encodeURIComponent(menuName)}`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    // หาเมนูที่ชื่อตรงกัน
+    const menu = data.find(m => m.menu_name === menuName);
+    return menu ? menu.menu_id : null;
+  } catch (error) {
+    console.error('Error finding menu:', error);
+    return null;
   }
-  return plan;
+}
+
+async function addMenuToPlan(day, mealType, menuId, token) {
+  try {
+    const resp = await fetch(`${API_URL}/weekly-meal-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        day,
+        meal_type: mealType,
+        menu_id: menuId
+      })
+    });
+    if (!resp.ok) {
+      const errorData = await resp.json();
+      throw new Error(errorData.error || errorData.message || 'Failed to add menu');
+    }
+    const data = await resp.json();
+    return data;
+  } catch (error) {
+    console.error('Error adding menu:', error);
+    throw error;
+  }
 }
 
 function RecipeDetailPage() {
   const { recipeId } = useParams(); // ดึง ID ของเมนูมาจาก URL
+  const { token } = useContext(AuthContext);
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pickDay, setPickDay] = useState('Mon');
   const [pickMeal, setPickMeal] = useState('dinner');
   const [added, setAdded] = useState('');
+  const [plan, setPlan] = useState(null);
+  const [menuId, setMenuId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState(false);
 
   useEffect(() => {
     const fetchRecipeDetails = async () => {
@@ -53,6 +91,36 @@ function RecipeDetailPage() {
     };
     fetchRecipeDetails();
   }, [recipeId]);
+
+  // โหลด plan และ menu_id เมื่อ recipe โหลดเสร็จและมี token
+  useEffect(() => {
+    if (recipe && token) {
+      const loadPlanAndMenuId = async () => {
+        setLoadingPlan(true);
+        try {
+          // หา menu_id
+          const id = await findMenuIdByName(recipe.strMeal);
+          if (id) setMenuId(id);
+          
+          // ดึง plan
+          const planData = await fetchPlanFromAPI(token);
+          setPlan(planData);
+        } finally {
+          setLoadingPlan(false);
+        }
+      };
+      loadPlanAndMenuId();
+    }
+  }, [recipe, token]);
+
+  // Reload plan เมื่อเปลี่ยนวันหรือมื้อ
+  useEffect(() => {
+    if (token && recipe) {
+      fetchPlanFromAPI(token).then(planData => {
+        if (planData) setPlan(planData);
+      });
+    }
+  }, [pickDay, pickMeal, token, recipe]);
 
   // ฟังก์ชันสำหรับจัดรูปแบบวัตถุดิบและปริมาณ
   const getIngredients = (recipeData) => {
@@ -94,19 +162,93 @@ function RecipeDetailPage() {
           <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
             <h1 className="text-4xl font-bold mb-4">{recipe.strMeal}</h1>
             <p className="text-gray-500 mb-6">{recipe.strCategory} | {recipe.strArea}</p>
-            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 mb-6 flex items-center gap-2">
-              <div className="text-sm">เพิ่มลงแผนสัปดาห์:</div>
-              <select value={pickDay} onChange={(e) => setPickDay(e.target.value)} className="border rounded px-2 py-1 text-sm">
-                {DAYS.map(d => (<option key={d} value={d}>{d}</option>))}
-              </select>
-              <select value={pickMeal} onChange={(e) => setPickMeal(e.target.value)} className="border rounded px-2 py-1 text-sm">
-                {MEALS.map(m => (<option key={m} value={m}>{m}</option>))}
-              </select>
-              <button
-                onClick={() => { if (addToWeeklyPlan(recipe, pickDay, pickMeal)) setAdded('เพิ่มแล้ว!'); }}
-                className="bg-emerald-600 text-white rounded px-3 py-1 text-sm hover:bg-emerald-700"
-              >เพิ่ม</button>
-              {added && <span className="text-emerald-700 text-sm">{added}</span>}
+            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 mb-6">
+              <div className="text-sm font-medium mb-3">เพิ่มลงแผนสัปดาห์:</div>
+              <div className="flex flex-wrap items-center gap-3">
+                <select 
+                  value={pickDay} 
+                  onChange={(e) => setPickDay(e.target.value)} 
+                  className="border rounded px-3 py-2 text-sm"
+                >
+                  {DAYS.map(d => (<option key={d} value={d}>{d}</option>))}
+                </select>
+                <div className="flex gap-2">
+                  {MEALS.map(meal => {
+                    // ตรวจสอบว่าเมนูปัจจุบันถูกเลือกไปแล้วในวัน/มื้อนี้หรือไม่
+                    const isCurrentMenuSelected = plan && menuId && plan[pickDay]?.[meal]?.some(m => m.id === menuId);
+                    // ตรวจสอบว่ามีเมนูอื่นอยู่แล้วในวัน/มื้อนี้หรือไม่
+                    const isSlotOccupied = plan && plan[pickDay]?.[meal]?.length > 0;
+                    const isCurrentSelection = pickMeal === meal;
+                    
+                    return (
+                      <button
+                        key={meal}
+                        onClick={() => {
+                          if (!isCurrentMenuSelected) {
+                            setPickMeal(meal);
+                          }
+                        }}
+                        className={`px-3 py-2 rounded-lg border-2 text-sm transition-colors ${
+                          isCurrentSelection
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : isCurrentMenuSelected
+                            ? 'bg-red-100 border-red-300 text-red-700 cursor-not-allowed opacity-75'
+                            : isSlotOccupied
+                            ? 'bg-orange-100 border-orange-300 text-orange-700'
+                            : 'bg-white border-gray-300 hover:bg-gray-50'
+                        }`}
+                        disabled={isCurrentMenuSelected}
+                      >
+                        {meal}
+                        {isCurrentMenuSelected && <span className="ml-1 text-xs">✓</span>}
+                        {isSlotOccupied && !isCurrentMenuSelected && <span className="ml-1 text-xs">(มีอื่น)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!token) {
+                      alert('กรุณาเข้าสู่ระบบเพื่อใช้งานฟีเจอร์นี้');
+                      return;
+                    }
+                    if (!menuId) {
+                      alert('ไม่พบเมนูนี้ในฐานข้อมูล กรุณาเพิ่มเมนูในฐานข้อมูลก่อน');
+                      return;
+                    }
+                    
+                    // ตรวจสอบว่าเมนูถูกเลือกไปแล้วหรือยัง
+                    const isAlreadySelected = plan && menuId && plan[pickDay]?.[pickMeal]?.some(m => m.id === menuId);
+                    if (isAlreadySelected) {
+                      alert('เมนูนี้ถูกเลือกไปแล้วในวัน/มื้อนี้');
+                      return;
+                    }
+                    
+                    setAdding(true);
+                    try {
+                      await addMenuToPlan(pickDay, pickMeal, menuId, token);
+                      setAdded('เพิ่มแล้ว!');
+                      setTimeout(() => setAdded(''), 3000);
+                      
+                      // Reload plan
+                      const planData = await fetchPlanFromAPI(token);
+                      setPlan(planData);
+                    } catch (error) {
+                      alert(error.message || 'เกิดข้อผิดพลาดในการเพิ่มเมนู');
+                    } finally {
+                      setAdding(false);
+                    }
+                  }}
+                  disabled={adding || !token || !menuId || (plan && menuId && plan[pickDay]?.[pickMeal]?.some(m => m.id === menuId))}
+                  className="bg-emerald-600 text-white rounded px-4 py-2 text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {adding ? 'กำลังเพิ่ม...' : (plan && menuId && plan[pickDay]?.[pickMeal]?.some(m => m.id === menuId) ? 'ถูกเลือกแล้ว' : 'เพิ่ม')}
+                </button>
+                {added && <span className="text-emerald-700 text-sm font-medium">{added}</span>}
+              </div>
+              {!token && (
+                <div className="mt-2 text-xs text-gray-500">กรุณาเข้าสู่ระบบเพื่อใช้งานฟีเจอร์นี้</div>
+              )}
             </div>
             
             <img src={recipe.strMealThumb} alt={recipe.strMeal} className="w-full rounded-lg mb-6 shadow-md" />
