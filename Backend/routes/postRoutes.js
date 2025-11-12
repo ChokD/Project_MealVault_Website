@@ -3,6 +3,7 @@ const router = express.Router();
 const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
+const { createNotification } = require('./notificationRoutes');
 
 // --- PUBLIC ROUTES ---
 
@@ -185,6 +186,34 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
     }
 
     try {
+      // ดึงข้อมูลโพสต์เพื่อหาเจ้าของโพสต์
+      const { data: posts, error: postErr } = await supabase
+        .from('CommunityPost')
+        .select('user_id, cpost_title')
+        .eq('cpost_id', cpost_id)
+        .limit(1);
+
+      if (postErr) {
+        console.error('Supabase query error:', postErr);
+        throw postErr;
+      }
+
+      if (!posts || posts.length === 0) {
+        return res.status(404).json({ message: 'ไม่พบโพสต์' });
+      }
+
+      const postOwnerId = posts[0].user_id;
+      const postTitle = posts[0].cpost_title;
+
+      // ดึงข้อมูลผู้ที่คอมเมนต์
+      const { data: commenter, error: commenterErr } = await supabase
+        .from('User')
+        .select('user_fname')
+        .eq('user_id', user_id)
+        .limit(1);
+
+      const commenterName = commenter && commenter[0] ? commenter[0].user_fname : 'Someone';
+
       const newComment = {
         comment_id: 'CM' + Date.now().toString(),
         comment_text: comment_content,
@@ -201,6 +230,19 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
         throw error;
       }
       console.log(`Comment created successfully: ${newComment.comment_id}`);
+
+      // สร้าง notification สำหรับเจ้าของโพสต์ (ถ้าไม่ใช่เจ้าของโพสต์เอง)
+      if (postOwnerId !== user_id) {
+        await createNotification({
+          notification_type: 'comment',
+          notification_message: `${commenterName} แสดงความคิดเห็นในโพสต์ของคุณ: "${postTitle}"`,
+          user_id: postOwnerId,
+          cpost_id: cpost_id,
+          comment_id: newComment.comment_id,
+          actor_user_id: user_id
+        });
+      }
+
       res.status(201).json(data && data[0] ? data[0] : newComment);
     } catch (error) {
       console.error('Error creating comment:', error);
@@ -421,7 +463,32 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
         .limit(1);
       if (likeFindErr) throw likeFindErr;
 
+      // ดึงข้อมูลโพสต์เพื่อหาเจ้าของโพสต์
+      const { data: postData, error: postErr } = await supabase
+        .from('CommunityPost')
+        .select('user_id, cpost_title, like_count')
+        .eq('cpost_id', postId)
+        .limit(1);
+
+      if (postErr) throw postErr;
+      if (!postData || postData.length === 0) {
+        return res.status(404).json({ message: 'ไม่พบโพสต์' });
+      }
+
+      const postOwnerId = postData[0].user_id;
+      const postTitle = postData[0].cpost_title;
+
+      // ดึงข้อมูลผู้ที่ไลค์
+      const { data: liker, error: likerErr } = await supabase
+        .from('User')
+        .select('user_fname')
+        .eq('user_id', userId)
+        .limit(1);
+
+      const likerName = liker && liker[0] ? liker[0].user_fname : 'Someone';
+
       if (likes && likes.length > 0) {
+        // ยกเลิกไลค์
         const { error: delErr } = await supabase
           .from('PostLike')
           .delete()
@@ -429,34 +496,33 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
           .eq('user_id', userId);
         if (delErr) throw delErr;
         // decrement like_count
-        await supabase
-          .from('CommunityPost')
-          .update({ like_count: supabase.rpc })
-        // fallback manual fetch and update
-        const { data: postRow } = await supabase
-          .from('CommunityPost')
-          .select('like_count')
-          .eq('cpost_id', postId)
-          .limit(1);
-        const newCount = Math.max(0, ((postRow && postRow[0] && postRow[0].like_count) || 0) - 1);
+        const newCount = Math.max(0, (postData[0].like_count || 0) - 1);
         await supabase
           .from('CommunityPost')
           .update({ like_count: newCount })
           .eq('cpost_id', postId);
         res.json({ message: 'ยกเลิกไลค์สำเร็จ', liked: false });
       } else {
+        // กดไลค์
         const { error: insErr } = await supabase.from('PostLike').insert([{ post_id: postId, user_id: userId }]);
         if (insErr) throw insErr;
-        const { data: postRow } = await supabase
-          .from('CommunityPost')
-          .select('like_count')
-          .eq('cpost_id', postId)
-          .limit(1);
-        const newCount = ((postRow && postRow[0] && postRow[0].like_count) || 0) + 1;
+        const newCount = (postData[0].like_count || 0) + 1;
         await supabase
           .from('CommunityPost')
           .update({ like_count: newCount })
           .eq('cpost_id', postId);
+
+        // สร้าง notification สำหรับเจ้าของโพสต์ (ถ้าไม่ใช่เจ้าของโพสต์เอง)
+        if (postOwnerId !== userId) {
+          await createNotification({
+            notification_type: 'like_post',
+            notification_message: `${likerName} ถูกใจโพสต์ของคุณ: "${postTitle}"`,
+            user_id: postOwnerId,
+            cpost_id: postId,
+            actor_user_id: userId
+          });
+        }
+
         res.json({ message: 'ไลค์สำเร็จ', liked: true });
       }
     } catch (error) {

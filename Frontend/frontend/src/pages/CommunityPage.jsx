@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import AccordionItem from '../components/AccordionItem';
 import { AuthContext } from '../context/AuthContext';
@@ -11,6 +11,7 @@ function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const { token, user } = useContext(AuthContext);
   const [openPostId, setOpenPostId] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState({ id: null, type: '' });
@@ -36,6 +37,57 @@ function CommunityPage() {
   useEffect(() => {
     fetchPosts();
   }, []);
+
+  // ตรวจสอบ query parameters สำหรับ highlight
+  useEffect(() => {
+    const postId = searchParams.get('post');
+    const reported = searchParams.get('reported');
+    const commentId = searchParams.get('comment');
+
+    console.log('CommunityPage - Query params:', { postId, reported, commentId });
+    console.log('CommunityPage - Posts loaded:', posts.length);
+    console.log('CommunityPage - Current openPostId:', openPostId);
+
+    if (postId) {
+      if (posts.length > 0) {
+        // ตรวจสอบว่าโพสต์มีอยู่ในรายการหรือไม่
+        const postExists = posts.some(p => p.cpost_id === postId);
+        console.log('CommunityPage - Post exists:', postExists);
+        
+        if (postExists) {
+          console.log('CommunityPage - Opening post:', postId);
+          // เปิดโพสต์ที่ระบุ
+          setOpenPostId(postId);
+          
+          // Scroll ไปที่โพสต์หลังจากโหลดเสร็จและเปิด accordion
+          const scrollTimeout = setTimeout(() => {
+            const element = document.getElementById(`post-${postId}`);
+            console.log('CommunityPage - Scroll to element:', element);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // ถ้ามี comment ให้ scroll ไปที่ comment ด้วย
+              if (commentId) {
+                setTimeout(() => {
+                  const commentElement = document.getElementById(`comment-${commentId}`);
+                  if (commentElement) {
+                    commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }, 1500);
+              }
+            } else {
+              console.error('CommunityPage - Element not found:', `post-${postId}`);
+            }
+          }, 1200);
+          
+          return () => clearTimeout(scrollTimeout);
+        } else {
+          console.error('CommunityPage - Post not found in list:', postId);
+        }
+      } else {
+        console.log('CommunityPage - Post ID found but posts not loaded yet, will retry');
+      }
+    }
+  }, [searchParams, posts, openPostId]);
 
   const handleToggle = (postId) => {
     setOpenPostId(openPostId === postId ? null : postId);
@@ -104,16 +156,55 @@ function CommunityPage() {
             <p>กำลังโหลดโพสต์...</p>
           ) : (
             <div className="space-y-4">
-              {posts.map(post => (
-                <AccordionItem 
-                  key={post.cpost_id}
-                  post={post}
-                  isOpen={openPostId === post.cpost_id}
-                  onToggle={() => handleToggle(post.cpost_id)}
-                  onDeleteClick={handleDeletePostClick} 
-                  onDeleteComment={handleDeleteCommentClick} // 3. ส่งฟังก์ชันลบคอมเมนต์ไปให้ลูก
-                />
-              ))}
+              {posts.map(post => {
+                const highlightedPostId = searchParams.get('post');
+                const isReported = searchParams.get('reported') === 'true';
+                const highlightedCommentId = searchParams.get('comment');
+                
+                // Highlight ถ้ามี post parameter และ reported=true
+                const isHighlighted = highlightedPostId === post.cpost_id && isReported;
+                const shouldOpen = highlightedPostId === post.cpost_id;
+                
+                // Debug log
+                if (shouldOpen) {
+                  console.log('CommunityPage - Post matches:', {
+                    postId: post.cpost_id,
+                    highlightedPostId,
+                    isReported,
+                    isHighlighted,
+                    shouldOpen,
+                    highlightedCommentId,
+                    openPostId
+                  });
+                }
+                
+                return (
+                  <div 
+                    key={post.cpost_id}
+                    id={`post-${post.cpost_id}`}
+                    className={isHighlighted ? 'ring-4 ring-red-500 ring-opacity-75 rounded-xl p-2 -m-2 bg-red-50 transition-all duration-500' : ''}
+                    style={isHighlighted ? { 
+                      animation: 'pulse 2s ease-in-out 3',
+                      border: '4px solid #ef4444'
+                    } : {}}
+                  >
+                    {isHighlighted && (
+                      <div className="mb-3 px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-lg inline-block shadow-lg">
+                        ⚠️ โพสต์นี้ถูกรายงาน
+                      </div>
+                    )}
+                    <AccordionItem 
+                      post={post}
+                      isOpen={openPostId === post.cpost_id}
+                      onToggle={() => handleToggle(post.cpost_id)}
+                      onDeleteClick={handleDeletePostClick} 
+                      onDeleteComment={handleDeleteCommentClick}
+                      highlightedCommentId={highlightedCommentId && shouldOpen ? highlightedCommentId : null}
+                      isReported={isHighlighted}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

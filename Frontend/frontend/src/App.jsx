@@ -24,6 +24,7 @@ import ProfilePage from './pages/ProfilePage';
 import CreatePostPage from './pages/CreatePostPage';
 import EditPostPage from './pages/EditPostPage';
 import MealCalendarPage from './pages/MealCalendarPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
         {/* --- Protected Routes (ต้อง Login ก่อนถึงจะเข้าได้) --- */}
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/weekly-plan" element={<WeeklyMealPlanPage />} />
           <Route path="/meal-calendar" element={<MealCalendarPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />

@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import NotificationDropdown from './NotificationDropdown';
 
 function Navbar() {
   const { token, user, logout } = useContext(AuthContext);
@@ -59,6 +60,7 @@ function Navbar() {
           
           {token ? (
             <>
+              <NotificationDropdown />
               <Link to="/profile" className={`px-4 py-2 ${primaryBg} font-semibold rounded-full transition-colors duration-300`}>
                 {user ? `👤 ${user.user_fname}` : 'กำลังโหลด...'}
               </Link>

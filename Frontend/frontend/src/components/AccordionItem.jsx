@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
+import ReportModal from './ReportModal';
 
 // --- ฟอร์มคอมเมนต์ (เหมือนเดิม) ---
 function CommentForm({ postId, onCommentAdded }) {
@@ -54,13 +55,18 @@ function CommentForm({ postId, onCommentAdded }) {
 
 
 // --- Accordion Item หลัก ---
-function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment }) {
+function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment, highlightedCommentId, isReported }) {
   const [details, setDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const { user, token } = useContext(AuthContext);
 
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post?.like_count || 0);
+  
+  // State สำหรับ Report Modal
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportPostId, setReportPostId] = useState(null);
+  const [reportCommentId, setReportCommentId] = useState(null);
 
   useEffect(() => {
     const fetchPostDetails = async () => {
@@ -91,6 +97,37 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
     
     fetchPostDetails();
   }, [isOpen, post.cpost_id, token]);
+
+  // Scroll ไปที่คอมเมนต์ที่ highlight เมื่อ details โหลดเสร็จ
+  useEffect(() => {
+    if (highlightedCommentId && isOpen && details && details.comments) {
+      console.log('AccordionItem - Highlighting comment:', highlightedCommentId);
+      console.log('AccordionItem - Comments:', details.comments.map(c => c.comment_id));
+      const scrollTimeout = setTimeout(() => {
+        const commentElement = document.getElementById(`comment-${highlightedCommentId}`);
+        console.log('AccordionItem - Comment element:', commentElement);
+        if (commentElement) {
+          commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          console.error('AccordionItem - Comment element not found:', `comment-${highlightedCommentId}`);
+        }
+      }, 1200); // รอให้โพสต์เปิดและคอมเมนต์โหลดเสร็จ
+      
+      return () => clearTimeout(scrollTimeout);
+    }
+  }, [highlightedCommentId, isOpen, details]);
+
+  // Debug log สำหรับ highlight props
+  useEffect(() => {
+    if (isReported || highlightedCommentId) {
+      console.log('AccordionItem - Highlight props:', {
+        postId: post.cpost_id,
+        isReported,
+        highlightedCommentId,
+        isOpen
+      });
+    }
+  }, [isReported, highlightedCommentId, isOpen, post.cpost_id]);
 
   const handleLike = async (e) => {
     e.stopPropagation();
@@ -150,6 +187,37 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
   const canEditPost = user && (user.isAdmin || user.user_id === postUserId);
   const isAdmin = user?.isAdmin || false;
 
+  // ฟังก์ชันสำหรับเปิด Modal รายงานโพสต์
+  const handleReportPost = (e) => {
+    e.stopPropagation();
+    if (!token) {
+      alert('กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์');
+      return;
+    }
+    setReportPostId(post.cpost_id);
+    setReportCommentId(null);
+    setIsReportModalOpen(true);
+  };
+
+  // ฟังก์ชันสำหรับเปิด Modal รายงานคอมเมนต์
+  const handleReportComment = (e, commentId) => {
+    e.stopPropagation();
+    if (!token) {
+      alert('กรุณาเข้าสู่ระบบเพื่อรายงานคอมเมนต์');
+      return;
+    }
+    setReportPostId(null);
+    setReportCommentId(commentId);
+    setIsReportModalOpen(true);
+  };
+
+  // ฟังก์ชันสำหรับปิด Modal รายงาน
+  const handleCloseReportModal = () => {
+    setIsReportModalOpen(false);
+    setReportPostId(null);
+    setReportCommentId(null);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-6 flex justify-between items-center">
@@ -185,32 +253,49 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
               {isLoading && <p>กำลังโหลดรายละเอียด...</p>}
               {details && (
                 <div>
-                  {(canEditPost || canDeletePost) && (
-                    <div className="flex justify-end gap-2 mb-4">
-                      {canEditPost && (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.location.href = `/edit-post/${details.cpost_id}`;
-                          }}
-                          className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold text-sm rounded-full px-4 py-1 transition-colors`}
-                        >
-                          แก้ไขโพสต์
-                        </button>
-                      )}
-                      {canDeletePost && (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteClick(details.cpost_id);
-                          }}
-                          className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
-                        >
-                          ลบโพสต์นี้
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center mb-4">
+                    {/* ปุ่มรายงานโพสต์ */}
+                    {token && (
+                      <button
+                        onClick={handleReportPost}
+                        className="text-gray-500 hover:text-red-500 text-sm flex items-center gap-1 transition-colors"
+                        title="รายงานโพสต์นี้"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span>รายงาน</span>
+                      </button>
+                    )}
+                    
+                    {/* ปุ่มแก้ไข/ลบโพสต์ */}
+                    {(canEditPost || canDeletePost) && (
+                      <div className="flex justify-end gap-2">
+                        {canEditPost && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.location.href = `/edit-post/${details.cpost_id}`;
+                            }}
+                            className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold text-sm rounded-full px-4 py-1 transition-colors`}
+                          >
+                            แก้ไขโพสต์
+                          </button>
+                        )}
+                        {canDeletePost && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteClick(details.cpost_id);
+                            }}
+                            className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
+                          >
+                            ลบโพสต์นี้
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {details.cpost_image && (
                     <div className="mb-6 rounded-lg overflow-hidden shadow-sm">
                       <img 
@@ -233,25 +318,59 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
                     {details.comments?.map(comment => {
                       // ตรวจสอบว่าเป็นเจ้าของคอมเมนต์หรือ Admin
                       const canDeleteComment = user && (user.isAdmin || user.user_id === comment.user_id);
+                      const isHighlightedComment = highlightedCommentId === comment.comment_id && isReported;
                       
                       return (
-                        <div key={comment.comment_id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-start">
+                        <div 
+                          key={comment.comment_id} 
+                          id={`comment-${comment.comment_id}`}
+                          className={`p-3 rounded-lg flex justify-between items-start gap-2 transition-all duration-500 ${
+                            isHighlightedComment 
+                              ? 'bg-red-100 border-2 border-red-500 ring-2 ring-red-300 shadow-lg' 
+                              : 'bg-gray-50'
+                          }`}
+                          style={isHighlightedComment ? { animation: 'pulse 2s ease-in-out 3' } : {}}
+                        >
                            <div className="flex-grow">
-                              <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
-                              <p className="text-gray-600">{comment.comment_content || comment.comment_text}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
+                                {isHighlightedComment && (
+                                  <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold animate-pulse">
+                                    ⚠️ ถูกรายงาน
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`mt-1 ${isHighlightedComment ? 'text-gray-800 font-medium' : 'text-gray-600'}`}>
+                                {comment.comment_content || comment.comment_text}
+                              </p>
                            </div>
-                           {canDeleteComment && (
-                              <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteComment(comment.comment_id);
-                                  }}
-                                  className="text-xs text-red-600 hover:underline ml-2 flex-shrink-0 px-2 py-1 hover:bg-red-50 rounded"
-                                  title="ลบคอมเมนต์นี้"
-                              >
-                                  ลบ
-                              </button>
-                           )}
+                           <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* ปุ่มรายงานคอมเมนต์ */}
+                              {token && (
+                                <button
+                                  onClick={(e) => handleReportComment(e, comment.comment_id)}
+                                  className="text-xs text-gray-500 hover:text-red-500 px-2 py-1 hover:bg-red-50 rounded transition-colors"
+                                  title="รายงานคอมเมนต์นี้"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                  </svg>
+                                </button>
+                              )}
+                              {/* ปุ่มลบคอมเมนต์ */}
+                              {canDeleteComment && (
+                                <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteComment(comment.comment_id);
+                                    }}
+                                    className="text-xs text-red-600 hover:underline px-2 py-1 hover:bg-red-50 rounded"
+                                    title="ลบคอมเมนต์นี้"
+                                >
+                                    ลบ
+                                </button>
+                              )}
+                           </div>
                         </div>
                       );
                     })}
@@ -268,6 +387,17 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment 
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={handleCloseReportModal}
+        cpostId={reportPostId}
+        commentId={reportCommentId}
+        onReportSubmitted={() => {
+          console.log('Report submitted successfully');
+        }}
+      />
     </div>
   );
 }

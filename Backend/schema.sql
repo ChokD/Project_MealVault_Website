@@ -49,6 +49,7 @@ create table if not exists "MenuIngredient" (
 create table if not exists "CommunityPost" (
   cpost_id text primary key,
   cpost_title text not null,
+  cpost_content text,
   cpost_datetime timestamptz default now(),
   cpost_image text,
   like_count integer default 0,
@@ -72,10 +73,14 @@ create table if not exists "PostLike" (
 
 create table if not exists "CommunityReport" (
   creport_id text primary key,
-  creport_reason text not null,
+  creport_type text not null,
+  creport_reason text,
+  creport_details text,
   creport_datetime timestamptz default now(),
   cpost_id text references "CommunityPost"(cpost_id) on delete cascade,
-  user_id text references "User"(user_id) on delete set null
+  comment_id text references "CommunityComment"(comment_id) on delete cascade,
+  user_id text references "User"(user_id) on delete set null,
+  check (cpost_id is not null or comment_id is not null)
 );
 
 -- Meal Calendar
@@ -100,12 +105,34 @@ create table if not exists "WeeklyMealPlan" (
   created_at timestamptz default now()
 );
 
+-- Notification system
+create table if not exists "Notification" (
+  notification_id text primary key,
+  notification_type text not null check (notification_type in ('comment', 'like_post', 'like_comment', 'report')),
+  notification_message text not null,
+  is_read boolean default false,
+  notification_datetime timestamptz default now(),
+  user_id text references "User"(user_id) on delete cascade not null,
+  cpost_id text references "CommunityPost"(cpost_id) on delete cascade,
+  comment_id text references "CommunityComment"(comment_id) on delete cascade,
+  actor_user_id text references "User"(user_id) on delete set null,
+  creport_id text references "CommunityReport"(creport_id) on delete cascade
+);
+
 -- Indexes
 create index if not exists idx_menu_name on "Menu" (menu_name);
 create index if not exists idx_category_name on "Category" (category_name);
 create index if not exists idx_post_datetime on "CommunityPost" (cpost_datetime desc);
 create index if not exists idx_comment_post on "CommunityComment" (cpost_id);
+create index if not exists idx_report_post on "CommunityReport" (cpost_id);
+create index if not exists idx_report_comment on "CommunityReport" (comment_id);
 create index if not exists idx_weeklymealplan_user on "WeeklyMealPlan" (user_id);
+create index if not exists idx_notification_user on "Notification" (user_id);
+create index if not exists idx_notification_read on "Notification" (is_read);
+create index if not exists idx_notification_datetime on "Notification" (notification_datetime desc);
+create index if not exists idx_notification_type on "Notification" (notification_type);
+create index if not exists idx_notification_post on "Notification" (cpost_id);
+create index if not exists idx_notification_comment on "Notification" (comment_id);
 
 -- RLS policies (example: enable for anon/service as needed)
 alter table "User" enable row level security;
@@ -119,6 +146,7 @@ alter table "MealCalendar" enable row level security;
 alter table "WeeklyMealPlan" enable row level security;
 alter table "Ingredient" enable row level security;
 alter table "MenuIngredient" enable row level security;
+alter table "Notification" enable row level security;
 
 -- Simplified permissive policies for backend anon key use
 drop policy if exists user_all on "User";
@@ -153,5 +181,8 @@ create policy ingredient_all on "Ingredient" for all using (true) with check (tr
 
 drop policy if exists menu_ingredient_all on "MenuIngredient";
 create policy menu_ingredient_all on "MenuIngredient" for all using (true) with check (true);
+
+drop policy if exists notification_all on "Notification";
+create policy notification_all on "Notification" for all using (true) with check (true);
 
 
