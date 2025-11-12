@@ -12,7 +12,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 
 // POST /api/register - สมัครสมาชิก
 router.post('/register', async (req, res) => {
-  const { user_email, user_fname, user_lname, user_password, user_tel } = req.body;
+  const { user_email, user_fname, user_lname, user_password, user_tel, allergies, favorite_foods } = req.body;
 
   if (!user_email || !user_password || !user_fname) {
     return res.status(400).json({ message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน' });
@@ -47,13 +47,23 @@ router.post('/register', async (req, res) => {
     console.log(`Registering new user: ${user_email}`);
     console.log(`Password hash generated: ${hashedPassword.substring(0, 20)}...`);
 
+    // Process allergies and favorite_foods (convert array to comma-separated string if needed)
+    const allergiesStr = Array.isArray(allergies) 
+      ? allergies.join(',') 
+      : (allergies || null);
+    const favoriteFoodsStr = Array.isArray(favorite_foods) 
+      ? favorite_foods.join(',') 
+      : (favorite_foods || null);
+
     const newUser = {
       user_id: 'U' + Date.now().toString().slice(-6),
       user_email,
       user_fname,
       user_lname,
       user_password: hashedPassword,
-      user_tel: user_tel || null // เบอร์โทรเป็น optional
+      user_tel: user_tel || null, // เบอร์โทรเป็น optional
+      allergies: allergiesStr,
+      favorite_foods: favoriteFoodsStr
     };
 
     const { data, error } = await supabase.from('User').insert([newUser]).select();
@@ -183,7 +193,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const { data: users, error: userErr } = await supabase
       .from('User')
-      .select('user_id, user_email, user_fname, user_lname, user_tel')
+      .select('user_id, user_email, user_fname, user_lname, user_tel, allergies, favorite_foods')
       .eq('user_id', req.user.id)
       .limit(1);
     if (userErr) throw userErr;
@@ -198,8 +208,19 @@ router.get('/me', authMiddleware, async (req, res) => {
       .limit(1);
     if (adminErr) throw adminErr;
 
+    const user = users[0];
+    // Convert comma-separated strings to arrays for allergies and favorite_foods
+    const allergiesArray = user.allergies 
+      ? String(user.allergies).split(',').map(s => s.trim()).filter(Boolean) 
+      : [];
+    const favoriteFoodsArray = user.favorite_foods 
+      ? String(user.favorite_foods).split(',').map(s => s.trim()).filter(Boolean) 
+      : [];
+
     const userData = {
-      ...users[0],
+      ...user,
+      allergies: allergiesArray,
+      favorite_foods: favoriteFoodsArray,
       isAdmin: !!(admins && admins.length > 0)
     };
 
@@ -431,14 +452,15 @@ router.get('/preferences', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const { data, error } = await supabase
       .from('User')
-      .select('calorie_limit, allergies')
+      .select('calorie_limit, allergies, favorite_foods')
       .eq('user_id', userId)
       .limit(1);
     if (error) throw error;
-    if (!data || data.length === 0) return res.json({ calorie_limit: null, allergens: [] });
+    if (!data || data.length === 0) return res.json({ calorie_limit: null, allergens: [], favorite_foods: [] });
     const row = data[0];
     const allergens = row.allergies ? String(row.allergies).split(',').map(s => s.trim()).filter(Boolean) : [];
-    res.json({ calorie_limit: row.calorie_limit ?? null, allergens });
+    const favoriteFoods = row.favorite_foods ? String(row.favorite_foods).split(',').map(s => s.trim()).filter(Boolean) : [];
+    res.json({ calorie_limit: row.calorie_limit ?? null, allergens, favorite_foods: favoriteFoods });
   } catch (error) {
     console.error('Error fetching preferences:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงค่าการตั้งค่า' });
@@ -449,11 +471,40 @@ router.get('/preferences', authMiddleware, async (req, res) => {
 router.put('/preferences', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { calorie_limit, allergens } = req.body;
-    const allergies = Array.isArray(allergens) ? allergens.join(',') : null;
+    const { calorie_limit, allergens, favorite_foods } = req.body;
+    
+    const updateData = {};
+    
+    // Always update calorie_limit if provided
+    if (calorie_limit !== undefined) {
+      updateData.calorie_limit = calorie_limit;
+    }
+    
+    // Process allergies: convert array to comma-separated string, or null if empty
+    if (allergens !== undefined) {
+      if (Array.isArray(allergens)) {
+        updateData.allergies = allergens.length > 0 ? allergens.join(',') : null;
+      } else if (typeof allergens === 'string') {
+        updateData.allergies = allergens.trim() || null;
+      } else {
+        updateData.allergies = null;
+      }
+    }
+    
+    // Process favorite_foods: convert array to comma-separated string, or null if empty
+    if (favorite_foods !== undefined) {
+      if (Array.isArray(favorite_foods)) {
+        updateData.favorite_foods = favorite_foods.length > 0 ? favorite_foods.join(',') : null;
+      } else if (typeof favorite_foods === 'string') {
+        updateData.favorite_foods = favorite_foods.trim() || null;
+      } else {
+        updateData.favorite_foods = null;
+      }
+    }
+    
     const { error } = await supabase
       .from('User')
-      .update({ calorie_limit, allergies })
+      .update(updateData)
       .eq('user_id', userId);
     if (error) throw error;
     res.json({ message: 'อัปเดตการตั้งค่าสำเร็จ' });

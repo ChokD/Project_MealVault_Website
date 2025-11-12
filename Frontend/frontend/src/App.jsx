@@ -8,6 +8,7 @@ import SignUpPage from './pages/SignUpPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CommunityPage from './pages/CommunityPage';
+import TermsPage from './pages/TermsPage';
 
 import AboutPage from './pages/AboutPage'; 
 // import PostDetailPage from './pages/PostDetailPage'; // ลบออกเพราะไม่ได้ใช้แล้ว
@@ -34,6 +35,7 @@ function App() {
         <Route path="/register" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/community" element={<CommunityPage />} />
         {/* <Route path="/posts/:postId" element={<PostDetailPage />} /> // ลบออกเพราะไม่ได้ใช้แล้ว */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import SuccessAnimation from '../components/SuccessAnimation'; // 1. นำเข้า Component Animation
@@ -10,10 +10,25 @@ function SignUpPage() {
     user_fname: '',
     user_lname: '',
     user_tel: '',
+    allergies: '',
+    favorite_foods: '',
   });
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false); // 2. เพิ่ม State สำหรับควบคุม Animation
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
+
+  // ตรวจสอบว่าผู้ใช้ยอมรับ Terms แล้วหรือไม่
+  useEffect(() => {
+    const accepted = localStorage.getItem('termsAccepted') === 'true';
+    if (!accepted) {
+      // เก็บข้อมูลว่ามาจากหน้า register
+      sessionStorage.setItem('fromRegister', 'true');
+      navigate('/terms');
+    } else {
+      setTermsAccepted(true);
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -23,11 +38,25 @@ function SignUpPage() {
     event.preventDefault();
     setError('');
 
+    // ตรวจสอบว่ายอมรับ Terms แล้วหรือไม่
+    if (!termsAccepted) {
+      setError('กรุณายอมรับข้อกำหนดและเงื่อนไขการใช้งานก่อนสมัครสมาชิก');
+      navigate('/terms');
+      return;
+    }
+
     try {
+      // Process allergies and favorite_foods - convert to comma-separated strings if provided
+      const submitData = {
+        ...formData,
+        allergies: formData.allergies ? formData.allergies.trim() : null,
+        favorite_foods: formData.favorite_foods ? formData.favorite_foods.trim() : null,
+      };
+
       const response = await fetch('http://localhost:3000/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();
@@ -99,8 +128,70 @@ function SignUpPage() {
                     <label htmlFor="user_tel" className="block mb-2 text-sm font-medium text-gray-900">เบอร์โทรศัพท์ <span className="text-gray-500 font-normal">(optional)</span></label>
                     <input type="tel" name="user_tel" id="user_tel" onChange={handleChange} className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" />
                   </div>
+                  <div>
+                    <label htmlFor="allergies" className="block mb-2 text-sm font-medium text-gray-900">แพ้อาหาร <span className="text-gray-500 font-normal">(optional)</span></label>
+                    <input 
+                      type="text" 
+                      name="allergies" 
+                      id="allergies" 
+                      value={formData.allergies}
+                      onChange={handleChange} 
+                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" 
+                      placeholder="เช่น ถั่ว, นม, กุ้ง (คั่นด้วยเครื่องหมายจุลภาค)"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่แพ้โดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ถั่ว, นม, กุ้ง)</p>
+                  </div>
+                  <div>
+                    <label htmlFor="favorite_foods" className="block mb-2 text-sm font-medium text-gray-900">อาหารที่ชอบ <span className="text-gray-500 font-normal">(optional)</span></label>
+                    <input 
+                      type="text" 
+                      name="favorite_foods" 
+                      id="favorite_foods" 
+                      value={formData.favorite_foods}
+                      onChange={handleChange} 
+                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" 
+                      placeholder="เช่น ข้าวผัด, ต้มยำ, ผัดไทย (คั่นด้วยเครื่องหมายจุลภาค)"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่ชอบโดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ข้าวผัด, ต้มยำ, ผัดไทย)</p>
+                  </div>
+                  
+                  {/* Terms Acceptance Checkbox */}
+                  <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                    <label className="flex items-start cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => {
+                          if (!e.target.checked) {
+                            localStorage.removeItem('termsAccepted');
+                            navigate('/terms');
+                          }
+                        }}
+                        className="mt-1 w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 cursor-pointer"
+                        required
+                      />
+                      <span className="ml-3 text-sm text-gray-700 group-hover:text-gray-900">
+                        <span className="font-semibold">ฉันยอมรับข้อกำหนดและเงื่อนไขการใช้งาน</span>
+                        <span className="block text-xs text-gray-600 mt-1">
+                          รวมถึงข้อกำหนดการใช้งานเว็บไซต์ กฎข้อบังคับการใช้งานชุมชน และนโยบายคุ้มครองข้อมูลส่วนบุคคล (PDPA)
+                        </span>
+                        <Link to="/terms" className="text-emerald-600 hover:text-emerald-700 hover:underline font-medium">
+                          อ่านรายละเอียดเพิ่มเติม
+                        </Link>
+                      </span>
+                    </label>
+                  </div>
+
                   {error && <p className="text-sm text-center text-red-500">{error}</p>}
-                  <button type="submit" className="w-full text-white bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 focus:ring-4 focus:outline-none focus:ring-emerald-300 font-bold rounded-xl text-lg px-5 py-3.5 text-center transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl shadow-lg">
+                  <button 
+                    type="submit" 
+                    disabled={!termsAccepted}
+                    className={`w-full text-white font-bold rounded-xl text-lg px-5 py-3.5 text-center transition-all duration-300 transform shadow-lg ${
+                      termsAccepted
+                        ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 focus:ring-4 focus:outline-none focus:ring-emerald-300 hover:scale-[1.02] hover:shadow-xl cursor-pointer'
+                        : 'bg-gray-400 cursor-not-allowed'
+                    }`}
+                  >
                     สมัครสมาชิก
                   </button>
                   <p className="text-sm font-light text-center text-gray-500">

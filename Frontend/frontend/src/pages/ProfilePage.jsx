@@ -21,7 +21,7 @@ function ProfilePage() {
   const [message, setMessage] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [prefs, setPrefs] = useState({ calorie_limit: '', allergensText: '' });
+  const [prefs, setPrefs] = useState({ calorie_limit: '', allergensText: '', favoriteFoodsText: '' });
 
   // ดึงข้อมูลผู้ใช้ปัจจุบันมาแสดงตอนเปิดหน้า
   useEffect(() => {
@@ -39,10 +39,12 @@ function ProfilePage() {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const data = await resp.json();
-          const allergensText = Array.isArray(data.allergens) ? data.allergens.join(',') : '';
+          const allergensText = Array.isArray(data.allergens) ? data.allergens.join(', ') : '';
+          const favoriteFoodsText = Array.isArray(data.favorite_foods) ? data.favorite_foods.join(', ') : '';
           setPrefs({
             calorie_limit: data.calorie_limit ?? '',
             allergensText,
+            favoriteFoodsText,
           });
         } catch (_) {}
         setLoading(false);
@@ -135,9 +137,14 @@ function ProfilePage() {
         .split(',')
         .map(s => s.trim())
         .filter(s => s.length > 0);
+      const favorite_foods = prefs.favoriteFoodsText
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
       const body = {
         calorie_limit: prefs.calorie_limit === '' ? null : Number(prefs.calorie_limit),
         allergens,
+        favorite_foods,
       };
       const response = await fetch('http://localhost:3000/api/preferences', {
         method: 'PUT',
@@ -292,6 +299,19 @@ function ProfilePage() {
                     className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
                     placeholder="เช่น ถั่ว, นม, กุ้ง"
                   />
+                  <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่แพ้โดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ถั่ว, นม, กุ้ง)</p>
+                </div>
+                <div>
+                  <label htmlFor="favorite_foods" className="block mb-2 text-sm font-medium text-gray-900">อาหารที่ชอบ (คั่นด้วย ,)</label>
+                  <input
+                    type="text"
+                    id="favorite_foods"
+                    value={prefs.favoriteFoodsText}
+                    onChange={(e) => setPrefs({ ...prefs, favoriteFoodsText: e.target.value })}
+                    className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
+                    placeholder="เช่น ข้าวผัด, ต้มยำ, ผัดไทย"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่ชอบโดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ข้าวผัด, ต้มยำ, ผัดไทย)</p>
                 </div>
                 <button type="submit" className="w-full text-white bg-green-500 hover:bg-green-600 font-medium rounded-full text-sm px-5 py-2.5 text-center">
                   บันทึกการตั้งค่า

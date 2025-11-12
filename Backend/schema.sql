@@ -10,6 +10,7 @@ create table if not exists "User" (
   user_tel text,
   calorie_limit integer,
   allergies text,
+  favorite_foods text,
   reset_password_token text,
   reset_password_expires timestamptz
 );
