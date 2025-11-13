@@ -7,7 +7,17 @@ const { createNotification } = require('./notificationRoutes');
 
 // --- PUBLIC ROUTES ---
 
-// GET /api/posts - ดึงข้อมูลโพสต์ทั้งหมด (รวมข้อมูลผู้ใช้)
+const parseJsonValue = (value) => {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+// GET /api/posts - ดึงข้อมูลโพสต์ทั้งหมด (รวมข้อมูลผู้ใช้และสูตรอาหาร)
 router.get('/posts', async (req, res) => {
   try {
     if (!supabase) {
@@ -24,8 +34,20 @@ router.get('/posts', async (req, res) => {
         cpost_datetime, 
         cpost_image, 
         like_count, 
+        post_type,
         user_id,
-        User:user_id (user_fname, user_lname)
+        User:user_id (user_fname, user_lname),
+        CommunityRecipe (
+          recipe_id,
+          recipe_summary,
+          recipe_category,
+          prep_time_minutes,
+          cook_time_minutes,
+          total_time_minutes,
+          servings,
+          ingredients,
+          steps
+        )
       `)
       .order('cpost_datetime', { ascending: false });
     
@@ -35,11 +57,22 @@ router.get('/posts', async (req, res) => {
     }
 
     // แปลงข้อมูลให้ Frontend ใช้งานง่าย
-    const formattedPosts = (posts || []).map(post => ({
-      ...post,
-      user_fname: post.User?.user_fname || 'Unknown',
-      User: undefined // ลบ nested object ออก
-    }));
+    const formattedPosts = (posts || []).map(post => {
+      const recipeData = Array.isArray(post.CommunityRecipe) ? post.CommunityRecipe[0] : post.CommunityRecipe;
+      return {
+        ...post,
+        user_fname: post.User?.user_fname || 'Unknown',
+        User: undefined, // ลบ nested object ออก
+        recipe: recipeData
+          ? {
+              ...recipeData,
+              ingredients: parseJsonValue(recipeData.ingredients) || [],
+              steps: parseJsonValue(recipeData.steps) || []
+            }
+          : null,
+        CommunityRecipe: undefined
+      };
+    });
 
     res.json(formattedPosts);
   } catch (error) {
@@ -64,7 +97,18 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
       .from('CommunityPost')
       .select(`
         *,
-        User:user_id (user_fname, user_lname)
+        User:user_id (user_fname, user_lname),
+        CommunityRecipe (
+          recipe_id,
+          recipe_summary,
+          recipe_category,
+          prep_time_minutes,
+          cook_time_minutes,
+          total_time_minutes,
+          servings,
+          ingredients,
+          steps
+        )
       `)
       .eq('cpost_id', postId)
       .limit(1);
@@ -111,12 +155,22 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
       User: undefined // ลบ nested object ออก
     }));
 
+    const basePost = posts[0];
+    const recipeData = Array.isArray(basePost.CommunityRecipe) ? basePost.CommunityRecipe[0] : basePost.CommunityRecipe;
     const postData = {
-      ...posts[0],
-      user_fname: posts[0].User?.user_fname || 'Unknown',
+      ...basePost,
+      user_fname: basePost.User?.user_fname || 'Unknown',
       User: undefined, // ลบ nested object ออก
       comments: formattedComments,
-      isLiked: likes && likes.length > 0 // เพิ่ม key ใหม่: ถ้าเจอข้อมูลไลค์จะเป็น true
+      isLiked: likes && likes.length > 0, // เพิ่ม key ใหม่: ถ้าเจอข้อมูลไลค์จะเป็น true
+      recipe: recipeData
+        ? {
+            ...recipeData,
+            ingredients: parseJsonValue(recipeData.ingredients) || [],
+            steps: parseJsonValue(recipeData.steps) || []
+          }
+        : null,
+      CommunityRecipe: undefined
     };
     
     res.json(postData);
@@ -129,7 +183,7 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
 
 // --- PROTECTED ROUTES ---
 
-// POST /api/posts - สร้างโพสต์ใหม่พร้อมรูปภาพ
+// POST /api/posts - สร้างโพสต์ใหม่พร้อมรูปภาพ (โพสต์ปกติ)
 router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, res) => {
   const { cpost_title, cpost_content } = req.body;
   const user_id = req.user.id;
@@ -149,6 +203,7 @@ router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, 
       cpost_id: 'CP' + Date.now().toString(),
       cpost_title,
       cpost_content: cpost_content || null, // เนื้อหาเป็น optional
+      post_type: 'post',
       user_id,
       cpost_datetime: new Date().toISOString(),
       cpost_image: req.file ? req.file.filename : null,
@@ -332,6 +387,87 @@ router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (re
   } catch (error) {
     console.error('Error updating post:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขโพสต์' });
+  }
+});
+
+// POST /api/recipes - สร้างสูตรอาหารใหม่
+router.post('/recipes', authMiddleware, upload.single('recipe_image'), async (req, res) => {
+  const user_id = req.user.id;
+  const {
+    recipe_title,
+    recipe_summary,
+    recipe_category,
+    prep_time_minutes,
+    cook_time_minutes,
+    total_time_minutes,
+    servings,
+    ingredients,
+    steps
+  } = req.body;
+
+  if (!recipe_title) {
+    return res.status(400).json({ message: 'กรุณากรอกชื่อสูตรอาหาร' });
+  }
+
+  try {
+    const parsedIngredients = typeof ingredients === 'string' ? parseJsonValue(ingredients) : ingredients;
+    const parsedSteps = typeof steps === 'string' ? parseJsonValue(steps) : steps;
+
+    if (!Array.isArray(parsedIngredients) || parsedIngredients.length === 0) {
+      return res.status(400).json({ message: 'กรุณาระบุรายการวัตถุดิบอย่างน้อย 1 รายการ' });
+    }
+
+    if (!Array.isArray(parsedSteps) || parsedSteps.length === 0) {
+      return res.status(400).json({ message: 'กรุณาระบุขั้นตอนการทำอาหาร' });
+    }
+
+    const cpostId = 'CR' + Date.now().toString();
+    const recipeId = 'R' + Date.now().toString();
+
+    const newPost = {
+      cpost_id: cpostId,
+      cpost_title: recipe_title,
+      cpost_content: recipe_summary || null,
+      cpost_datetime: new Date().toISOString(),
+      cpost_image: req.file ? req.file.filename : null,
+      like_count: 0,
+      user_id,
+      post_type: 'recipe'
+    };
+
+    const { error: postErr } = await supabase.from('CommunityPost').insert([newPost]);
+    if (postErr) throw postErr;
+
+    const newRecipe = {
+      recipe_id: recipeId,
+      cpost_id: cpostId,
+      recipe_summary: recipe_summary || null,
+      recipe_category: recipe_category || null,
+      prep_time_minutes: prep_time_minutes ? Number(prep_time_minutes) : null,
+      cook_time_minutes: cook_time_minutes ? Number(cook_time_minutes) : null,
+      total_time_minutes: total_time_minutes ? Number(total_time_minutes) : null,
+      servings: servings ? Number(servings) : null,
+      ingredients: parsedIngredients,
+      steps: parsedSteps
+    };
+
+    const { error: recipeErr } = await supabase.from('CommunityRecipe').insert([newRecipe]);
+    if (recipeErr) throw recipeErr;
+
+    res.status(201).json({
+      message: 'สร้างสูตรอาหารสำเร็จ',
+      post: {
+        ...newPost,
+        recipe: {
+          ...newRecipe,
+          ingredients: parsedIngredients,
+          steps: parsedSteps
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error creating recipe:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างสูตรอาหาร' });
   }
 });
 

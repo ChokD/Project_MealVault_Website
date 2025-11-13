@@ -53,7 +53,22 @@ create table if not exists "CommunityPost" (
   cpost_datetime timestamptz default now(),
   cpost_image text,
   like_count integer default 0,
+  post_type text default 'post' check (post_type in ('post','recipe')),
   user_id text references "User"(user_id) on delete cascade
+);
+
+create table if not exists "CommunityRecipe" (
+  recipe_id text primary key,
+  cpost_id text unique references "CommunityPost"(cpost_id) on delete cascade,
+  recipe_summary text,
+  recipe_category text,
+  prep_time_minutes integer,
+  cook_time_minutes integer,
+  total_time_minutes integer,
+  servings integer,
+  ingredients jsonb,
+  steps jsonb,
+  created_at timestamptz default now()
 );
 
 create table if not exists "CommunityComment" (

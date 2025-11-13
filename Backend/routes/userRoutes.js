@@ -514,4 +514,55 @@ router.put('/preferences', authMiddleware, async (req, res) => {
   }
 });
 
+// --- PUBLIC USER PROFILE ROUTES ---
+
+// GET /api/users/:id/public-profile - ข้อมูลสาธารณะของผู้ใช้
+router.get('/users/:id/public-profile', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from('User')
+      .select('user_id, user_fname, user_lname')
+      .eq('user_id', id)
+      .limit(1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+    }
+
+    const user = data[0];
+    res.json({
+      user_id: user.user_id,
+      user_fname: user.user_fname,
+      user_lname: user.user_lname,
+      full_name: [user.user_fname, user.user_lname].filter(Boolean).join(' ')
+    });
+  } catch (error) {
+    console.error('Error fetching public profile:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้' });
+  }
+});
+
+// GET /api/users/:id/posts - รายชื่อโพสต์ของผู้ใช้
+router.get('/users/:id/posts', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: posts, error } = await supabase
+      .from('CommunityPost')
+      .select('cpost_id, cpost_title, cpost_datetime, cpost_image, like_count')
+      .eq('user_id', id)
+      .order('cpost_datetime', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(posts || []);
+  } catch (error) {
+    console.error('Error fetching user posts:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงโพสต์ของผู้ใช้' });
+  }
+});
+
 module.exports = router;

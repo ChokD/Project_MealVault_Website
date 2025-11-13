@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import ReportModal from './ReportModal';
+import { useNavigate } from 'react-router-dom';
 
 // --- ฟอร์มคอมเมนต์ (เหมือนเดิม) ---
 function CommentForm({ postId, onCommentAdded }) {
@@ -59,6 +60,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
   const [details, setDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const { user, token } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post?.like_count || 0);
@@ -186,6 +188,26 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
   const canDeletePost = user && (user.isAdmin || user.user_id === postUserId);
   const canEditPost = user && (user.isAdmin || user.user_id === postUserId);
   const isAdmin = user?.isAdmin || false;
+  const isRecipe = (details?.post_type || post?.post_type) === 'recipe';
+  const recipeDetails = details?.recipe || post?.recipe || null;
+  const ingredientsList = Array.isArray(recipeDetails?.ingredients) ? recipeDetails.ingredients : [];
+  const stepsList = Array.isArray(recipeDetails?.steps) ? recipeDetails.steps : [];
+  const formatDateTime = (value) => {
+    if (!value) return null;
+    try {
+      return new Date(value).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+    } catch {
+      return null;
+    }
+  };
+  const postCreatedAt = formatDateTime(details?.cpost_datetime || post?.cpost_datetime);
+  const handleAuthorClick = (e) => {
+    e.stopPropagation();
+    const ownerId = post?.user_id || details?.user_id;
+    if (ownerId) {
+      navigate(`/users/${ownerId}`);
+    }
+  };
 
   // ฟังก์ชันสำหรับเปิด Modal รายงานโพสต์
   const handleReportPost = (e) => {
@@ -223,7 +245,23 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
       <div className="p-6 flex justify-between items-center">
         <div className="flex-grow cursor-pointer" onClick={onToggle}>
           <h3 className="font-bold text-lg text-gray-800">{post.cpost_title}</h3>
-          <p className="text-sm text-gray-500">โพสต์โดย: {post.user_fname}</p>
+          <div className="flex items-center gap-3 flex-wrap mt-1">
+            <button
+              type="button"
+              onClick={handleAuthorClick}
+              className="text-sm text-emerald-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 rounded"
+            >
+              โพสต์โดย: {post.user_fname}
+            </button>
+            {isRecipe && (
+              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                สูตรอาหาร
+              </span>
+            )}
+            {postCreatedAt && (
+              <span className="text-xs text-gray-500">โพสต์เมื่อ: {postCreatedAt}</span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
@@ -310,7 +348,90 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                     </div>
                   )}
                   <div className="prose max-w-none mb-8 text-gray-700" style={{whiteSpace: 'pre-wrap'}}>
-                    {details.cpost_content}
+                    {isRecipe ? (
+                      <>
+                        {recipeDetails?.recipe_summary && (
+                          <p className="text-gray-700 leading-relaxed mb-6">
+                            {recipeDetails.recipe_summary}
+                          </p>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                          {recipeDetails?.recipe_category && (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-sm">
+                              <p className="text-gray-500">หมวดหมู่</p>
+                              <p className="font-semibold text-gray-800">{recipeDetails.recipe_category}</p>
+                            </div>
+                          )}
+                          {recipeDetails?.servings && (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-sm">
+                              <p className="text-gray-500">จำนวนเสิร์ฟ</p>
+                              <p className="font-semibold text-gray-800">{recipeDetails.servings} คน</p>
+                            </div>
+                          )}
+                          {recipeDetails?.prep_time_minutes && (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-sm">
+                              <p className="text-gray-500">เวลาเตรียม</p>
+                              <p className="font-semibold text-gray-800">{recipeDetails.prep_time_minutes} นาที</p>
+                            </div>
+                          )}
+                          {recipeDetails?.cook_time_minutes && (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-sm">
+                              <p className="text-gray-500">เวลาปรุง</p>
+                              <p className="font-semibold text-gray-800">{recipeDetails.cook_time_minutes} นาที</p>
+                            </div>
+                          )}
+                          {recipeDetails?.total_time_minutes && (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-sm">
+                              <p className="text-gray-500">เวลารวม</p>
+                              <p className="font-semibold text-gray-800">{recipeDetails.total_time_minutes} นาที</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 mb-3">วัตถุดิบ</h4>
+                            {ingredientsList.length > 0 ? (
+                              <ul className="space-y-2">
+                                {ingredientsList.map((item, idx) => {
+                                  const name = item?.name || item?.ingredient || item?.title || item?.item || item?.label || `วัตถุดิบที่ ${idx + 1}`;
+                                  const amount = item?.amount || item?.quantity || item?.value || item?.measure || '';
+                                  return (
+                                    <li key={idx} className="bg-gray-100 rounded-lg px-4 py-2 text-sm text-gray-700 flex justify-between gap-4">
+                                      <span>{name}</span>
+                                      {amount && <span className="text-gray-500">{amount}</span>}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-500">ไม่มีข้อมูลวัตถุดิบ</p>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-800 mb-3">ขั้นตอนการทำ</h4>
+                            {stepsList.length > 0 ? (
+                              <ol className="space-y-3 list-decimal list-inside">
+                                {stepsList.map((item, idx) => {
+                                  const text = typeof item === 'string' ? item : item?.detail || item?.description || item?.text || '';
+                                  const order = item?.order || item?.step || idx + 1;
+                                  return (
+                                    <li key={idx} className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+                                      <span className="font-medium text-gray-700 block mb-1">ขั้นตอนที่ {order}</span>
+                                      <span className="text-gray-600 leading-relaxed">{text}</span>
+                                    </li>
+                                  );
+                                })}
+                              </ol>
+                            ) : (
+                              <p className="text-sm text-gray-500">ไม่มีข้อมูลขั้นตอน</p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>{details.cpost_content}</>
+                    )}
                   </div>
                   <hr className="my-6"/>
                   <h4 className="font-bold text-lg mb-4">ความคิดเห็น ({details.comments?.length || 0})</h4>
@@ -333,7 +454,23 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                         >
                            <div className="flex-grow">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-semibold text-sm text-gray-800">{comment.user_fname}</p>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (comment.user_id) {
+                                      navigate(`/users/${comment.user_id}`);
+                                    }
+                                  }}
+                                  className="font-semibold text-sm text-gray-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 rounded"
+                                >
+                                  {comment.user_fname}
+                                </button>
+                                {comment.comment_datetime && (
+                                  <span className="text-xs text-gray-500">
+                                    แสดงความคิดเห็นเมื่อ: {formatDateTime(comment.comment_datetime)}
+                                  </span>
+                                )}
                                 {isHighlightedComment && (
                                   <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold animate-pulse">
                                     ⚠️ ถูกรายงาน

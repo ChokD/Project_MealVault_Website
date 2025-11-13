@@ -143,12 +143,20 @@ function CommunityPage() {
               ชุมชน MealVault {isAdmin && <span className="text-sm text-red-500">[Admin Mode]</span>}
             </h1>
             {token && (
-              <Link 
-                to="/create-post" 
-                className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold rounded-full px-6 py-2 transition-colors`}
-              >
-                สร้างโพสต์ใหม่
-              </Link>
+              <div className="flex gap-3 flex-wrap justify-end">
+                <Link 
+                  to="/create-post" 
+                  className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold rounded-full px-6 py-2 transition-colors`}
+                >
+                  สร้างโพสต์ใหม่
+                </Link>
+                <Link
+                  to="/community/recipes/new"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full px-6 py-2 transition-colors"
+                >
+                  สร้างสูตรอาหาร
+                </Link>
+              </div>
             )}
           </div>
           
