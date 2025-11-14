@@ -30,7 +30,12 @@ async function findMenuIdByName(menuName) {
     const data = await resp.json();
     // หาเมนูที่ชื่อตรงกัน
     const menu = data.find(m => m.menu_name === menuName);
-    return menu ? menu.menu_id : null;
+    return menu
+      ? {
+          id: menu.menu_id,
+          likeCount: menu.menu_like_count || 0
+        }
+      : null;
   } catch (error) {
     console.error('Error finding menu:', error);
     return null;
@@ -99,8 +104,8 @@ function RecipeDetailPage() {
         setLoadingPlan(true);
         try {
           // หา menu_id
-          const id = await findMenuIdByName(recipe.strMeal);
-          if (id) setMenuId(id);
+          const info = await findMenuIdByName(recipe.strMeal);
+          if (info) setMenuId(info.id);
           
           // ดึง plan
           const planData = await fetchPlanFromAPI(token);

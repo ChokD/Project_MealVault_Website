@@ -32,7 +32,16 @@ create table if not exists "Menu" (
   menu_image text,
   menu_datetime timestamptz default now(),
   user_id text references "User"(user_id) on delete set null,
-  category_id text references "Category"(category_id) on delete set null
+  category_id text references "Category"(category_id) on delete set null,
+  menu_like_count integer default 0
+);
+
+create table if not exists "MenuLike" (
+  id bigserial primary key,
+  menu_id text references "Menu"(menu_id) on delete cascade,
+  user_id text references "User"(user_id) on delete cascade,
+  created_at timestamptz default now(),
+  unique (menu_id, user_id)
 );
 
 create table if not exists "Ingredient" (

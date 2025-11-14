@@ -181,4 +181,97 @@ router.delete('/menus/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// --- Menu Like Routes ---
+
+// GET /api/menus/:id/likes - สถานะการกดไลค์ของเมนู
+router.get('/menus/:id/likes', authMiddleware, async (req, res) => {
+  const { id: menuId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { data: menuData, error: menuErr } = await supabase
+      .from('Menu')
+      .select('menu_like_count')
+      .eq('menu_id', menuId)
+      .limit(1);
+    if (menuErr) throw menuErr;
+    if (!menuData || menuData.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบเมนู' });
+    }
+
+    const { data: likeData, error: likeErr } = await supabase
+      .from('MenuLike')
+      .select('id')
+      .eq('menu_id', menuId)
+      .eq('user_id', userId)
+      .limit(1);
+    if (likeErr) throw likeErr;
+
+    res.json({
+      like_count: menuData[0].menu_like_count || 0,
+      liked: !!(likeData && likeData.length > 0)
+    });
+  } catch (error) {
+    console.error('Error fetching menu likes:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลไลค์เมนู' });
+  }
+});
+
+// POST /api/menus/:id/like - toggle like
+router.post('/menus/:id/like', authMiddleware, async (req, res) => {
+  const { id: menuId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { data: existingLike, error: likeErr } = await supabase
+      .from('MenuLike')
+      .select('*')
+      .eq('menu_id', menuId)
+      .eq('user_id', userId)
+      .limit(1);
+    if (likeErr) throw likeErr;
+
+    const { data: menuData, error: menuErr } = await supabase
+      .from('Menu')
+      .select('menu_like_count')
+      .eq('menu_id', menuId)
+      .limit(1);
+    if (menuErr) throw menuErr;
+    if (!menuData || menuData.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบเมนู' });
+    }
+
+    let newCount = menuData[0].menu_like_count || 0;
+    let liked = false;
+
+    if (existingLike && existingLike.length > 0) {
+      const { error: deleteErr } = await supabase
+        .from('MenuLike')
+        .delete()
+        .eq('menu_id', menuId)
+        .eq('user_id', userId);
+      if (deleteErr) throw deleteErr;
+      newCount = Math.max(0, newCount - 1);
+    } else {
+      const { error: insertErr } = await supabase
+        .from('MenuLike')
+        .insert([{ menu_id: menuId, user_id: userId }]);
+      if (insertErr) throw insertErr;
+      newCount += 1;
+      liked = true;
+    }
+
+    const { error: updateErr } = await supabase
+      .from('Menu')
+      .update({ menu_like_count: newCount })
+      .eq('menu_id', menuId);
+    if (updateErr) throw updateErr;
+
+    res.json({ like_count: newCount, liked });
+  } catch (error) {
+    console.error('Error toggling menu like:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการกดไลค์เมนู' });
+  }
+});
+
 module.exports = router;
