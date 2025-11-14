@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
+import AddMenuModal from '../components/AddMenuModal';
 
 const API_URL = 'http://localhost:3000/api';
 const ALL_CATEGORY = 'ALL';
@@ -20,6 +22,7 @@ function formatDateThai(dateString) {
 }
 
 function MenuCard({ menu, categoryName, token }) {
+  const navigate = useNavigate();
   const imageSrc = menu.menu_image
     ? (menu.menu_image.startsWith('http') ? menu.menu_image : `http://localhost:3000/images/${menu.menu_image}`)
     : 'https://via.placeholder.com/400x260.png?text=MealVault';
@@ -138,12 +141,23 @@ function MenuCard({ menu, categoryName, token }) {
         <div className="mt-auto flex gap-3">
           <button
             type="button"
+            onClick={() => navigate(`/menus/${menu.menu_id}`)}
             className="flex-1 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow"
           >
             ดูรายละเอียด
           </button>
           <button
             type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const url = `${window.location.origin}/menus/${menu.menu_id}`;
+              navigator.clipboard.writeText(url).then(() => {
+                alert('คัดลอกลิงก์แล้ว!');
+              }).catch(() => {
+                alert('ไม่สามารถคัดลอกลิงก์ได้');
+              });
+            }}
             className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 text-sm font-semibold hover:border-gray-300 hover:text-gray-800 transition-colors"
           >
             แชร์
@@ -155,13 +169,14 @@ function MenuCard({ menu, categoryName, token }) {
 }
 
 function MenuPage() {
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
   const [menus, setMenus] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState(false);
   const categoryMap = useMemo(() => {
     const map = {};
     categories.forEach((cat) => {
@@ -202,6 +217,22 @@ function MenuPage() {
     fetchData();
   }, []);
 
+  const handleAddMenuSuccess = () => {
+    // Refresh menu list after successful addition
+    const fetchData = async () => {
+      try {
+        const menuResp = await fetch(`${API_URL}/menus`);
+        if (menuResp.ok) {
+          const menuData = await menuResp.json();
+          setMenus(Array.isArray(menuData) ? menuData : []);
+        }
+      } catch (err) {
+        console.error('Error refreshing menus:', err);
+      }
+    };
+    fetchData();
+  };
+
   const filteredMenus = useMemo(() => {
     let filtered = [...menus];
     if (searchTerm.trim()) {
@@ -233,25 +264,38 @@ function MenuPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
       <main className="flex-grow pt-24">
-        <div className="container mx-auto px-6 sm:px-8 py-8">
+        <div className="container mx-auto px-6 sm:px-8 py-6">
           
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-800">เมนูจากฐานข้อมูล</h1>
               <p className="text-sm text-gray-500 mt-1">เลือกหมวดหมู่หรือค้นหาเมนูที่คุณต้องการ</p>
             </div>
-            <div className="w-full md:w-1/2">
-              <input
-                type="text"
-                placeholder="ค้นหาจากชื่อเมนู..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex gap-3 w-full md:w-auto">
+              <div className="flex-1 md:w-64">
+                <input
+                  type="text"
+                  placeholder="ค้นหาจากชื่อเมนู..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              {user?.isAdmin && (
+                <button
+                  onClick={() => setIsAddMenuModalOpen(true)}
+                  className="px-6 py-2 bg-emerald-600 text-white rounded-full font-medium hover:bg-emerald-700 transition-colors shadow-lg flex items-center gap-2 whitespace-nowrap"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  เพิ่มเมนู
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 overflow-x-auto pb-2 mb-6">
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 mb-4">
             <button
               onClick={() => setActiveCategory(ALL_CATEGORY)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
@@ -358,6 +402,14 @@ function MenuPage() {
           )}
         </div>
       </main>
+
+      <AddMenuModal
+        isOpen={isAddMenuModalOpen}
+        onClose={() => setIsAddMenuModalOpen(false)}
+        onSuccess={handleAddMenuSuccess}
+        token={token}
+        categories={categories}
+      />
     </div>
   );
 }

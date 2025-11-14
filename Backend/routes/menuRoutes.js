@@ -69,7 +69,7 @@ router.post('/menus', authMiddleware, async (req, res) => {
     }
 
     // 2. ถ้าเป็น Admin ให้ทำการเพิ่มเมนูใหม่
-    const { menu_name, menu_description, menu_recipe, menu_image, category_id } = req.body;
+    const { menu_name, menu_description, menu_recipe, menu_image, category_id, menu_source, menu_source_url } = req.body;
 
     if (!menu_name || !menu_description || !menu_recipe) {
       return res.status(400).json({ message: 'กรุณากรอกข้อมูลเมนูให้ครบถ้วน' });
@@ -83,7 +83,9 @@ router.post('/menus', authMiddleware, async (req, res) => {
       menu_image: menu_image || 'default.jpg', // ใส่รูปภาพ default ถ้าไม่มี
       menu_datetime: new Date(),
       user_id: adminId, // บันทึกว่า Admin คนไหนเป็นคนสร้าง
-      category_id
+      category_id,
+      menu_source: menu_source || null,
+      menu_source_url: menu_source_url || null
     };
 
     const { error } = await supabase.from('Menu').insert([newMenu]);
@@ -117,16 +119,28 @@ router.put('/menus/:id', authMiddleware, async (req, res) => {
     const { id: menuId } = req.params;
 
     // 3. ดึงข้อมูลใหม่ที่จะอัปเดตจาก Request Body
-    const { menu_name, menu_description, menu_recipe, menu_image, category_id } = req.body;
+    const { menu_name, menu_description, menu_recipe, menu_image, category_id, menu_source, menu_source_url } = req.body;
 
     if (!menu_name || !menu_description || !menu_recipe) {
       return res.status(400).json({ message: 'กรุณากรอกข้อมูลเมนูที่จำเป็นให้ครบถ้วน' });
     }
 
     // 4. เขียนคำสั่ง SQL UPDATE
+    const updateData = {
+      menu_name,
+      menu_description,
+      menu_recipe,
+      menu_image,
+      category_id
+    };
+    
+    // เพิ่ม source ถ้ามีการส่งมา
+    if (menu_source !== undefined) updateData.menu_source = menu_source;
+    if (menu_source_url !== undefined) updateData.menu_source_url = menu_source_url;
+
     const { data, error } = await supabase
       .from('Menu')
-      .update({ menu_name, menu_description, menu_recipe, menu_image, category_id })
+      .update(updateData)
       .eq('menu_id', menuId)
       .select();
     if (error) throw error;

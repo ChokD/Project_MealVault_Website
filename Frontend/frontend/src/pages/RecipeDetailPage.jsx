@@ -256,7 +256,17 @@ function RecipeDetailPage() {
               )}
             </div>
             
-            <img src={recipe.strMealThumb} alt={recipe.strMeal} className="w-full rounded-lg mb-6 shadow-md" />
+            <img 
+              src={
+                recipe.strMealThumb 
+                  ? (recipe.strMealThumb.startsWith('http') 
+                      ? recipe.strMealThumb 
+                      : `http://localhost:3000/images/${recipe.strMealThumb}`)
+                  : 'https://via.placeholder.com/800x400.png?text=No+Image'
+              } 
+              alt={recipe.strMeal} 
+              className="w-full rounded-lg mb-6 shadow-md" 
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="md:col-span-1">
@@ -280,6 +290,42 @@ function RecipeDetailPage() {
                 <a href={recipe.strYoutube} target="_blank" rel="noopener noreferrer" className="inline-block bg-red-600 text-white font-bold rounded-full px-6 py-3 hover:bg-red-700 transition-colors">
                   ดูวิดีโอวิธีทำบน YouTube
                 </a>
+              </div>
+            )}
+
+            {/* แหล่งอ้างอิง */}
+            {(recipe.strSource || recipe.strSourceUrl) && (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="bg-gray-50 rounded-lg p-4 lg:p-6">
+                  <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    แหล่งอ้างอิง
+                  </h3>
+                  <div className="text-sm lg:text-base text-gray-700">
+                    {recipe.strSource && (
+                      <div className="font-medium text-gray-800 mb-2">
+                        {recipe.strSource}
+                      </div>
+                    )}
+                    {recipe.strSourceUrl && (
+                      <div className="mt-2">
+                        <a 
+                          href={recipe.strSourceUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-emerald-600 hover:text-emerald-700 hover:underline break-all inline-flex items-center gap-1 transition-colors"
+                        >
+                          <span>{recipe.strSourceUrl}</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

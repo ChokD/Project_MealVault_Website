@@ -153,6 +153,8 @@ router.get('/thai-food/lookup.php', async (req, res) => {
       strMealThumb: menu.menu_image || '',
       strTags: null,
       strYoutube: null,
+      strSource: menu.menu_source || null,
+      strSourceUrl: menu.menu_source_url || null,
       strIngredient1: ingredients.strIngredient1 || null,
       strIngredient2: ingredients.strIngredient2 || null,
       strIngredient3: ingredients.strIngredient3 || null,

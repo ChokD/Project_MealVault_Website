@@ -281,19 +281,19 @@ function WeeklyMealPlanPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <main className="flex-grow pt-24 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-start justify-between mb-6">
+      <main className="flex-grow pt-24 px-4 md:px-8 lg:px-12">
+        <div className="max-w-[95vw] xl:max-w-[1600px] mx-auto">
+          <div className="flex items-start justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">แผนเมนูรายสัปดาห์</h1>
-              <p className="mt-1 text-sm text-gray-500">จัดตารางอาหารของคุณตลอดสัปดาห์ เพิ่มเมนูได้อย่างรวดเร็ว</p>
+              <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-900">แผนเมนูรายสัปดาห์</h1>
+              <p className="mt-2 text-base lg:text-lg text-gray-500">จัดตารางอาหารของคุณตลอดสัปดาห์ เพิ่มเมนูได้อย่างรวดเร็ว</p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={calculateCalories} disabled={calculating || !token} className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+            <div className="flex gap-3">
+              <button onClick={calculateCalories} disabled={calculating || !token} className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm lg:text-base font-medium">
                 <span>🔥</span>
                 {calculating ? 'กำลังคำนวณ...' : 'คำนวณแคลอรี่'}
               </button>
-              <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm lg:text-base font-medium">
                 <span className="i-heroicons-shopping-cart-20-solid" />
                 {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
               </button>
@@ -308,26 +308,26 @@ function WeeklyMealPlanPage() {
 
           {!loadingPlan && token && (
             <>
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
             {DAYS.map(day => (
-              <div key={day} className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-3 hover:shadow transition-shadow">
-                <div className="font-semibold mb-3 text-center text-gray-800 tracking-wide">{day}</div>
+              <div key={day} className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-4 lg:p-5 hover:shadow transition-shadow">
+                <div className="font-bold text-base lg:text-lg mb-4 text-center text-gray-800 tracking-wide">{day}</div>
                 {MEALS.map(meal => (
-                  <div key={meal} className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500 bg-gray-50 rounded px-2 py-1">{meal}</div>
-                      <button onClick={() => openAddModal(day, meal)} className="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded px-2 py-1 border border-emerald-200 transition-colors">เพิ่ม</button>
+                  <div key={meal} className="mb-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm font-medium uppercase tracking-wide text-gray-500 bg-gray-50 rounded px-3 py-1.5">{meal}</div>
+                      <button onClick={() => openAddModal(day, meal)} className="text-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded px-3 py-1.5 border border-emerald-200 transition-colors font-medium">เพิ่ม</button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {plan[day][meal].map(r => (
-                        <div key={r.planId || r.id} className="group flex items-center gap-2 bg-gray-50 rounded-lg p-2 border border-transparent hover:border-gray-200">
-                          <img src={r.thumb || '/images/no-image.png'} alt="" className="w-10 h-10 object-cover rounded-md ring-1 ring-gray-200" onError={(e) => { e.target.src = '/images/no-image.png'; }} />
-                          <div className="text-sm flex-1 truncate text-gray-800" title={r.name}>{r.name}</div>
-                          <button onClick={() => removeRecipe({ ...r, day, meal })} className="text-xs text-red-600 hover:text-red-700">ลบ</button>
+                        <div key={r.planId || r.id} className="group flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-transparent hover:border-gray-200 hover:shadow-sm transition-all">
+                          <img src={r.thumb || '/images/no-image.png'} alt="" className="w-12 h-12 lg:w-14 lg:h-14 object-cover rounded-md ring-1 ring-gray-200 flex-shrink-0" onError={(e) => { e.target.src = '/images/no-image.png'; }} />
+                          <div className="text-sm lg:text-base flex-1 truncate text-gray-800 font-medium" title={r.name}>{r.name}</div>
+                          <button onClick={() => removeRecipe({ ...r, day, meal })} className="text-sm text-red-600 hover:text-red-700 font-medium px-2">ลบ</button>
                         </div>
                       ))}
                       {plan[day][meal].length === 0 && (
-                        <div className="inline-flex items-center text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1">ไม่มีเมนู</div>
+                        <div className="inline-flex items-center text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded px-3 py-2">ไม่มีเมนู</div>
                       )}
                     </div>
                   </div>
@@ -336,19 +336,19 @@ function WeeklyMealPlanPage() {
             ))}
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center">🛒</div>
-              <h2 className="font-semibold text-gray-900">รายการของซื้อ</h2>
-              {generating && <span className="text-sm text-gray-500">กำลังสร้าง...</span>}
+          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-6 lg:p-8">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center text-lg lg:text-xl">🛒</div>
+              <h2 className="font-bold text-lg lg:text-xl text-gray-900">รายการของซื้อ</h2>
+              {generating && <span className="text-base text-gray-500">กำลังสร้าง...</span>}
             </div>
             {shopping.length === 0 ? (
-              <div className="text-gray-500 text-sm">ยังไม่มีรายการ กดปุ่ม "สร้างรายการของซื้อ" เพื่อสร้าง</div>
+              <div className="text-gray-500 text-base">ยังไม่มีรายการ กดปุ่ม "สร้างรายการของซื้อ" เพื่อสร้าง</div>
             ) : (
-              <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-2">
+              <ul className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-y-3 gap-x-4">
                 {shopping.map((it, idx) => (
-                  <li key={idx} className="text-sm flex items-start gap-2">
-                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <li key={idx} className="text-base flex items-start gap-3">
+                    <span className="mt-1.5 w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span>
                     <div>
                       <span className="font-medium text-gray-800">{it.name}</span>
                     </div>
