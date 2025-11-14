@@ -22,6 +22,8 @@ function CreateRecipePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
+  const [plagiarismWarning, setPlagiarismWarning] = useState(null);
 
   useEffect(() => {
     if (!token) {
@@ -51,6 +53,42 @@ function CreateRecipePage() {
     setSteps(prev => prev.filter((_, idx) => idx !== index));
   };
 
+  const checkPlagiarism = async () => {
+    const filteredIngredients = ingredients.filter(item => item.name.trim());
+    const filteredSteps = steps.filter(item => item.detail.trim());
+
+    setCheckingPlagiarism(true);
+    setPlagiarismWarning(null);
+    
+    try {
+      const response = await fetch('http://localhost:3000/api/plagiarism/check-recipe', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: recipeTitle,
+          summary: recipeSummary,
+          ingredients: filteredIngredients,
+          steps: filteredSteps.map((item, index) => ({
+            order: index + 1,
+            detail: item.detail
+          }))
+        })
+      });
+
+      const data = await response.json();
+      if (data.plagiarismCheck && !data.isOriginal) {
+        setPlagiarismWarning(data.plagiarismCheck);
+      }
+    } catch (error) {
+      console.error('Plagiarism check failed:', error);
+    } finally {
+      setCheckingPlagiarism(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -67,6 +105,9 @@ function CreateRecipePage() {
       setError('กรุณาระบุขั้นตอนอย่างน้อย 1 ขั้น');
       return;
     }
+
+    // Check plagiarism before submitting
+    await checkPlagiarism();
 
     setSubmitting(true);
     try {
@@ -123,6 +164,28 @@ function CreateRecipePage() {
                 <p className="text-gray-500">แบ่งปันสูตรอาหารที่คุณชื่นชอบให้สมาชิก MealVault ได้ลองทำตาม</p>
               </div>
             </div>
+
+            {plagiarismWarning && (
+              <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-yellow-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-yellow-800 mb-1">พบความคล้ายคลึงกับสูตรที่มีอยู่</h4>
+                    <p className="text-sm text-yellow-700">
+                      ระบบตรวจพบความคล้ายคลึง {Math.round(plagiarismWarning.similarityScore * 100)}% กับสูตรอื่นในระบบ
+                    </p>
+                    {plagiarismWarning.reason && (
+                      <p className="text-sm text-yellow-600 mt-1">{plagiarismWarning.reason}</p>
+                    )}
+                    <p className="text-sm text-yellow-600 mt-2">
+                      คุณยังสามารถสร้างสูตรนี้ได้ แต่ควรเพิ่มเอกลักษณ์หรือวิธีทำที่แตกต่างออกไป
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-8">
               <section>

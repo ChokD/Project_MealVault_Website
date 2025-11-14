@@ -13,6 +13,7 @@ function CreatePostPage() {
   const [image, setImage] = useState(null);
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [warning, setWarning] = useState(null);
 
   const isAdmin = user?.isAdmin || false;
 
@@ -46,7 +47,16 @@ function CreatePostPage() {
 
       const data = await response.json();
       if (!response.ok) {
+        // Check if it's a moderation error
+        if (data.moderation) {
+          throw new Error(data.message || 'เนื้อหาไม่เหมาะสม');
+        }
         throw new Error(data.message || 'เกิดข้อผิดพลาด');
+      }
+
+      // Show warning if content was flagged but allowed
+      if (data.warning) {
+        setWarning(data.warning);
       }
 
       setShowSuccess(true);
@@ -71,6 +81,21 @@ function CreatePostPage() {
               <h1 className={`text-2xl font-bold text-center ${isAdmin ? 'text-red-600' : 'text-gray-800'}`}>
                 สร้างโพสต์ใหม่
               </h1>
+              
+              {warning && (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 text-yellow-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-yellow-800">{warning.message}</h4>
+                      <p className="text-sm text-yellow-600 mt-1">โพสต์ของคุณถูกสร้างแล้ว แต่อาจมีเนื้อหาที่ต้องระวัง</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleSubmit} className="space-y-6">
                 
                 {/* --- โค้ดที่ถูกต้องสำหรับฟอร์ม --- */}

@@ -21,7 +21,7 @@ function formatDateThai(dateString) {
   }
 }
 
-function MenuCard({ menu, categoryName, token }) {
+function MenuCard({ menu, categoryName, token, user }) {
   const navigate = useNavigate();
   const imageSrc = menu.menu_image
     ? (menu.menu_image.startsWith('http') ? menu.menu_image : `http://localhost:3000/images/${menu.menu_image}`)
@@ -141,7 +141,38 @@ function MenuCard({ menu, categoryName, token }) {
         <div className="mt-auto flex gap-3">
           <button
             type="button"
-            onClick={() => navigate(`/menus/${menu.menu_id}`)}
+            onClick={async () => {
+              // Track menu view
+              if (token) {
+                try {
+                  await fetch(`${API_URL}/behavior/menu/view`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ menu_id: menu.menu_id, user_id: user?.user_id })
+                  });
+                } catch (error) {
+                  console.error('Failed to track menu view:', error);
+                }
+                
+                // Track menu like behavior (preference boost)
+                try {
+                  await fetch(`${API_URL}/behavior/menu/like`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ menu_id: menu.menu_id, user_id: user?.user_id })
+                  });
+                } catch (error) {
+                  console.error('Failed to update preference:', error);
+                }
+              }
+              navigate(`/menus/${menu.menu_id}`);
+            }}
             className="flex-1 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow"
           >
             ดูรายละเอียด
@@ -375,6 +406,7 @@ function MenuPage() {
                           : categoryMap[activeCategory] || 'หมวดหมู่'
                       }
                       token={token}
+                      user={user}
                     />
                   ))}
                 </div>
@@ -394,6 +426,7 @@ function MenuPage() {
                       menu={menu}
                       categoryName={categoryMap[menu.category_id] || 'หมวดหมู่ทั่วไป'}
                       token={token}
+                      user={user}
                     />
                   ))}
                 </div>

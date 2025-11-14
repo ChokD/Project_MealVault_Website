@@ -4,6 +4,7 @@ const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 const { createNotification } = require('./notificationRoutes');
+const { moderateContent } = require('./contentModerationRoutes');
 
 // --- PUBLIC ROUTES ---
 
@@ -184,7 +185,7 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
 // --- PROTECTED ROUTES ---
 
 // POST /api/posts - สร้างโพสต์ใหม่พร้อมรูปภาพ (โพสต์ปกติ)
-router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, res) => {
+router.post('/posts', authMiddleware, upload.single('cpost_image'), moderateContent, async (req, res) => {
   const { cpost_title, cpost_content } = req.body;
   const user_id = req.user.id;
 
@@ -217,7 +218,12 @@ router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, 
     }
     
     console.log(`Post created successfully: ${newPost.cpost_id}`);
-    res.status(201).json({ message: 'สร้างโพสต์สำเร็จ', post: data?.[0] || newPost });
+    
+    const response = { message: 'สร้างโพสต์สำเร็จ', post: data?.[0] || newPost };
+    if (req.moderationWarning) {
+      response.warning = req.moderationWarning;
+    }
+    res.status(201).json(response);
   } catch (error) {
     console.error('Error creating post:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างโพสต์' });
@@ -225,7 +231,7 @@ router.post('/posts', authMiddleware, upload.single('cpost_image'), async (req, 
 });
 
 // POST /api/posts/:id/comments - เพิ่มความคิดเห็นในโพสต์
-router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
+router.post('/posts/:id/comments', authMiddleware, moderateContent, async (req, res) => {
     const { id: cpost_id } = req.params;
     const { comment_content } = req.body;
     const user_id = req.user.id;
@@ -391,7 +397,7 @@ router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (re
 });
 
 // POST /api/recipes - สร้างสูตรอาหารใหม่
-router.post('/recipes', authMiddleware, upload.single('recipe_image'), async (req, res) => {
+router.post('/recipes', authMiddleware, upload.single('recipe_image'), moderateContent, async (req, res) => {
   const user_id = req.user.id;
   const {
     recipe_title,
