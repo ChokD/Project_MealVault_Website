@@ -119,9 +119,6 @@ function WeeklyMealPlanPage() {
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [caloriesData, setCaloriesData] = useState(null);
-  const [calculating, setCalculating] = useState(false);
-  const [showCaloriesModal, setShowCaloriesModal] = useState(false);
   const QUICK_KEYWORDS = ['ไก่', 'หมู', 'เนื้อ', 'กุ้ง', 'ปลา', 'ผัด', 'แกง', 'ต้ม'];
 
   useEffect(() => {
@@ -254,50 +251,20 @@ function WeeklyMealPlanPage() {
     }
   };
 
-  const calculateCalories = async () => {
-    if (!token) return;
-    setCalculating(true);
-    try {
-      const resp = await fetch(`${API_URL}/weekly-meal-plan/calculate-calories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (!resp.ok) {
-        const errorData = await resp.json();
-        throw new Error(errorData.error || 'Failed to calculate calories');
-      }
-      const data = await resp.json();
-      setCaloriesData(data);
-      setShowCaloriesModal(true);
-    } catch (error) {
-      console.error('Error calculating calories:', error);
-      alert(error.message || 'เกิดข้อผิดพลาดในการคำนวณแคลอรี่');
-    } finally {
-      setCalculating(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <main className="flex-grow pt-24 px-4 md:px-8 lg:px-12">
-        <div className="max-w-[95vw] xl:max-w-[1600px] mx-auto">
-          <div className="flex items-start justify-between mb-8">
+      <main className="flex-grow pt-24 px-4 md:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-900">แผนเมนูรายสัปดาห์</h1>
-              <p className="mt-2 text-base lg:text-lg text-gray-500">จัดตารางอาหารของคุณตลอดสัปดาห์ เพิ่มเมนูได้อย่างรวดเร็ว</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">แผนเมนูรายสัปดาห์</h1>
+              <p className="mt-1 text-sm text-gray-500">จัดตารางอาหารของคุณตลอดสัปดาห์ เพิ่มเมนูได้อย่างรวดเร็ว</p>
             </div>
-            <div className="flex gap-3">
-              <button onClick={calculateCalories} disabled={calculating || !token} className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm lg:text-base font-medium">
-                <span>🔥</span>
-                {calculating ? 'กำลังคำนวณ...' : 'คำนวณแคลอรี่'}
-              </button>
-              <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm lg:text-base font-medium">
-                <span className="i-heroicons-shopping-cart-20-solid" />
-                {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
-              </button>
-            </div>
+            <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed">
+              <span className="i-heroicons-shopping-cart-20-solid" />
+              {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
+            </button>
           </div>
           {loadingPlan && (
             <div className="text-center py-8 text-gray-500">กำลังโหลดข้อมูล...</div>
@@ -308,26 +275,26 @@ function WeeklyMealPlanPage() {
 
           {!loadingPlan && token && (
             <>
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8">
             {DAYS.map(day => (
-              <div key={day} className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-4 lg:p-5 hover:shadow transition-shadow">
-                <div className="font-bold text-base lg:text-lg mb-4 text-center text-gray-800 tracking-wide">{day}</div>
+              <div key={day} className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-3 hover:shadow transition-shadow">
+                <div className="font-semibold mb-3 text-center text-gray-800 tracking-wide">{day}</div>
                 {MEALS.map(meal => (
-                  <div key={meal} className="mb-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-sm font-medium uppercase tracking-wide text-gray-500 bg-gray-50 rounded px-3 py-1.5">{meal}</div>
-                      <button onClick={() => openAddModal(day, meal)} className="text-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded px-3 py-1.5 border border-emerald-200 transition-colors font-medium">เพิ่ม</button>
+                  <div key={meal} className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500 bg-gray-50 rounded px-2 py-1">{meal}</div>
+                      <button onClick={() => openAddModal(day, meal)} className="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded px-2 py-1 border border-emerald-200 transition-colors">เพิ่ม</button>
                     </div>
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {plan[day][meal].map(r => (
-                        <div key={r.planId || r.id} className="group flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-transparent hover:border-gray-200 hover:shadow-sm transition-all">
-                          <img src={r.thumb || '/images/no-image.png'} alt="" className="w-12 h-12 lg:w-14 lg:h-14 object-cover rounded-md ring-1 ring-gray-200 flex-shrink-0" onError={(e) => { e.target.src = '/images/no-image.png'; }} />
-                          <div className="text-sm lg:text-base flex-1 truncate text-gray-800 font-medium" title={r.name}>{r.name}</div>
-                          <button onClick={() => removeRecipe({ ...r, day, meal })} className="text-sm text-red-600 hover:text-red-700 font-medium px-2">ลบ</button>
+                        <div key={r.planId || r.id} className="group flex items-center gap-2 bg-gray-50 rounded-lg p-2 border border-transparent hover:border-gray-200">
+                          <img src={r.thumb || '/images/no-image.png'} alt="" className="w-10 h-10 object-cover rounded-md ring-1 ring-gray-200" onError={(e) => { e.target.src = '/images/no-image.png'; }} />
+                          <div className="text-sm flex-1 truncate text-gray-800" title={r.name}>{r.name}</div>
+                          <button onClick={() => removeRecipe({ ...r, day, meal })} className="text-xs text-red-600 hover:text-red-700">ลบ</button>
                         </div>
                       ))}
                       {plan[day][meal].length === 0 && (
-                        <div className="inline-flex items-center text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded px-3 py-2">ไม่มีเมนู</div>
+                        <div className="inline-flex items-center text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1">ไม่มีเมนู</div>
                       )}
                     </div>
                   </div>
@@ -336,21 +303,22 @@ function WeeklyMealPlanPage() {
             ))}
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-6 lg:p-8">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center text-lg lg:text-xl">🛒</div>
-              <h2 className="font-bold text-lg lg:text-xl text-gray-900">รายการของซื้อ</h2>
-              {generating && <span className="text-base text-gray-500">กำลังสร้าง...</span>}
+          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center">🛒</div>
+              <h2 className="font-semibold text-gray-900">รายการของซื้อ</h2>
+              {generating && <span className="text-sm text-gray-500">กำลังสร้าง...</span>}
             </div>
             {shopping.length === 0 ? (
-              <div className="text-gray-500 text-base">ยังไม่มีรายการ กดปุ่ม "สร้างรายการของซื้อ" เพื่อสร้าง</div>
+              <div className="text-gray-500 text-sm">ยังไม่มีรายการ กดปุ่ม "สร้างรายการของซื้อ" เพื่อสร้าง</div>
             ) : (
-              <ul className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-y-3 gap-x-4">
+              <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-2">
                 {shopping.map((it, idx) => (
-                  <li key={idx} className="text-base flex items-start gap-3">
-                    <span className="mt-1.5 w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span>
+                  <li key={idx} className="text-sm flex items-start gap-2">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                     <div>
                       <span className="font-medium text-gray-800">{it.name}</span>
+                      {it.measure && <span className="text-gray-600"> — {it.measure}</span>}
                     </div>
                   </li>
                 ))}
@@ -361,140 +329,6 @@ function WeeklyMealPlanPage() {
           )}
         </div>
       </main>
-
-      {showCaloriesModal && caloriesData && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 grid place-items-center text-xl">🔥</div>
-                <div>
-                  <h2 className="font-semibold text-gray-900">ผลการคำนวณแคลอรี่</h2>
-                  {caloriesData.calorie_limit && (
-                    <p className="text-xs text-gray-500">เป้าหมาย: {caloriesData.calorie_limit} แคลอรี่/วัน</p>
-                  )}
-                </div>
-              </div>
-              <button onClick={() => setShowCaloriesModal(false)} className="text-gray-500 hover:text-black text-xl">✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              {/* แสดงการแจ้งเตือนถ้าเกิน */}
-              {caloriesData.has_warnings && caloriesData.warnings && caloriesData.warnings.length > 0 && (
-                <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-start gap-2 mb-2">
-                    <span className="text-red-600 text-lg">⚠️</span>
-                    <h3 className="font-semibold text-red-800">แจ้งเตือน: แคลอรี่เกินเป้าหมาย</h3>
-                  </div>
-                  <ul className="space-y-2">
-                    {caloriesData.warnings.map((warning, idx) => (
-                      <li key={idx} className="text-sm text-red-700 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                        <span>{warning.message}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* สรุปแคลอรี่รวม */}
-              <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">แคลอรี่รวมทั้งสัปดาห์:</span>
-                  <span className="text-2xl font-bold text-blue-700">{caloriesData.weekly_total || caloriesData.total_calories || 0} kcal</span>
-                </div>
-                {caloriesData.calorie_limit && (
-                  <div className="mt-2 text-xs text-gray-600">
-                    เฉลี่ยต่อวัน: {Math.round((caloriesData.weekly_total || 0) / 7)} kcal
-                    {caloriesData.calorie_limit && (
-                      <span className={`ml-2 ${Math.round((caloriesData.weekly_total || 0) / 7) > caloriesData.calorie_limit ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
-                        (เป้าหมาย: {caloriesData.calorie_limit} kcal/วัน)
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* แคลอรี่รายวัน */}
-              <div className="mb-4">
-                <h3 className="font-semibold text-gray-900 mb-3">แคลอรี่รายวัน</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {DAYS.map(day => {
-                    const dayCalories = caloriesData.daily_calories?.[day] || 0;
-                    const isOverLimit = caloriesData.calorie_limit && dayCalories > caloriesData.calorie_limit;
-                    return (
-                      <div key={day} className={`p-3 rounded-lg border ${isOverLimit ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-700">{day}</span>
-                          <span className={`text-lg font-bold ${isOverLimit ? 'text-red-600' : 'text-gray-800'}`}>
-                            {dayCalories} kcal
-                          </span>
-                        </div>
-                        {caloriesData.calorie_limit && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full ${isOverLimit ? 'bg-red-500' : dayCalories > caloriesData.calorie_limit * 0.9 ? 'bg-yellow-500' : 'bg-blue-500'}`}
-                                style={{ width: `${Math.min(100, (dayCalories / caloriesData.calorie_limit) * 100)}%` }}
-                              ></div>
-                            </div>
-                            {isOverLimit && (
-                              <span className="text-xs text-red-600 font-medium">
-                                +{dayCalories - caloriesData.calorie_limit}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* แคลอรี่รายมื้อ (ถ้ามี) */}
-              {caloriesData.meal_details && Object.keys(caloriesData.meal_details).length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">แคลอรี่รายมื้อ</h3>
-                  <div className="space-y-3">
-                    {DAYS.map(day => {
-                      const mealDetails = caloriesData.meal_details[day];
-                      if (!mealDetails) return null;
-                      return (
-                        <div key={day} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <div className="text-sm font-medium text-gray-700 mb-2">{day}</div>
-                          <div className="grid grid-cols-4 gap-2 text-xs">
-                            {MEALS.map(meal => (
-                              <div key={meal} className="text-center">
-                                <div className="text-gray-500 mb-1">{meal}</div>
-                                <div className="font-semibold text-gray-800">
-                                  {mealDetails[meal] || 0} kcal
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {caloriesData.message && (
-                <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 text-center">
-                  {caloriesData.message}
-                </div>
-              )}
-            </div>
-            <div className="px-6 py-4 border-t bg-gray-50">
-              <button 
-                onClick={() => setShowCaloriesModal(false)} 
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                ปิด
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

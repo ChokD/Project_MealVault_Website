@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const sendEmail = require('../utils/sendEmail');
 const authMiddleware = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
 // --- AUTHENTICATION ROUTES ---
 
@@ -193,7 +194,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const { data: users, error: userErr } = await supabase
       .from('User')
-      .select('user_id, user_email, user_fname, user_lname, user_tel, allergies, favorite_foods')
+      .select('user_id, user_email, user_fname, user_lname, user_tel, user_image, allergies, favorite_foods')
       .eq('user_id', req.user.id)
       .limit(1);
     if (userErr) throw userErr;
@@ -356,6 +357,42 @@ router.put('/users/profile', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error updating profile:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์' });
+  }
+});
+
+// PUT /api/users/profile/image - อัปโหลดรูปภาพโปรไฟล์
+router.put('/users/profile/image', authMiddleware, upload.single('user_image'), async (req, res) => {
+  const userId = req.user.id;
+
+  if (!req.file) {
+    return res.status(400).json({ message: 'กรุณาเลือกไฟล์รูปภาพ' });
+  }
+
+  // ตรวจสอบว่า Supabase client พร้อมใช้งาน
+  if (!supabase) {
+    console.error('Supabase client is not initialized');
+    return res.status(500).json({ message: 'Database connection error' });
+  }
+
+  try {
+    const imageFilename = req.file.filename;
+    
+    // อัปเดตรูปภาพโปรไฟล์ในฐานข้อมูล
+    const { error } = await supabase
+      .from('User')
+      .update({ user_image: imageFilename })
+      .eq('user_id', userId);
+    
+    if (error) throw error;
+
+    console.log(`Profile image updated for user: ${userId}`);
+    res.json({ 
+      message: 'อัปโหลดรูปภาพโปรไฟล์สำเร็จ',
+      image_url: `/images/${imageFilename}`
+    });
+  } catch (error) {
+    console.error('Error updating profile image:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพโปรไฟล์' });
   }
 });
 
@@ -562,6 +599,75 @@ router.get('/users/:id/posts', async (req, res) => {
   } catch (error) {
     console.error('Error fetching user posts:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงโพสต์ของผู้ใช้' });
+  }
+});
+
+// GET /api/users/:id/comments - รายชื่อคอมเมนต์ของผู้ใช้
+router.get('/users/:id/comments', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: comments, error } = await supabase
+      .from('CommunityComment')
+      .select(`
+        comment_id,
+        comment_text,
+        comment_datetime,
+        cpost_id,
+        CommunityPost:cpost_id (cpost_id, cpost_title, cpost_image)
+      `)
+      .eq('user_id', id)
+      .order('comment_datetime', { ascending: false });
+
+    if (error) throw error;
+
+    // Format response
+    const formatted = (comments || []).map(comment => ({
+      comment_id: comment.comment_id,
+      comment_text: comment.comment_text,
+      comment_datetime: comment.comment_datetime,
+      cpost_id: comment.cpost_id,
+      post_title: comment.CommunityPost?.cpost_title || '',
+      post_image: comment.CommunityPost?.cpost_image || null
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching user comments:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงคอมเมนต์ของผู้ใช้' });
+  }
+});
+
+// GET /api/users/:id/liked-menus - รายชื่อเมนูที่ผู้ใช้ชื่นชอบ
+router.get('/users/:id/liked-menus', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: likes, error } = await supabase
+      .from('MenuLike')
+      .select(`
+        menu_id,
+        Menu:menu_id (menu_id, menu_name, menu_image, menu_description)
+      `)
+      .eq('user_id', id)
+      .order('id', { ascending: false });
+
+    if (error) throw error;
+
+    // Format response
+    const formatted = (likes || [])
+      .filter(like => like.Menu)
+      .map(like => ({
+        menu_id: like.menu_id,
+        menu_name: like.Menu.menu_name,
+        menu_image: like.Menu.menu_image,
+        menu_description: like.Menu.menu_description
+      }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching user liked menus:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงเมนูที่ชื่นชอบ' });
   }
 });
 

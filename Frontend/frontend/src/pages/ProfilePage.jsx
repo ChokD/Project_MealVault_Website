@@ -2,164 +2,105 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
-import SuccessAnimation from '../components/SuccessAnimation';
+
+const API_URL = 'http://localhost:3000/api';
 
 function ProfilePage() {
-  const { token, user } = useContext(AuthContext);
+  const { token, user, refreshUser } = useContext(AuthContext);
   const navigate = useNavigate();
   
-  const [formData, setFormData] = useState({
-    user_fname: '',
-    user_lname: '',
-    user_tel: '',
-  });
-  const [passwordData, setPasswordData] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [message, setMessage] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'comments', 'likes'
   const [loading, setLoading] = useState(true);
-  const [prefs, setPrefs] = useState({ calorie_limit: '', allergensText: '', favoriteFoodsText: '' });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Data for tabs
+  const [posts, setPosts] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [likedMenus, setLikedMenus] = useState([]);
+  const [loadingTab, setLoadingTab] = useState(false);
 
   // ดึงข้อมูลผู้ใช้ปัจจุบันมาแสดงตอนเปิดหน้า
   useEffect(() => {
-    // ใช้ข้อมูลจาก Context ที่มีอยู่แล้ว ไม่ต้อง fetch ใหม่
     if (user) {
-      setFormData({
-        user_fname: user.user_fname || '',
-        user_lname: user.user_lname || '',
-        user_tel: user.user_tel || '',
-      });
-      // โหลด preferences จาก API
-      const fetchPrefs = async () => {
-        try {
-          const resp = await fetch('http://localhost:3000/api/preferences', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const data = await resp.json();
-          const allergensText = Array.isArray(data.allergens) ? data.allergens.join(', ') : '';
-          const favoriteFoodsText = Array.isArray(data.favorite_foods) ? data.favorite_foods.join(', ') : '';
-          setPrefs({
-            calorie_limit: data.calorie_limit ?? '',
-            allergensText,
-            favoriteFoodsText,
-          });
-        } catch (_) {}
-        setLoading(false);
-      };
-      fetchPrefs();
+      setLoading(false);
+      loadTabData('posts');
     } else if (!token) {
-      // ถ้าไม่มี token เลย ให้ไปหน้า login
       navigate('/login');
     }
   }, [user, token, navigate]);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handlePasswordChange = (e) => {
-    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage('');
-    
-    // ตรวจสอบว่ามีการกรอกรหัสผ่านหรือไม่
-    const hasPasswordChange = passwordData.oldPassword || passwordData.newPassword || passwordData.confirmPassword;
-    
-    if (hasPasswordChange) {
-      // ตรวจสอบว่ากรอกครบหรือไม่
-      if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-        setMessage('กรุณากรอกรหัสผ่านเดิม, รหัสผ่านใหม่ และยืนยันรหัสผ่านให้ครบถ้วน');
-        return;
-      }
-      
-      // ตรวจสอบว่ารหัสผ่านใหม่ตรงกันหรือไม่
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setMessage('รหัสผ่านใหม่ไม่ตรงกัน');
-        return;
-      }
-      
-      // ตรวจสอบความยาวรหัสผ่าน
-      if (passwordData.newPassword.length < 6) {
-        setMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
-        return;
-      }
+  // Load data when tab changes
+  useEffect(() => {
+    if (user) {
+      loadTabData(activeTab);
     }
-    
+  }, [activeTab, user]);
+
+  const loadTabData = async (tab) => {
+    if (!user?.user_id) return;
+    setLoadingTab(true);
     try {
-      const requestBody = { ...formData };
-      
-      // ถ้ามีการแก้ไขรหัสผ่าน ให้เพิ่ม oldPassword และ newPassword
-      if (hasPasswordChange) {
-        requestBody.oldPassword = passwordData.oldPassword;
-        requestBody.newPassword = passwordData.newPassword;
+      if (tab === 'posts') {
+        const resp = await fetch(`${API_URL}/users/${user.user_id}/posts`);
+        const data = await resp.json();
+        setPosts(data || []);
+      } else if (tab === 'comments') {
+        const resp = await fetch(`${API_URL}/users/${user.user_id}/comments`);
+        const data = await resp.json();
+        setComments(data || []);
+      } else if (tab === 'likes') {
+        const resp = await fetch(`${API_URL}/users/${user.user_id}/liked-menus`);
+        const data = await resp.json();
+        setLikedMenus(data || []);
       }
-      
-      const response = await fetch('http://localhost:3000/api/users/profile', {
+    } catch (error) {
+      console.error('Error loading tab data:', error);
+    } finally {
+      setLoadingTab(false);
+    }
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // ตรวจสอบประเภทไฟล์
+    if (!file.type.startsWith('image/')) {
+      alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      return;
+    }
+
+    // ตรวจสอบขนาดไฟล์ (ไม่เกิน 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('ขนาดไฟล์ไม่ควรเกิน 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('user_image', file);
+
+      const response = await fetch(`${API_URL}/users/profile/image`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(requestBody),
+        body: formData,
       });
+
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'เกิดข้อผิดพลาด');
+        throw new Error(data.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
       }
-      
-      // ล้างข้อมูลรหัสผ่านหลังจากบันทึกสำเร็จ
-      if (hasPasswordChange) {
-        setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
-      }
-      
-      // แสดง Animation และตั้งเวลาเพื่อกลับไปหน้าหลัก
-      setShowSuccess(true);
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
 
+      // Refresh user data เพื่อแสดงรูปภาพใหม่
+      await refreshUser();
     } catch (error) {
-      setMessage('เกิดข้อผิดพลาด: ' + error.message);
-    }
-  };
-
-  const handlePrefsSave = async (e) => {
-    e.preventDefault();
-    setMessage('');
-    try {
-      const allergens = prefs.allergensText
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-      const favorite_foods = prefs.favoriteFoodsText
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-      const body = {
-        calorie_limit: prefs.calorie_limit === '' ? null : Number(prefs.calorie_limit),
-        allergens,
-        favorite_foods,
-      };
-      const response = await fetch('http://localhost:3000/api/preferences', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'อัปเดตการตั้งค่าล้มเหลว');
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 1500);
-    } catch (error) {
-      setMessage('เกิดข้อผิดพลาด: ' + error.message);
+      console.error('Error uploading image:', error);
+      alert('เกิดข้อผิดพลาด: ' + error.message);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -174,151 +115,219 @@ function ProfilePage() {
     );
   }
 
+  const fullName = user ? `${user.user_fname || ''} ${user.user_lname || ''}`.trim() || 'ไม่มีชื่อ' : 'ไม่มีชื่อ';
+
+  // Debug: ตรวจสอบ user_image
+  useEffect(() => {
+    if (user) {
+      console.log('User data:', user);
+      console.log('User image:', user.user_image);
+    }
+  }, [user]);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <main className="flex-grow flex items-center justify-center p-4 pt-24">
-        <div className="w-full bg-white rounded-xl shadow-lg sm:max-w-md p-8 space-y-6">
+      <main className="flex-grow pt-24 px-4 md:px-8 pb-8">
+        <div className="max-w-4xl mx-auto">
           
-          {showSuccess ? (
-            <SuccessAnimation message="บันทึกข้อมูลสำเร็จ!" />
-          ) : (
-            <>
-              <h1 className="text-xl font-bold text-center">แก้ไขข้อมูลส่วนตัว</h1>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                
-                {/* --- ส่วนของฟอร์มที่เพิ่มเข้ามา --- */}
-                <div>
-                  <label htmlFor="user_fname" className="block mb-2 text-sm font-medium text-gray-900">ชื่อจริง</label>
-                  <input
-                    type="text"
-                    name="user_fname"
-                    id="user_fname"
-                    value={formData.user_fname}
-                    onChange={handleChange}
-                    className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                    required
+          {/* Profile Header */}
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <div className="relative group">
+                {user?.user_image ? (
+                  <img
+                    src={`http://localhost:3000/images/${user.user_image}`}
+                    alt="Profile"
+                    className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const fallback = e.target.nextElementSibling;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                </div>
-                <div>
-                  <label htmlFor="user_lname" className="block mb-2 text-sm font-medium text-gray-900">นามสกุล</label>
-                  <input
-                    type="text"
-                    name="user_lname"
-                    id="user_lname"
-                    value={formData.user_lname}
-                    onChange={handleChange}
-                    className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="user_tel" className="block mb-2 text-sm font-medium text-gray-900">เบอร์โทรศัพท์</label>
-                  <input
-                    type="tel"
-                    name="user_tel"
-                    id="user_tel"
-                    value={formData.user_tel}
-                    onChange={handleChange}
-                    className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                  />
-                </div>
-
-                {/* ส่วนแก้ไขรหัสผ่าน */}
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">เปลี่ยนรหัสผ่าน (ไม่บังคับ)</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="oldPassword" className="block mb-2 text-sm font-medium text-gray-900">รหัสผ่านเดิม</label>
-                      <input
-                        type="password"
-                        name="oldPassword"
-                        id="oldPassword"
-                        value={passwordData.oldPassword}
-                        onChange={handlePasswordChange}
-                        className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                        placeholder="กรอกเฉพาะเมื่อต้องการเปลี่ยนรหัสผ่าน"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="newPassword" className="block mb-2 text-sm font-medium text-gray-900">รหัสผ่านใหม่</label>
-                      <input
-                        type="password"
-                        name="newPassword"
-                        id="newPassword"
-                        value={passwordData.newPassword}
-                        onChange={handlePasswordChange}
-                        className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                        placeholder="อย่างน้อย 6 ตัวอักษร"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="confirmPassword" className="block mb-2 text-sm font-medium text-gray-900">ยืนยันรหัสผ่านใหม่</label>
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        id="confirmPassword"
-                        value={passwordData.confirmPassword}
-                        onChange={handlePasswordChange}
-                        className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                        placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
-                      />
-                    </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-2xl font-bold text-gray-400 border-2 border-gray-300">
+                    {user?.user_fname?.[0]?.toUpperCase() || 'U'}
                   </div>
+                )}
+                <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-50 rounded-full cursor-pointer transition-all">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
+                  {uploadingImage ? (
+                    <div className="text-white text-xs font-medium">กำลังอัปโหลด...</div>
+                  ) : (
+                    <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                </label>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">{fullName}</h2>
+                    {user?.user_tel && (
+                      <p className="text-sm text-gray-500 mt-1">{user.user_tel}</p>
+                    )}
+                  </div>
+                  <Link
+                    to="/profile/edit"
+                    className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-full hover:bg-emerald-600 transition-colors"
+                  >
+                    แก้ไขข้อมูล
+                  </Link>
                 </div>
-                {/* --- จบส่วนของฟอร์ม --- */}
+              </div>
+            </div>
+          </div>
 
-                <button type="submit" className="w-full text-white bg-green-500 hover:bg-green-600 font-medium rounded-full text-sm px-5 py-2.5 text-center">
-                  บันทึกการเปลี่ยนแปลง
-                </button>
-                {message && <p className="text-center text-sm text-red-600 mt-4">{message}</p>}
-              </form>
+          {/* Tabs */}
+          <div className="bg-white rounded-xl shadow-sm mb-6">
+            <div className="flex border-b">
+              <button
+                onClick={() => setActiveTab('posts')}
+                className={`flex-1 px-4 py-3 text-center font-medium transition-colors ${
+                  activeTab === 'posts'
+                    ? 'border-b-2 border-emerald-600 text-emerald-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                โพสต์
+              </button>
+              <button
+                onClick={() => setActiveTab('comments')}
+                className={`flex-1 px-4 py-3 text-center font-medium transition-colors ${
+                  activeTab === 'comments'
+                    ? 'border-b-2 border-emerald-600 text-emerald-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                คอมเมนต์
+              </button>
+              <button
+                onClick={() => setActiveTab('likes')}
+                className={`flex-1 px-4 py-3 text-center font-medium transition-colors ${
+                  activeTab === 'likes'
+                    ? 'border-b-2 border-emerald-600 text-emerald-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                ชื่นชอบ
+              </button>
+            </div>
 
-              <hr className="my-6" />
-              <h2 className="text-lg font-semibold">การตั้งค่าโภชนาการ</h2>
-              <form onSubmit={handlePrefsSave} className="space-y-4">
-                <div>
-                  <label htmlFor="calorie_limit" className="block mb-2 text-sm font-medium text-gray-900">ขีดจำกัดแคลอรี่ต่อวัน</label>
-                  <input
-                    type="number"
-                    id="calorie_limit"
-                    value={prefs.calorie_limit}
-                    onChange={(e) => setPrefs({ ...prefs, calorie_limit: e.target.value })}
-                    className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                    placeholder="เช่น 2000"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="allergens" className="block mb-2 text-sm font-medium text-gray-900">แพ้อาหาร (คั่นด้วย ,)</label>
-                  <input
-                    type="text"
-                    id="allergens"
-                    value={prefs.allergensText}
-                    onChange={(e) => setPrefs({ ...prefs, allergensText: e.target.value })}
-                    className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                    placeholder="เช่น ถั่ว, นม, กุ้ง"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่แพ้โดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ถั่ว, นม, กุ้ง)</p>
-                </div>
-                <div>
-                  <label htmlFor="favorite_foods" className="block mb-2 text-sm font-medium text-gray-900">อาหารที่ชอบ (คั่นด้วย ,)</label>
-                  <input
-                    type="text"
-                    id="favorite_foods"
-                    value={prefs.favoriteFoodsText}
-                    onChange={(e) => setPrefs({ ...prefs, favoriteFoodsText: e.target.value })}
-                    className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                    placeholder="เช่น ข้าวผัด, ต้มยำ, ผัดไทย"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่ชอบโดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ข้าวผัด, ต้มยำ, ผัดไทย)</p>
-                </div>
-                <button type="submit" className="w-full text-white bg-green-500 hover:bg-green-600 font-medium rounded-full text-sm px-5 py-2.5 text-center">
-                  บันทึกการตั้งค่า
-                </button>
-              </form>
-            </>
-          )}
+            {/* Tab Content */}
+            <div className="p-6">
+              {loadingTab ? (
+                <div className="text-center py-8 text-gray-500">กำลังโหลด...</div>
+              ) : (
+                <>
+                  {activeTab === 'posts' && (
+                    <div className="space-y-4">
+                      {posts.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">ยังไม่มีโพสต์</div>
+                      ) : (
+                        posts.map(post => (
+                          <Link
+                            key={post.cpost_id}
+                            to={`/posts/${post.cpost_id}`}
+                            className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex gap-4">
+                              {post.cpost_image && (
+                                <img
+                                  src={post.cpost_image}
+                                  alt=""
+                                  className="w-24 h-24 object-cover rounded"
+                                />
+                              )}
+                              <div className="flex-1">
+                                <h3 className="font-semibold mb-1">{post.cpost_title}</h3>
+                                <p className="text-sm text-gray-500">
+                                  {new Date(post.cpost_datetime).toLocaleDateString('th-TH')}
+                                </p>
+                                <p className="text-sm text-gray-500">❤️ {post.like_count || 0}</p>
+                              </div>
+                            </div>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'comments' && (
+                    <div className="space-y-4">
+                      {comments.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">ยังไม่มีคอมเมนต์</div>
+                      ) : (
+                        comments.map(comment => (
+                          <Link
+                            key={comment.comment_id}
+                            to={`/posts/${comment.cpost_id}`}
+                            className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex gap-4">
+                              {comment.post_image && (
+                                <img
+                                  src={comment.post_image}
+                                  alt=""
+                                  className="w-24 h-24 object-cover rounded"
+                                />
+                              )}
+                              <div className="flex-1">
+                                <h3 className="font-semibold mb-1">{comment.post_title}</h3>
+                                <p className="text-gray-700 mb-2">{comment.comment_text}</p>
+                                <p className="text-sm text-gray-500">
+                                  {new Date(comment.comment_datetime).toLocaleDateString('th-TH')}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'likes' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {likedMenus.length === 0 ? (
+                        <div className="col-span-full text-center py-8 text-gray-500">ยังไม่มีเมนูที่ชื่นชอบ</div>
+                      ) : (
+                        likedMenus.map(menu => (
+                          <Link
+                            key={menu.menu_id}
+                            to={`/recipe/${menu.menu_id}`}
+                            className="block border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                          >
+                            {menu.menu_image && (
+                              <img
+                                src={menu.menu_image}
+                                alt=""
+                                className="w-full h-32 object-cover"
+                              />
+                            )}
+                            <div className="p-3">
+                              <h3 className="font-semibold mb-1 truncate">{menu.menu_name}</h3>
+                              {menu.menu_description && (
+                                <p className="text-sm text-gray-600 line-clamp-2">{menu.menu_description}</p>
+                              )}
+                            </div>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
 
         </div>
       </main>

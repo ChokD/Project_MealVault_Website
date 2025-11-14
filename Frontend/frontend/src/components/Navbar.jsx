@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import NotificationDropdown from './NotificationDropdown';
@@ -7,11 +7,30 @@ function Navbar() {
   const { token, user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
+
+  // ปิด dropdown เมื่อคลิกข้างนอก
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   // ตรวจสอบว่าเป็น Admin หรือไม่
   const isAdmin = user?.isAdmin || false;
@@ -71,15 +90,40 @@ function Navbar() {
           {token ? (
             <>
               <NotificationDropdown />
-              <Link to="/profile" className={`px-4 py-2 ${primaryBg} font-semibold rounded-full transition-colors duration-300`}>
-                {user ? `👤 ${user.user_fname}` : 'กำลังโหลด...'}
-              </Link>
-              <button 
-                onClick={handleLogout}
-                className="px-4 py-2 border-2 border-red-300 text-red-500 font-semibold rounded-full hover:bg-red-500 hover:text-white transition-all duration-300 hover:shadow-lg"
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className={`px-4 py-2 ${primaryBg} font-semibold rounded-full transition-colors duration-300`}
+                >
+                  {user ? `👤 ${user.user_fname}` : 'กำลังโหลด...'}
+                </button>
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowProfileMenu(false)}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg transition-colors"
+                    >
+                      เข้าดูหน้าโปรไฟล์
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        handleLogout();
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg transition-colors"
+                    >
+                      ออกจากระบบ
+                    </button>
+                  </div>
+                )}
+              </div>
+              <Link 
+                to="/community/recipes/new"
+                className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-full hover:bg-emerald-600 transition-all duration-300 hover:shadow-lg"
               >
-                ออกจากระบบ
-              </button>
+                สร้างสูตรอาหาร
+              </Link>
             </>
           ) : (
             <Link 
@@ -152,15 +196,13 @@ function Navbar() {
                     </Link>
                     <NotificationDropdown />
                   </div>
-                  <button 
-                    onClick={() => {
-                      closeMobileMenu();
-                      handleLogout();
-                    }}
-                    className="w-full px-4 py-2 border-2 border-red-300 text-red-500 font-semibold rounded-full hover:bg-red-500 hover:text-white transition-all duration-300"
+                  <Link 
+                    to="/community/recipes/new"
+                    onClick={closeMobileMenu}
+                    className="block w-full text-center px-4 py-2 bg-emerald-500 text-white font-semibold rounded-full hover:bg-emerald-600 transition-all duration-300"
                   >
-                    ออกจากระบบ
-                  </button>
+                    สร้างสูตรอาหาร
+                  </Link>
                 </>
               ) : (
                 <Link 

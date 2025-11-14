@@ -21,6 +21,7 @@ import ChatbotPage from './pages/ChatbotPage';
 // Import Protected Routes and their pages
 import ProtectedRoute from './ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
+import EditProfilePage from './pages/EditProfilePage';
 import CreatePostPage from './pages/CreatePostPage';
 import EditPostPage from './pages/EditPostPage';
 import MealCalendarPage from './pages/MealCalendarPage';
@@ -54,6 +55,7 @@ function App() {
         {/* --- Protected Routes (ต้อง Login ก่อนถึงจะเข้าได้) --- */}
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/edit" element={<EditProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/weekly-plan" element={<WeeklyMealPlanPage />} />
           <Route path="/meal-calendar" element={<MealCalendarPage />} />

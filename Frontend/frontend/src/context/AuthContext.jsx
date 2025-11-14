@@ -50,8 +50,30 @@ export const AuthProvider = ({ children }) => {
     setUser(null); 
   };
 
+  const refreshUser = async () => {
+    if (token) {
+      try {
+        const response = await fetch('http://localhost:3000/api/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Invalid token');
+        }
+        const userData = await response.json();
+        setUser(userData);
+        return userData;
+      } catch (error) {
+        console.error("Failed to refresh user data:", error);
+        return null;
+      }
+    }
+    return null;
+  };
+
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider value={{ token, user, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

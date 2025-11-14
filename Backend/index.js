@@ -11,16 +11,12 @@ const postRoutes = require('./routes/postRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const reportRoutes = require('./routes/reportRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
 const recommendRoutes = require('./routes/recommendRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const mealCalendarRoutes = require('./routes/mealCalendarRoutes');
 const weeklyMealPlanRoutes = require('./routes/weeklyMealPlanRoutes');
 const thaiFoodRoutes = require('./routes/thaiFoodRoutes');
 const debugRoutes = require('./routes/debugRoutes'); // Debug routes
-const behaviorRoutes = require('./routes/behaviorRoutes'); // User behavior tracking
-const aiRecommendRoutes = require('./routes/aiRecommendRoutes'); // AI recommendations
-const contentModerationRoutes = require('./routes/contentModerationRoutes'); // Content moderation
 
 // 2. สร้างแอปพลิเคชัน express
 const app = express();
@@ -45,15 +41,11 @@ app.use('/api', postRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', reportRoutes);
-app.use('/api', notificationRoutes);
 app.use('/api', recommendRoutes);
 app.use('/api', chatbotRoutes);
 app.use('/api', mealCalendarRoutes);
 app.use('/api', weeklyMealPlanRoutes);
 app.use('/api', thaiFoodRoutes);
-app.use('/api', behaviorRoutes); // User behavior tracking
-app.use('/api', aiRecommendRoutes); // AI recommendations
-app.use('/api', contentModerationRoutes); // Content moderation
 app.use('/api/debug', debugRoutes); // Debug routes (ลบออกเมื่อเสร็จแล้ว)
 
 // 7. สั่งให้เซิร์ฟเวอร์เริ่มทำงาน
