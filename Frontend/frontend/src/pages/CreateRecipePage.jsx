@@ -143,7 +143,7 @@ function CreateRecipePage() {
 
       setSuccess('สร้างสูตรอาหารสำเร็จ!');
       setTimeout(() => {
-        navigate(`/community?post=${data.post?.cpost_id || ''}`);
+        navigate(`/menus/${data.post?.recipe_id || data.post?.cpost_id || ''}`);
       }, 1200);
     } catch (err) {
       setError(err.message || 'เกิดข้อผิดพลาด');
@@ -160,8 +160,8 @@ function CreateRecipePage() {
           <div className="bg-white shadow-xl rounded-2xl p-8">
             <div className="flex items-start justify-between mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-gray-800 mb-2">สร้างสูตรอาหารชุมชน</h1>
-                <p className="text-gray-500">แบ่งปันสูตรอาหารที่คุณชื่นชอบให้สมาชิก MealVault ได้ลองทำตาม</p>
+                <h1 className="text-3xl font-bold text-gray-800 mb-2">สร้างสูตรอาหาร</h1>
+                <p className="text-gray-500">สร้างและแบ่งปันสูตรอาหารที่คุณชื่นชอบ</p>
               </div>
             </div>
 
@@ -358,7 +358,7 @@ function CreateRecipePage() {
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => navigate('/community')}
+                  onClick={() => navigate('/menus')}
                   className="px-6 py-2 border border-gray-300 rounded-full hover:bg-gray-50"
                   disabled={submitting}
                 >

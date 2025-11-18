@@ -86,11 +86,46 @@ function RecipeDetailPage() {
     const fetchRecipeDetails = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`http://localhost:3000/api/thai-food/lookup.php?i=${recipeId}`);
-        const data = await response.json();
-        setRecipe(data.meals ? data.meals[0] : null);
+        // ตรวจสอบว่าเป็นสูตรอาหารจากผู้ใช้ (recipe_id ขึ้นต้นด้วย "R") หรือเมนูจากระบบ
+        if (recipeId && recipeId.startsWith('R')) {
+          // ดึงสูตรอาหารจากผู้ใช้
+          const response = await fetch(`${API_URL}/recipes/${recipeId}`);
+          if (!response.ok) {
+            throw new Error('ไม่พบสูตรอาหารนี้');
+          }
+          const userRecipe = await response.json();
+          
+          // แปลงเป็นรูปแบบเดียวกับเมนูจากระบบเพื่อให้แสดงผลได้เหมือนกัน
+          setRecipe({
+            strMeal: userRecipe.recipe_title,
+            strCategory: userRecipe.recipe_category || 'สูตรจากผู้ใช้',
+            strArea: `โดย ${userRecipe.user_fname || 'ผู้ใช้'}`,
+            strMealThumb: userRecipe.recipe_image 
+              ? (userRecipe.recipe_image.startsWith('http') 
+                  ? userRecipe.recipe_image 
+                  : `http://localhost:3000/images/${userRecipe.recipe_image}`)
+              : null,
+            strInstructions: userRecipe.steps 
+              ? userRecipe.steps.map((step, idx) => `${idx + 1}. ${step.detail || step}`).join('\n\n')
+              : '',
+            ingredients: userRecipe.ingredients || [],
+            isUserRecipe: true,
+            userRecipe: userRecipe,
+            prep_time_minutes: userRecipe.prep_time_minutes,
+            cook_time_minutes: userRecipe.cook_time_minutes,
+            total_time_minutes: userRecipe.total_time_minutes,
+            servings: userRecipe.servings,
+            recipe_summary: userRecipe.recipe_summary
+          });
+        } else {
+          // ดึงเมนูจากระบบ (Thai Food API)
+          const response = await fetch(`http://localhost:3000/api/thai-food/lookup.php?i=${recipeId}`);
+          const data = await response.json();
+          setRecipe(data.meals ? data.meals[0] : null);
+        }
       } catch (error) {
         console.error("Failed to fetch recipe details:", error);
+        setRecipe(null);
       } finally {
         setLoading(false);
       }
@@ -130,6 +165,15 @@ function RecipeDetailPage() {
 
   // ฟังก์ชันสำหรับจัดรูปแบบวัตถุดิบและปริมาณ
   const getIngredients = (recipeData) => {
+    // ถ้าเป็นสูตรอาหารจากผู้ใช้
+    if (recipeData.isUserRecipe && recipeData.ingredients) {
+      return recipeData.ingredients.map(ing => {
+        if (typeof ing === 'string') return ing;
+        return `${ing.name || ''}${ing.amount ? ` - ${ing.amount}` : ''}`;
+      }).filter(Boolean);
+    }
+    
+    // ถ้าเป็นเมนูจากระบบ (TheMealDB format)
     const ingredients = [];
     for (let i = 1; i <= 20; i++) {
       const ingredient = recipeData[`strIngredient${i}`];
@@ -176,7 +220,35 @@ function RecipeDetailPage() {
               <span className="font-medium">ย้อนกลับ</span>
             </button>
             <h1 className="text-4xl font-bold mb-4">{recipe.strMeal}</h1>
-            <p className="text-gray-500 mb-6">{recipe.strCategory} | {recipe.strArea}</p>
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              <p className="text-gray-500">{recipe.strCategory} | {recipe.strArea}</p>
+              {recipe.isUserRecipe && recipe.prep_time_minutes && (
+                <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                  เวลาเตรียม: {recipe.prep_time_minutes} นาที
+                </span>
+              )}
+              {recipe.isUserRecipe && recipe.cook_time_minutes && (
+                <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                  เวลาปรุง: {recipe.cook_time_minutes} นาที
+                </span>
+              )}
+              {recipe.isUserRecipe && recipe.total_time_minutes && (
+                <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                  เวลารวม: {recipe.total_time_minutes} นาที
+                </span>
+              )}
+              {recipe.isUserRecipe && recipe.servings && (
+                <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                  เสิร์ฟ: {recipe.servings} ที่
+                </span>
+              )}
+            </div>
+            {recipe.isUserRecipe && recipe.recipe_summary && (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+                <p className="text-gray-700">{recipe.recipe_summary}</p>
+              </div>
+            )}
+            {!recipe.isUserRecipe && (
             <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 mb-6">
               <div className="text-sm font-medium mb-3">เพิ่มลงแผนสัปดาห์:</div>
               <div className="flex flex-wrap items-center gap-3">
@@ -265,18 +337,19 @@ function RecipeDetailPage() {
                 <div className="mt-2 text-xs text-gray-500">กรุณาเข้าสู่ระบบเพื่อใช้งานฟีเจอร์นี้</div>
               )}
             </div>
+            )}
             
-            <img 
-              src={
-                recipe.strMealThumb 
-                  ? (recipe.strMealThumb.startsWith('http') 
-                      ? recipe.strMealThumb 
-                      : `http://localhost:3000/images/${recipe.strMealThumb}`)
-                  : 'https://via.placeholder.com/800x400.png?text=No+Image'
-              } 
-              alt={recipe.strMeal} 
-              className="w-full rounded-lg mb-6 shadow-md" 
-            />
+            {recipe.strMealThumb && (
+              <img 
+                src={
+                  recipe.strMealThumb.startsWith('http') 
+                    ? recipe.strMealThumb 
+                    : `http://localhost:3000/images/${recipe.strMealThumb}`
+                } 
+                alt={recipe.strMeal} 
+                className="w-full rounded-lg mb-6 shadow-md" 
+              />
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="md:col-span-1">
@@ -290,12 +363,15 @@ function RecipeDetailPage() {
               <div className="md:col-span-2">
                 <h2 className="text-2xl font-bold mb-4">วิธีทำ</h2>
                 <div className="prose max-w-none text-gray-800" style={{ whiteSpace: 'pre-wrap' }}>
-                  {recipe.strInstructions}
+                  {recipe.isUserRecipe 
+                    ? (recipe.strInstructions || recipe.userRecipe?.steps?.map((step, idx) => `${idx + 1}. ${typeof step === 'object' ? (step.detail || step) : step}`).join('\n\n') || '')
+                    : recipe.strInstructions
+                  }
                 </div>
               </div>
             </div>
             
-            {recipe.strYoutube && (
+            {!recipe.isUserRecipe && recipe.strYoutube && (
               <div className="mt-8 text-center">
                 <a href={recipe.strYoutube} target="_blank" rel="noopener noreferrer" className="inline-block bg-red-600 text-white font-bold rounded-full px-6 py-3 hover:bg-red-700 transition-colors">
                   ดูวิดีโอวิธีทำบน YouTube
@@ -303,8 +379,8 @@ function RecipeDetailPage() {
               </div>
             )}
 
-            {/* แหล่งอ้างอิง */}
-            {(recipe.strSource || recipe.strSourceUrl) && (
+            {/* แหล่งอ้างอิง (เฉพาะเมนูจากระบบ) */}
+            {!recipe.isUserRecipe && (recipe.strSource || recipe.strSourceUrl) && (
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <div className="bg-gray-50 rounded-lg p-4 lg:p-6">
                   <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">

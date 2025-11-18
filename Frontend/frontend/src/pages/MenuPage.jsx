@@ -21,6 +21,160 @@ function formatDateThai(dateString) {
   }
 }
 
+function RecipeCard({ recipe, token, user }) {
+  const navigate = useNavigate();
+  const imageSrc = recipe.cpost_image
+    ? (recipe.cpost_image.startsWith('http') ? recipe.cpost_image : `http://localhost:3000/images/${recipe.cpost_image}`)
+    : 'https://via.placeholder.com/400x260.png?text=MealVault';
+  const summary = recipe.cpost_content || recipe.recipe?.recipe_summary || 'ยังไม่มีคำอธิบายสูตรอาหารนี้';
+  const [likeCount, setLikeCount] = useState(recipe.like_count || 0);
+  const [liked, setLiked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
+
+  useEffect(() => {
+    setLikeCount(recipe.like_count || 0);
+    setLiked(false);
+  }, [recipe.cpost_id, recipe.like_count]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStatus = async () => {
+      if (!token) {
+        setLiked(false);
+        return;
+      }
+      try {
+        const resp = await fetch(`${API_URL}/posts/${recipe.cpost_id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!cancelled) {
+          setLikeCount(data.like_count ?? 0);
+          setLiked(!!data.isLiked);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recipe like status:', error);
+      }
+    };
+    fetchStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, recipe.cpost_id]);
+
+  const handleToggleLike = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!token) {
+      alert('กรุณาเข้าสู่ระบบเพื่อกดไลค์สูตรอาหาร');
+      return;
+    }
+    if (likeLoading) return;
+
+    setLikeLoading(true);
+    try {
+      const resp = await fetch(`${API_URL}/posts/${recipe.cpost_id}/like`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.message || 'ไม่สามารถกดไลค์สูตรอาหารได้');
+      setLikeCount(data.like_count ?? 0);
+      setLiked(!!data.liked);
+    } catch (error) {
+      alert(error.message || 'เกิดข้อผิดพลาดในการกดไลค์สูตรอาหาร');
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  return (
+    <div className="group bg-white rounded-[1.75rem] shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col">
+      <div className="relative h-56 overflow-hidden">
+        <img
+          src={imageSrc}
+          alt={recipe.cpost_title}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+        <div className="absolute top-4 left-4">
+          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-500/90 text-white shadow">
+            สูตรจากผู้ใช้
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggleLike}
+          disabled={likeLoading}
+          className={`absolute top-4 right-4 flex items-center gap-1 px-3 py-1 rounded-full font-semibold shadow transition ${
+            liked ? 'bg-rose-600 text-white' : 'bg-white/90 text-rose-500'
+          } ${likeLoading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-white'}`}
+        >
+          <svg
+            className={`w-4 h-4 ${liked ? 'fill-current' : ''}`}
+            viewBox="0 0 24 24"
+            fill={liked ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M12 21s-5.434-4.45-8.152-7.168C1.97 11.954 1 10.329 1 8.5 1 5.995 2.995 4 5.5 4c1.57 0 3.057.874 3.862 2.253C10.443 4.874 11.93 4 13.5 4 16.005 4 18 5.995 18 8.5c0 1.83-.97 3.454-2.848 5.332C17.434 16.55 12 21 12 21z" />
+          </svg>
+          {likeCount}
+        </button>
+        <div className="absolute bottom-4 left-4 right-4 text-white">
+          <h3 className="text-xl font-semibold drop-shadow-md line-clamp-1">{recipe.cpost_title}</h3>
+          <p className="text-sm text-white/80 line-clamp-2">{summary}</p>
+        </div>
+      </div>
+      <div className="p-5 space-y-4 flex-1 flex flex-col">
+        <div className="flex items-center text-xs text-gray-400 gap-2">
+          <span>{formatDateThai(recipe.cpost_datetime)}</span>
+          <span className="w-1 h-1 rounded-full bg-gray-300" />
+          <span>โดย {recipe.user_fname || 'ผู้ใช้'}</span>
+        </div>
+        {(() => {
+          try {
+            const recipeData = recipe.cpost_content ? JSON.parse(recipe.cpost_content) : null;
+            return recipeData?.recipe_summary ? (
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 text-sm text-gray-600 line-clamp-3">
+                {recipeData.recipe_summary}
+              </div>
+            ) : null;
+          } catch {
+            return null;
+          }
+        })()}
+        <div className="mt-auto flex gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(`/menus/${recipe.recipe_id || recipe.cpost_id}`)}
+            className="flex-1 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow"
+          >
+            ดูรายละเอียด
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const url = `${window.location.origin}/menus/${recipe.recipe_id || recipe.cpost_id}`;
+              navigator.clipboard.writeText(url).then(() => {
+                alert('คัดลอกลิงก์แล้ว!');
+              }).catch(() => {
+                alert('ไม่สามารถคัดลอกลิงก์ได้');
+              });
+            }}
+            className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 text-sm font-semibold hover:border-gray-300 hover:text-gray-800 transition-colors"
+          >
+            แชร์
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MenuCard({ menu, categoryName, token, user }) {
   const navigate = useNavigate();
   const imageSrc = menu.menu_image
@@ -202,12 +356,30 @@ function MenuCard({ menu, categoryName, token, user }) {
 function MenuPage() {
   const { token, user } = useContext(AuthContext);
   const [menus, setMenus] = useState([]);
+  const [userRecipes, setUserRecipes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingRecipes, setLoadingRecipes] = useState(true);
   const [error, setError] = useState('');
   const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState(false);
+  const [isCreateRecipeModalOpen, setIsCreateRecipeModalOpen] = useState(false);
+  
+  // Recipe form states
+  const [recipeTitle, setRecipeTitle] = useState('');
+  const [recipeSummary, setRecipeSummary] = useState('');
+  const [recipeCategory, setRecipeCategory] = useState('');
+  const [prepTime, setPrepTime] = useState('');
+  const [cookTime, setCookTime] = useState('');
+  const [totalTime, setTotalTime] = useState('');
+  const [servings, setServings] = useState('');
+  const [ingredients, setIngredients] = useState([{ name: '', amount: '' }]);
+  const [steps, setSteps] = useState([{ detail: '' }]);
+  const [imageFile, setImageFile] = useState(null);
+  const [submittingRecipe, setSubmittingRecipe] = useState(false);
+  const [recipeError, setRecipeError] = useState('');
+  const [recipeSuccess, setRecipeSuccess] = useState('');
   const categoryMap = useMemo(() => {
     const map = {};
     categories.forEach((cat) => {
@@ -248,6 +420,25 @@ function MenuPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    const fetchUserRecipes = async () => {
+      setLoadingRecipes(true);
+      try {
+        const resp = await fetch(`${API_URL}/recipes`);
+        if (!resp.ok) throw new Error('ไม่สามารถดึงข้อมูลสูตรอาหารได้');
+        const recipes = await resp.json();
+        setUserRecipes(Array.isArray(recipes) ? recipes : []);
+      } catch (err) {
+        console.error('Error fetching user recipes:', err);
+        setUserRecipes([]);
+      } finally {
+        setLoadingRecipes(false);
+      }
+    };
+
+    fetchUserRecipes();
+  }, []);
+
   const handleAddMenuSuccess = () => {
     // Refresh menu list after successful addition
     const fetchData = async () => {
@@ -262,6 +453,129 @@ function MenuPage() {
       }
     };
     fetchData();
+  };
+
+  const updateIngredient = (index, field, value) => {
+    setIngredients(prev => prev.map((item, idx) => idx === index ? { ...item, [field]: value } : item));
+  };
+
+  const addIngredient = () => {
+    setIngredients(prev => [...prev, { name: '', amount: '' }]);
+  };
+
+  const removeIngredient = (index) => {
+    setIngredients(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const updateStep = (index, value) => {
+    setSteps(prev => prev.map((item, idx) => idx === index ? { detail: value } : item));
+  };
+
+  const addStep = () => setSteps(prev => [...prev, { detail: '' }]);
+
+  const removeStep = (index) => {
+    setSteps(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const resetRecipeForm = () => {
+    setRecipeTitle('');
+    setRecipeSummary('');
+    setRecipeCategory('');
+    setPrepTime('');
+    setCookTime('');
+    setTotalTime('');
+    setServings('');
+    setIngredients([{ name: '', amount: '' }]);
+    setSteps([{ detail: '' }]);
+    setImageFile(null);
+    setRecipeError('');
+    setRecipeSuccess('');
+  };
+
+  const handleCreateRecipe = async (e) => {
+    e.preventDefault();
+    setRecipeError('');
+    setRecipeSuccess('');
+
+    if (!token) {
+      setRecipeError('กรุณาเข้าสู่ระบบเพื่อสร้างสูตรอาหาร');
+      return;
+    }
+
+    const filteredIngredients = ingredients.filter(item => item.name.trim());
+    const filteredSteps = steps.filter(item => item.detail.trim());
+
+    if (!recipeTitle.trim()) {
+      setRecipeError('กรุณากรอกชื่อสูตรอาหาร');
+      return;
+    }
+    if (filteredIngredients.length === 0) {
+      setRecipeError('กรุณาระบุวัตถุดิบอย่างน้อย 1 รายการ');
+      return;
+    }
+    if (filteredSteps.length === 0) {
+      setRecipeError('กรุณาระบุขั้นตอนอย่างน้อย 1 ขั้น');
+      return;
+    }
+
+    setSubmittingRecipe(true);
+    try {
+      const formData = new FormData();
+      formData.append('recipe_title', recipeTitle);
+      formData.append('recipe_summary', recipeSummary);
+      formData.append('recipe_category', recipeCategory);
+      formData.append('prep_time_minutes', prepTime);
+      formData.append('cook_time_minutes', cookTime);
+      formData.append('total_time_minutes', totalTime);
+      formData.append('servings', servings);
+      formData.append('ingredients', JSON.stringify(filteredIngredients));
+      formData.append('steps', JSON.stringify(filteredSteps.map((item, index) => ({
+        order: index + 1,
+        detail: item.detail
+      }))));
+      if (imageFile) {
+        formData.append('recipe_image', imageFile);
+      }
+
+      const response = await fetch(`${API_URL}/recipes`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'ไม่สามารถสร้างสูตรอาหารได้');
+      }
+
+      setRecipeSuccess('สร้างสูตรอาหารสำเร็จ!');
+      resetRecipeForm();
+      
+      // Refresh recipes list
+      const fetchUserRecipes = async () => {
+        try {
+          const resp = await fetch(`${API_URL}/recipes`);
+          if (resp.ok) {
+            const recipes = await resp.json();
+            setUserRecipes(Array.isArray(recipes) ? recipes : []);
+          }
+        } catch (err) {
+          console.error('Error refreshing recipes:', err);
+        }
+      };
+      fetchUserRecipes();
+
+      setTimeout(() => {
+        setIsCreateRecipeModalOpen(false);
+        setRecipeSuccess('');
+      }, 1500);
+    } catch (err) {
+      setRecipeError(err.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setSubmittingRecipe(false);
+    }
   };
 
   const filteredMenus = useMemo(() => {
@@ -280,6 +594,13 @@ function MenuPage() {
     }
     return filtered;
   }, [menus, searchTerm, activeCategory]);
+
+  const filteredUserRecipes = useMemo(() => {
+    if (!searchTerm.trim()) return userRecipes;
+    return userRecipes.filter((recipe) =>
+      recipe.cpost_title && recipe.cpost_title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [userRecipes, searchTerm]);
 
   const groupedMenus = useMemo(() => {
     const map = new Map();
@@ -312,17 +633,30 @@ function MenuPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              {user?.isAdmin && (
-                <button
-                  onClick={() => setIsAddMenuModalOpen(true)}
-                  className="px-6 py-2 bg-emerald-600 text-white rounded-full font-medium hover:bg-emerald-700 transition-colors shadow-lg flex items-center gap-2 whitespace-nowrap"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  เพิ่มเมนู
-                </button>
-              )}
+              <div className="flex gap-3">
+                {token && (
+                  <button
+                    onClick={() => setIsCreateRecipeModalOpen(true)}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg flex items-center gap-2 whitespace-nowrap"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    สร้างสูตรอาหาร
+                  </button>
+                )}
+                {user?.isAdmin && (
+                  <button
+                    onClick={() => setIsAddMenuModalOpen(true)}
+                    className="px-6 py-2 bg-emerald-600 text-white rounded-full font-medium hover:bg-emerald-700 transition-colors shadow-lg flex items-center gap-2 whitespace-nowrap"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    เพิ่มเมนู
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -413,25 +747,59 @@ function MenuPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h2 className="text-xl font-semibold text-gray-800">เมนูทั้งหมด</h2>
-                <p className="text-sm text-gray-500">{filteredMenus.length} เมนู</p>
-              </div>
-              <div className="px-5 py-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {filteredMenus.map((menu) => (
-                    <MenuCard
-                      key={menu.menu_id}
-                      menu={menu}
-                      categoryName={categoryMap[menu.category_id] || 'หมวดหมู่ทั่วไป'}
-                      token={token}
-                      user={user}
-                    />
-                  ))}
+            <>
+              <div className="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden mb-6">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h2 className="text-xl font-semibold text-gray-800">เมนูทั้งหมด</h2>
+                  <p className="text-sm text-gray-500">{filteredMenus.length} เมนู</p>
+                </div>
+                <div className="px-5 py-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {filteredMenus.map((menu) => (
+                      <MenuCard
+                        key={menu.menu_id}
+                        menu={menu}
+                        categoryName={categoryMap[menu.category_id] || 'หมวดหมู่ทั่วไป'}
+                        token={token}
+                        user={user}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {!loadingRecipes && (
+                <div className="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h2 className="text-xl font-semibold text-gray-800">สูตรอาหารจากผู้ใช้</h2>
+                    <p className="text-sm text-gray-500">
+                      {loadingRecipes ? 'กำลังโหลด...' : `${filteredUserRecipes.length} สูตร`}
+                    </p>
+                  </div>
+                  <div className="px-5 py-6">
+                    {loadingRecipes ? (
+                      <div className="text-center py-8 text-gray-500">กำลังโหลดสูตรอาหาร...</div>
+                    ) : filteredUserRecipes.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>ยังไม่มีสูตรอาหารจากผู้ใช้</p>
+                        <p className="text-sm text-gray-400 mt-2">สร้างสูตรอาหารใหม่ได้ที่หน้า Community</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {filteredUserRecipes.map((recipe) => (
+                          <RecipeCard
+                            key={recipe.cpost_id}
+                            recipe={recipe}
+                            token={token}
+                            user={user}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
@@ -443,6 +811,211 @@ function MenuPage() {
         token={token}
         categories={categories}
       />
+
+      {/* Create Recipe Modal */}
+      {isCreateRecipeModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-2xl font-bold text-gray-800">สร้างสูตรอาหาร</h2>
+              <button
+                onClick={() => {
+                  setIsCreateRecipeModalOpen(false);
+                  resetRecipeForm();
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRecipe} className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อสูตรอาหาร *</label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={recipeTitle}
+                    onChange={(e) => setRecipeTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">คำอธิบาย / สรุปสูตร</label>
+                  <textarea
+                    rows="3"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={recipeSummary}
+                    onChange={(e) => setRecipeSummary(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
+                  <input
+                    type="text"
+                    placeholder="เช่น อาหารเช้า, เมนูสุขภาพ"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={recipeCategory}
+                    onChange={(e) => setRecipeCategory(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนเสิร์ฟ</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={servings}
+                    onChange={(e) => setServings(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">เวลาเตรียม (นาที)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={prepTime}
+                    onChange={(e) => setPrepTime(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">เวลาปรุง (นาที)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={cookTime}
+                    onChange={(e) => setCookTime(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">เวลารวม (นาที)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={totalTime}
+                    onChange={(e) => setTotalTime(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">รูปภาพประกอบ</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files[0] || null)}
+                    className="w-full text-sm text-gray-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-800">รายการวัตถุดิบ *</h3>
+                  <button type="button" onClick={addIngredient} className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">
+                    + เพิ่มวัตถุดิบ
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {ingredients.map((ingredient, index) => (
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center bg-gray-50 p-3 rounded-lg">
+                      <div className="md:col-span-3">
+                        <input
+                          type="text"
+                          value={ingredient.name}
+                          onChange={(e) => updateIngredient(index, 'name', e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="ชื่อวัตถุดิบ"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <input
+                          type="text"
+                          value={ingredient.amount}
+                          onChange={(e) => updateIngredient(index, 'amount', e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="ปริมาณ / หน่วย"
+                        />
+                      </div>
+                      {ingredients.length > 1 && (
+                        <div className="md:col-span-5 flex justify-end">
+                          <button type="button" onClick={() => removeIngredient(index)} className="text-sm text-red-500 hover:underline">
+                            ลบ
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-800">ขั้นตอนการทำ *</h3>
+                  <button type="button" onClick={addStep} className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">
+                    + เพิ่มขั้นตอน
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {steps.map((step, index) => (
+                    <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-700">ขั้นตอนที่ {index + 1}</h4>
+                        {steps.length > 1 && (
+                          <button type="button" onClick={() => removeStep(index)} className="text-sm text-red-500 hover:underline">
+                            ลบ
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        rows="3"
+                        value={step.detail}
+                        onChange={(e) => updateStep(index, e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="อธิบายขั้นตอนการทำอาหาร"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {recipeError && (
+                <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm">
+                  {recipeError}
+                </div>
+              )}
+              {recipeSuccess && (
+                <div className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg text-sm">
+                  {recipeSuccess}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateRecipeModalOpen(false);
+                    resetRecipeForm();
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-full hover:bg-gray-50"
+                  disabled={submittingRecipe}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRecipe}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {submittingRecipe ? 'กำลังบันทึก...' : 'สร้างสูตรอาหาร'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

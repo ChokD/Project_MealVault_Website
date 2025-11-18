@@ -150,12 +150,6 @@ function CommunityPage() {
                 >
                   สร้างโพสต์ใหม่
                 </Link>
-                <Link
-                  to="/community/recipes/new"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full px-6 py-2 transition-colors"
-                >
-                  สร้างสูตรอาหาร
-                </Link>
               </div>
             )}
           </div>

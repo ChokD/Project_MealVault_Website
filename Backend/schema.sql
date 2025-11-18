@@ -80,6 +80,24 @@ create table if not exists "CommunityRecipe" (
   created_at timestamptz default now()
 );
 
+-- UserRecipe table for storing user-created recipes (separate from community posts)
+create table if not exists "UserRecipe" (
+  recipe_id text primary key,
+  user_id text references "User"(user_id) on delete cascade not null,
+  recipe_title text not null,
+  recipe_summary text,
+  recipe_category text,
+  prep_time_minutes integer,
+  cook_time_minutes integer,
+  total_time_minutes integer,
+  servings integer,
+  ingredients jsonb not null,
+  steps jsonb not null,
+  recipe_image text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 create table if not exists "CommunityComment" (
   comment_id text primary key,
   comment_text text not null,
@@ -157,6 +175,9 @@ create index if not exists idx_notification_datetime on "Notification" (notifica
 create index if not exists idx_notification_type on "Notification" (notification_type);
 create index if not exists idx_notification_post on "Notification" (cpost_id);
 create index if not exists idx_notification_comment on "Notification" (comment_id);
+create index if not exists idx_user_recipe_user on "UserRecipe" (user_id);
+create index if not exists idx_user_recipe_created on "UserRecipe" (created_at desc);
+create index if not exists idx_user_recipe_category on "UserRecipe" (recipe_category);
 
 -- RLS policies (example: enable for anon/service as needed)
 alter table "User" enable row level security;
@@ -171,6 +192,7 @@ alter table "WeeklyMealPlan" enable row level security;
 alter table "Ingredient" enable row level security;
 alter table "MenuIngredient" enable row level security;
 alter table "Notification" enable row level security;
+alter table "UserRecipe" enable row level security;
 
 -- Simplified permissive policies for backend anon key use
 drop policy if exists user_all on "User";
@@ -208,5 +230,8 @@ create policy menu_ingredient_all on "MenuIngredient" for all using (true) with 
 
 drop policy if exists notification_all on "Notification";
 create policy notification_all on "Notification" for all using (true) with check (true);
+
+drop policy if exists user_recipe_all on "UserRecipe";
+create policy user_recipe_all on "UserRecipe" for all using (true) with check (true);
 
 

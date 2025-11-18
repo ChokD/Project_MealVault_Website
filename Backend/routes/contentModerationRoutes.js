@@ -109,18 +109,28 @@ async function checkRecipePlagiarism(recipeData) {
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    // Get existing recipes for comparison
+    // Get existing recipes for comparison (จาก UserRecipe)
     const { data: existingRecipes } = await supabase
-      .from('CommunityRecipe')
+      .from('UserRecipe')
       .select(`
         recipe_id,
-        cpost_id,
+        recipe_title,
         recipe_summary,
         ingredients,
-        steps,
-        CommunityPost (cpost_title)
+        steps
       `)
       .limit(50); // Compare with recent recipes
+
+    // Parse recipe data
+    const parsedRecipes = (existingRecipes || []).map(r => {
+      return {
+        recipe_id: r.recipe_id,
+        recipe_title: r.recipe_title,
+        recipe_summary: r.recipe_summary || null,
+        ingredients: r.ingredients || [],
+        steps: r.steps || []
+      };
+    });
 
     const prompt = `
       Check if the new recipe is plagiarized from existing recipes.
@@ -132,8 +142,8 @@ async function checkRecipePlagiarism(recipeData) {
       Steps: ${JSON.stringify(recipeData.steps)}
       
       Existing Recipes to compare:
-      ${existingRecipes.map(r => `
-        Title: ${r.CommunityPost?.cpost_title}
+      ${parsedRecipes.map(r => `
+        Title: ${r.recipe_title}
         Summary: ${r.recipe_summary || 'None'}
         Ingredients: ${JSON.stringify(r.ingredients)}
         Steps: ${JSON.stringify(r.steps)}
@@ -181,30 +191,39 @@ async function checkRecipePlagiarism(recipeData) {
 // Simple recipe similarity check (fallback)
 async function simpleRecipeSimilarityCheck(recipeData) {
   try {
+    // ดึงข้อมูลจาก UserRecipe
     const { data: existingRecipes } = await supabase
-      .from('CommunityRecipe')
+      .from('UserRecipe')
       .select(`
         recipe_id,
-        cpost_id,
         ingredients,
         steps
       `)
       .limit(100);
 
+    // Parse recipe data
+    const parsedRecipes = (existingRecipes || []).map(r => {
+      return {
+        recipe_id: r.recipe_id,
+        ingredients: r.ingredients || [],
+        steps: r.steps || []
+      };
+    });
+
     let highestSimilarity = 0;
     let mostSimilarId = null;
 
-    for (const existing of existingRecipes || []) {
+    for (const existing of parsedRecipes) {
       // Compare ingredients
-      const newIngredients = JSON.stringify(recipeData.ingredients).toLowerCase();
-      const existingIngredients = JSON.stringify(existing.ingredients).toLowerCase();
+      const newIngredients = JSON.stringify(recipeData.ingredients || []).toLowerCase();
+      const existingIngredients = JSON.stringify(existing.ingredients || []).toLowerCase();
       
       // Simple similarity: check overlap
       const ingredientSimilarity = calculateStringSimilarity(newIngredients, existingIngredients);
       
       // Compare steps
-      const newSteps = JSON.stringify(recipeData.steps).toLowerCase();
-      const existingSteps = JSON.stringify(existing.steps).toLowerCase();
+      const newSteps = JSON.stringify(recipeData.steps || []).toLowerCase();
+      const existingSteps = JSON.stringify(existing.steps || []).toLowerCase();
       const stepsSimilarity = calculateStringSimilarity(newSteps, existingSteps);
       
       const overallSimilarity = (ingredientSimilarity + stepsSimilarity) / 2;
