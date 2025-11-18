@@ -2,17 +2,25 @@ import React, { useContext, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import NotificationDropdown from './NotificationDropdown';
+import LogoutModal from './LogoutModal';
 
 function Navbar() {
   const { token, user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const profileMenuRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate('/');
+    setShowLogoutModal(false);
+  };
+
+  const handleLogoutClick = () => {
+    setShowProfileMenu(false);
+    setShowLogoutModal(true);
   };
 
   // ปิด dropdown เมื่อคลิกข้างนอก
@@ -107,10 +115,7 @@ function Navbar() {
                       เข้าดูหน้าโปรไฟล์
                     </Link>
                     <button
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        handleLogout();
-                      }}
+                      onClick={handleLogoutClick}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg transition-colors"
                     >
                       ออกจากระบบ
@@ -221,6 +226,13 @@ function Navbar() {
           </div>
         </div>
       )}
+
+      {/* Logout Confirmation Modal */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleLogout}
+      />
     </nav>
   );
 }
