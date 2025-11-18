@@ -99,10 +99,22 @@ async function generateShoppingListFromAPI(token) {
     });
     if (!resp.ok) throw new Error('Failed to generate shopping list');
     const data = await resp.json();
-    return data || [];
+    // รองรับทั้งรูปแบบเก่า (array) และรูปแบบใหม่ (object)
+    if (Array.isArray(data)) {
+      // แปลง array เก่าเป็น object ใหม่ (รวมทั้งหมดไว้ในวันแรก)
+      const result = {};
+      DAYS.forEach(day => {
+        result[day] = [];
+      });
+      if (data.length > 0) {
+        result[DAYS[0]] = data;
+      }
+      return result;
+    }
+    return data || {};
   } catch (error) {
     console.error('Error generating shopping list:', error);
-    return [];
+    return {};
   }
 }
 
@@ -114,7 +126,7 @@ function WeeklyMealPlanPage() {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
-  const [shopping, setShopping] = useState([]);
+  const [shopping, setShopping] = useState({});
   const [generating, setGenerating] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
@@ -251,6 +263,203 @@ function WeeklyMealPlanPage() {
     }
   };
 
+  const printShoppingList = () => {
+    const hasItems = Object.values(shopping).some(dayList => dayList.length > 0);
+    if (!hasItems) {
+      alert('ยังไม่มีรายการของซื้อ กรุณาสร้างรายการก่อน');
+      return;
+    }
+
+    const dayNames = {
+      'Sun': 'อาทิตย์',
+      'Mon': 'จันทร์',
+      'Tue': 'อังคาร',
+      'Wed': 'พุธ',
+      'Thu': 'พฤหัสบดี',
+      'Fri': 'ศุกร์',
+      'Sat': 'เสาร์'
+    };
+
+    let itemsHtml = '';
+    for (const day of DAYS) {
+      if (shopping[day] && shopping[day].length > 0) {
+        itemsHtml += `
+          <div class="day-section">
+            <h2 class="day-title">วัน${dayNames[day]}</h2>
+            <ul>
+              ${shopping[day].map((item, idx) => `
+                <li>
+                  <span class="item-name">${idx + 1}. ${item.name}</span>
+                  ${item.measure ? `<span class="item-measure">(${item.measure})</span>` : ''}
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `;
+      }
+    }
+
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>รายการของซื้อ - MealVault</title>
+          <style>
+            @media print {
+              @page {
+                margin: 0.8cm;
+              }
+              * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              padding: 0;
+              margin: 0;
+              max-width: 100%;
+            }
+            h1 {
+              color: #059669;
+              border-bottom: 2px solid #059669;
+              padding-bottom: 8px;
+              margin-top: 0;
+              margin-bottom: 12px;
+              font-size: 24px;
+            }
+            .date {
+              color: #666;
+              margin-bottom: 15px;
+              font-size: 14px;
+            }
+            .day-section {
+              margin-bottom: 25px;
+              page-break-inside: avoid;
+            }
+            .day-title {
+              color: #059669;
+              font-size: 18px;
+              margin-bottom: 8px;
+              padding-bottom: 4px;
+              border-bottom: 1px solid #ddd;
+              margin-top: 0;
+            }
+            ul {
+              list-style: none;
+              padding: 0;
+              margin: 0;
+            }
+            li {
+              padding: 6px 0;
+              border-bottom: 1px solid #eee;
+              font-size: 15px;
+            }
+            li:last-child {
+              border-bottom: none;
+            }
+            .item-name {
+              font-weight: 600;
+              color: #333;
+            }
+            .item-measure {
+              color: #666;
+              margin-left: 8px;
+            }
+            .footer {
+              margin-top: 20px;
+              padding-top: 15px;
+              border-top: 1px solid #ddd;
+              text-align: center;
+              color: #999;
+              font-size: 11px;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>รายการของซื้อ</h1>
+          <div class="date">วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            weekday: 'long'
+          })}</div>
+          ${itemsHtml}
+          <div class="footer">
+            สร้างโดย MealVault - แผนเมนูรายสัปดาห์
+          </div>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const saveShoppingList = () => {
+    const hasItems = Object.values(shopping).some(dayList => dayList.length > 0);
+    if (!hasItems) {
+      alert('ยังไม่มีรายการของซื้อ กรุณาสร้างรายการก่อน');
+      return;
+    }
+
+    const dateStr = new Date().toLocaleDateString('th-TH', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric'
+    });
+
+    const dayNames = {
+      'Sun': 'อาทิตย์',
+      'Mon': 'จันทร์',
+      'Tue': 'อังคาร',
+      'Wed': 'พุธ',
+      'Thu': 'พฤหัสบดี',
+      'Fri': 'ศุกร์',
+      'Sat': 'เสาร์'
+    };
+
+    // สร้างเนื้อหาไฟล์
+    let content = `รายการของซื้อ - MealVault\n`;
+    content += `วันที่สร้าง: ${dateStr}\n`;
+    content += `${'='.repeat(40)}\n\n`;
+    
+    for (const day of DAYS) {
+      if (shopping[day] && shopping[day].length > 0) {
+        content += `วัน${dayNames[day]}\n`;
+        content += `${'-'.repeat(30)}\n`;
+        shopping[day].forEach((item, idx) => {
+          content += `${idx + 1}. ${item.name}`;
+          if (item.measure) {
+            content += ` (${item.measure})`;
+          }
+          content += '\n';
+        });
+        content += '\n';
+      }
+    }
+
+    content += `${'='.repeat(40)}\n`;
+    content += `สร้างโดย MealVault - แผนเมนูรายสัปดาห์\n`;
+
+    // สร้าง Blob และดาวน์โหลด
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `รายการของซื้อ_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
@@ -304,25 +513,73 @@ function WeeklyMealPlanPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center">🛒</div>
-              <h2 className="font-semibold text-gray-900">รายการของซื้อ</h2>
-              {generating && <span className="text-sm text-gray-500">กำลังสร้าง...</span>}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center">🛒</div>
+                <h2 className="font-semibold text-gray-900">รายการของซื้อ</h2>
+                {generating && <span className="text-sm text-gray-500">กำลังสร้าง...</span>}
+              </div>
+              {Object.values(shopping).some(dayList => dayList.length > 0) && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={printShoppingList}
+                    className="inline-flex items-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg shadow border border-emerald-200 hover:bg-emerald-50 transition-colors"
+                    title="พิมพ์รายการ"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    <span className="hidden sm:inline">พิมพ์</span>
+                  </button>
+                  <button
+                    onClick={saveShoppingList}
+                    className="inline-flex items-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg shadow border border-emerald-200 hover:bg-emerald-50 transition-colors"
+                    title="บันทึกรายการ"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span className="hidden sm:inline">บันทึก</span>
+                  </button>
+                </div>
+              )}
             </div>
-            {shopping.length === 0 ? (
+            {!Object.values(shopping).some(dayList => dayList.length > 0) ? (
               <div className="text-gray-500 text-sm">ยังไม่มีรายการ กดปุ่ม "สร้างรายการของซื้อ" เพื่อสร้าง</div>
             ) : (
-              <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-2">
-                {shopping.map((it, idx) => (
-                  <li key={idx} className="text-sm flex items-start gap-2">
-                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    <div>
-                      <span className="font-medium text-gray-800">{it.name}</span>
-                      {it.measure && <span className="text-gray-600"> — {it.measure}</span>}
+              <div className="space-y-6">
+                {DAYS.map(day => {
+                  const dayList = shopping[day] || [];
+                  if (dayList.length === 0) return null;
+                  
+                  const dayNames = {
+                    'Sun': 'อาทิตย์',
+                    'Mon': 'จันทร์',
+                    'Tue': 'อังคาร',
+                    'Wed': 'พุธ',
+                    'Thu': 'พฤหัสบดี',
+                    'Fri': 'ศุกร์',
+                    'Sat': 'เสาร์'
+                  };
+                  
+                  return (
+                    <div key={day} className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-800 mb-3 text-lg">วัน{dayNames[day]}</h3>
+                      <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-2">
+                        {dayList.map((it, idx) => (
+                          <li key={idx} className="text-sm flex items-start gap-2">
+                            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            <div>
+                              <span className="font-medium text-gray-800">{it.name}</span>
+                              {it.measure && <span className="text-gray-600"> — {it.measure}</span>}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  );
+                })}
+              </div>
             )}
           </div>
             </>

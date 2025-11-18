@@ -413,16 +413,18 @@ router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) =
   try {
     const userId = req.user.id;
 
-    // ดึง weekly meal plan
+    // ดึง weekly meal plan พร้อม day และ meal_type
     const { data: planItems, error: planError } = await supabase
       .from('WeeklyMealPlan')
-      .select('menu_id')
-      .eq('user_id', userId);
+      .select('menu_id, day, meal_type')
+      .eq('user_id', userId)
+      .order('day')
+      .order('meal_type');
 
     if (planError) throw planError;
 
     if (!planItems || planItems.length === 0) {
-      return res.json([]);
+      return res.json({});
     }
 
     // ดึง menu_id ทั้งหมดที่ไม่ซ้ำ
@@ -445,41 +447,73 @@ router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) =
 
     if (menusError) throw menusError;
 
-    // สร้างรายการของซื้อ
-    const ingredientMap = new Map();
-
+    // สร้าง map สำหรับเก็บข้อมูลเมนู
+    const menuMap = new Map();
     for (const menu of menus || []) {
-      // ถ้ามี MenuIngredient ใช้ข้อมูลจากนั้น
-      if (menu.MenuIngredient && menu.MenuIngredient.length > 0) {
-        for (const mi of menu.MenuIngredient) {
-          if (mi.Ingredient) {
-            // ลบจำนวนออกจากชื่อส่วนผสม
-            const cleanedName = removeQuantityFromIngredientName(mi.Ingredient.ingredient_name);
-            const key = cleanedName.toLowerCase();
-            if (!ingredientMap.has(key)) {
-              ingredientMap.set(key, {
-                name: cleanedName,
-                count: 0
-              });
+      menuMap.set(menu.menu_id, menu);
+    }
+
+    // สร้างรายการของซื้อแยกตามวัน
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const shoppingListByDay = {};
+
+    for (const day of DAYS) {
+      shoppingListByDay[day] = [];
+    }
+
+    // จัดกลุ่ม plan items ตามวัน
+    const planByDay = {};
+    for (const item of planItems) {
+      if (!planByDay[item.day]) {
+        planByDay[item.day] = [];
+      }
+      planByDay[item.day].push(item);
+    }
+
+    // สร้างรายการของซื้อสำหรับแต่ละวัน
+    for (const day of DAYS) {
+      if (!planByDay[day] || planByDay[day].length === 0) {
+        continue;
+      }
+
+      const ingredientMap = new Map();
+
+      for (const planItem of planByDay[day]) {
+        const menu = menuMap.get(planItem.menu_id);
+        if (!menu) continue;
+
+        // ถ้ามี MenuIngredient ใช้ข้อมูลจากนั้น
+        if (menu.MenuIngredient && menu.MenuIngredient.length > 0) {
+          for (const mi of menu.MenuIngredient) {
+            if (mi.Ingredient) {
+              // ลบจำนวนออกจากชื่อส่วนผสม
+              const cleanedName = removeQuantityFromIngredientName(mi.Ingredient.ingredient_name);
+              const key = cleanedName.toLowerCase();
+              if (!ingredientMap.has(key)) {
+                ingredientMap.set(key, {
+                  name: cleanedName,
+                  count: 0
+                });
+              }
+              ingredientMap.get(key).count++;
             }
-            ingredientMap.get(key).count++;
           }
         }
-      } else if (menu.menu_recipe) {
-        // ถ้าไม่มี MenuIngredient แต่มี menu_recipe ให้พยายาม parse (แบบง่ายๆ)
-        // ในกรณีนี้เราจะส่งกลับ menu_recipe ให้ frontend จัดการเอง
-        // หรืออาจจะต้อง parse จาก recipe text
+      }
+
+      const dayShoppingList = Array.from(ingredientMap.values())
+        .map(item => ({
+          name: item.name,
+          measure: '' // ไม่แสดงจำนวนครั้งแม้จะซ้ำกัน
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      if (dayShoppingList.length > 0) {
+        shoppingListByDay[day] = dayShoppingList;
       }
     }
 
-    const shoppingList = Array.from(ingredientMap.values())
-      .map(item => ({
-        name: item.name,
-        measure: item.count > 1 ? `${item.count} ครั้ง` : ''
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    res.json(shoppingList);
+    res.json(shoppingListByDay);
   } catch (error) {
     console.error('Error generating shopping list:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรายการของซื้อ' });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 
@@ -70,6 +70,7 @@ async function addMenuToPlan(day, mealType, menuId, token) {
 
 function RecipeDetailPage() {
   const { recipeId } = useParams(); // ดึง ID ของเมนูมาจาก URL
+  const navigate = useNavigate();
   const { token } = useContext(AuthContext);
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -165,6 +166,15 @@ function RecipeDetailPage() {
       <main className="flex-grow pt-24">
         <div className="container mx-auto px-6 sm:px-8 py-8">
           <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+            <button
+              onClick={() => navigate('/menus')}
+              className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="font-medium">ย้อนกลับ</span>
+            </button>
             <h1 className="text-4xl font-bold mb-4">{recipe.strMeal}</h1>
             <p className="text-gray-500 mb-6">{recipe.strCategory} | {recipe.strArea}</p>
             <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 mb-6">
