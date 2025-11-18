@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
-function ReportModal({ isOpen, onClose, cpostId, commentId, onReportSubmitted }) {
+function ReportModal({ isOpen, onClose, cpostId, commentId, recipeId, onReportSubmitted }) {
   const { token } = useContext(AuthContext);
   const [reportTypes, setReportTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
@@ -68,6 +68,7 @@ function ReportModal({ isOpen, onClose, cpostId, commentId, onReportSubmitted })
         body: JSON.stringify({
           cpost_id: cpostId || null,
           comment_id: commentId || null,
+          recipe_id: recipeId || null,
           creport_type: selectedType,
           creport_details: details.trim() || null
         })
@@ -104,7 +105,7 @@ function ReportModal({ isOpen, onClose, cpostId, commentId, onReportSubmitted })
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">
-            {cpostId ? 'รายงานโพสต์' : 'รายงานคอมเมนต์'}
+            {recipeId ? 'รายงานสูตรอาหาร' : cpostId ? 'รายงานโพสต์' : 'รายงานคอมเมนต์'}
           </h2>
           <button
             onClick={onClose}

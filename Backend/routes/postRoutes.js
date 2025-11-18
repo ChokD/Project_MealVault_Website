@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -18,10 +19,26 @@ const parseJsonValue = (value) => {
   }
 };
 
+// Optional auth middleware สำหรับ GET recipes
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.header('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ') && process.env.JWT_SECRET) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded.user;
+    } catch (err) {
+      // Ignore invalid token for optional auth
+    }
+  }
+  next();
+};
+
 // GET /api/recipes/:recipeId - ดึงรายละเอียดสูตรอาหารจากผู้ใช้
-router.get('/recipes/:recipeId', async (req, res) => {
+router.get('/recipes/:recipeId', optionalAuth, async (req, res) => {
   try {
     const { recipeId } = req.params;
+    const userId = req.user?.id; // Optional: สำหรับตรวจสอบว่า user like แล้วหรือยัง
     
     if (!supabase) {
       console.error('Supabase client is not initialized');
@@ -46,6 +63,7 @@ router.get('/recipes/:recipeId', async (req, res) => {
         created_at,
         updated_at,
         user_id,
+        like_count,
         User:user_id (user_fname, user_lname)
       `)
       .eq('recipe_id', recipeId)
@@ -58,6 +76,21 @@ router.get('/recipes/:recipeId', async (req, res) => {
 
     if (!recipe) {
       return res.status(404).json({ message: 'ไม่พบสูตรอาหารนี้' });
+    }
+
+    // ตรวจสอบว่า user like แล้วหรือยัง (ถ้ามี userId)
+    let isLiked = false;
+    if (userId) {
+      const { data: likeData, error: likeErr } = await supabase
+        .from('UserRecipeLike')
+        .select('id')
+        .eq('recipe_id', recipeId)
+        .eq('user_id', userId)
+        .limit(1);
+      
+      if (!likeErr && likeData && likeData.length > 0) {
+        isLiked = true;
+      }
     }
 
     // Format response เพื่อให้ compatible กับ Frontend
@@ -77,7 +110,9 @@ router.get('/recipes/:recipeId', async (req, res) => {
       updated_at: recipe.updated_at,
       user_id: recipe.user_id,
       user_fname: recipe.User?.user_fname || 'Unknown',
-      user_lname: recipe.User?.user_lname || ''
+      user_lname: recipe.User?.user_lname || '',
+      like_count: recipe.like_count || 0,
+      isLiked: isLiked
     };
 
     res.json(formattedRecipe);
@@ -88,12 +123,14 @@ router.get('/recipes/:recipeId', async (req, res) => {
 });
 
 // GET /api/recipes - ดึงข้อมูลสูตรอาหารทั้งหมด (จาก UserRecipe)
-router.get('/recipes', async (req, res) => {
+router.get('/recipes', optionalAuth, async (req, res) => {
   try {
     if (!supabase) {
       console.error('Supabase client is not initialized');
       return res.status(500).json({ message: 'Database connection error' });
     }
+
+    const userId = req.user?.id; // Optional: สำหรับตรวจสอบว่า user like แล้วหรือยัง
 
     // ดึงสูตรอาหารทั้งหมดจาก UserRecipe
     const { data: recipes, error } = await supabase
@@ -113,6 +150,7 @@ router.get('/recipes', async (req, res) => {
         created_at,
         updated_at,
         user_id,
+        like_count,
         User:user_id (user_fname, user_lname)
       `)
       .order('created_at', { ascending: false });
@@ -120,6 +158,21 @@ router.get('/recipes', async (req, res) => {
     if (error) {
       console.error('Supabase query error:', error);
       throw error;
+    }
+
+    // ดึง like status สำหรับทุก recipe (ถ้ามี userId)
+    const recipeIds = (recipes || []).map(r => r.recipe_id);
+    let likedRecipes = new Set();
+    if (userId && recipeIds.length > 0) {
+      const { data: likes, error: likeErr } = await supabase
+        .from('UserRecipeLike')
+        .select('recipe_id')
+        .eq('user_id', userId)
+        .in('recipe_id', recipeIds);
+      
+      if (!likeErr && likes) {
+        likedRecipes = new Set(likes.map(l => l.recipe_id));
+      }
     }
 
     // แปลงข้อมูลให้ Frontend ใช้งานง่าย (เพื่อให้ compatible กับโค้ดเดิม)
@@ -130,7 +183,8 @@ router.get('/recipes', async (req, res) => {
         cpost_title: recipe.recipe_title,
         cpost_datetime: recipe.created_at,
         cpost_image: recipe.recipe_image,
-        like_count: 0, // ไม่มี like สำหรับสูตรอาหารส่วนตัว
+        like_count: recipe.like_count || 0,
+        isLiked: userId ? likedRecipes.has(recipe.recipe_id) : false,
         post_type: 'recipe',
         user_id: recipe.user_id,
         user_fname: recipe.User?.user_fname || 'Unknown',
@@ -597,6 +651,163 @@ router.post('/recipes', authMiddleware, upload.single('recipe_image'), moderateC
   } catch (error) {
     console.error('Error creating recipe:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างสูตรอาหาร' });
+  }
+});
+
+// POST /api/recipes/:recipeId/like - toggle like สูตรอาหารจากผู้ใช้
+router.post('/recipes/:recipeId/like', authMiddleware, async (req, res) => {
+  try {
+    const { recipeId } = req.params;
+    const userId = req.user.id;
+
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    // ตรวจสอบว่าสูตรอาหารมีอยู่จริง
+    const { data: recipe, error: recipeErr } = await supabase
+      .from('UserRecipe')
+      .select('recipe_id, like_count')
+      .eq('recipe_id', recipeId)
+      .single();
+
+    if (recipeErr || !recipe) {
+      return res.status(404).json({ message: 'ไม่พบสูตรอาหารนี้' });
+    }
+
+    // ตรวจสอบว่า like อยู่แล้วหรือยัง
+    const { data: existingLike, error: likeErr } = await supabase
+      .from('UserRecipeLike')
+      .select('id')
+      .eq('recipe_id', recipeId)
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (likeErr) {
+      console.error('Error checking like:', likeErr);
+      throw likeErr;
+    }
+
+    let newCount = recipe.like_count || 0;
+    let liked = false;
+
+    if (existingLike && existingLike.length > 0) {
+      // Unlike: ลบ like
+      const { error: deleteErr } = await supabase
+        .from('UserRecipeLike')
+        .delete()
+        .eq('recipe_id', recipeId)
+        .eq('user_id', userId);
+
+      if (deleteErr) {
+        console.error('Error deleting like:', deleteErr);
+        throw deleteErr;
+      }
+
+      newCount = Math.max(0, newCount - 1);
+    } else {
+      // Like: เพิ่ม like
+      const { error: insertErr } = await supabase
+        .from('UserRecipeLike')
+        .insert([{ recipe_id: recipeId, user_id: userId }]);
+
+      if (insertErr) {
+        console.error('Error inserting like:', insertErr);
+        throw insertErr;
+      }
+
+      newCount += 1;
+      liked = true;
+
+      // สร้าง notification สำหรับเจ้าของสูตร (ถ้าไม่ใช่เจ้าของเอง)
+      // หมายเหตุ: ไม่สร้าง notification สำหรับ recipe like เพราะ Notification table 
+      // ไม่มี recipe_id field และ notification_type ไม่รองรับ 'like_recipe'
+      // ถ้าต้องการ notification ต้องเพิ่ม field ใน database ก่อน
+      // const { data: recipeOwner, error: ownerErr } = await supabase
+      //   .from('UserRecipe')
+      //   .select('user_id, recipe_title')
+      //   .eq('recipe_id', recipeId)
+      //   .single();
+
+      // if (!ownerErr && recipeOwner && recipeOwner.user_id !== userId) {
+      //   const { data: liker, error: likerErr } = await supabase
+      //     .from('User')
+      //     .select('user_fname')
+      //     .eq('user_id', userId)
+      //     .single();
+
+      //   const likerName = liker?.user_fname || 'Someone';
+      //   await createNotification({
+      //     notification_type: 'like_post',
+      //     notification_message: `${likerName} ชื่นชอบสูตรอาหารของคุณ: "${recipeOwner.recipe_title}"`,
+      //     user_id: recipeOwner.user_id,
+      //     actor_user_id: userId
+      //   });
+      // }
+    }
+
+    // อัปเดต like_count ใน UserRecipe
+    const { error: updateErr } = await supabase
+      .from('UserRecipe')
+      .update({ like_count: newCount })
+      .eq('recipe_id', recipeId);
+
+    if (updateErr) {
+      console.error('Error updating like count:', updateErr);
+      throw updateErr;
+    }
+
+    res.json({ like_count: newCount, liked });
+  } catch (error) {
+    console.error('Error toggling recipe like:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการกดไลค์สูตรอาหาร' });
+  }
+});
+
+// DELETE /api/recipes/:recipeId - ลบสูตรอาหาร (สำหรับเจ้าของสูตรเท่านั้น)
+router.delete('/recipes/:recipeId', authMiddleware, async (req, res) => {
+  try {
+    const { recipeId } = req.params;
+    const loggedInUserId = req.user.id;
+
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    // ตรวจสอบว่าสูตรอาหารมีอยู่จริงและเป็นเจ้าของ
+    const { data: recipe, error: findErr } = await supabase
+      .from('UserRecipe')
+      .select('user_id, recipe_title')
+      .eq('recipe_id', recipeId)
+      .single();
+
+    if (findErr || !recipe) {
+      return res.status(404).json({ message: 'ไม่พบสูตรอาหารนี้' });
+    }
+
+    // ตรวจสอบว่าเป็นเจ้าของสูตรหรือไม่
+    if (recipe.user_id !== loggedInUserId) {
+      return res.status(403).json({ message: 'คุณไม่มีสิทธิ์ลบสูตรอาหารนี้' });
+    }
+
+    // ลบสูตรอาหาร
+    const { error: delErr } = await supabase
+      .from('UserRecipe')
+      .delete()
+      .eq('recipe_id', recipeId);
+
+    if (delErr) {
+      console.error('Supabase delete error:', delErr);
+      throw delErr;
+    }
+
+    console.log(`Recipe deleted successfully: ${recipeId}`);
+    res.json({ message: 'ลบสูตรอาหารสำเร็จ' });
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบสูตรอาหาร' });
   }
 });
 

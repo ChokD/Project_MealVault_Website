@@ -15,6 +15,7 @@ function ProfilePage() {
   
   // Data for tabs
   const [posts, setPosts] = useState([]);
+  const [recipes, setRecipes] = useState([]);
   const [comments, setComments] = useState([]);
   const [likedMenus, setLikedMenus] = useState([]);
   const [loadingTab, setLoadingTab] = useState(false);
@@ -41,9 +42,15 @@ function ProfilePage() {
     setLoadingTab(true);
     try {
       if (tab === 'posts') {
-        const resp = await fetch(`${API_URL}/users/${user.user_id}/posts`);
-        const data = await resp.json();
-        setPosts(data || []);
+        // ดึงทั้งโพสต์ชุมชนและสูตรอาหาร
+        const [postsResp, recipesResp] = await Promise.all([
+          fetch(`${API_URL}/users/${user.user_id}/posts`),
+          fetch(`${API_URL}/users/${user.user_id}/recipes`)
+        ]);
+        const postsData = await postsResp.json();
+        const recipesData = await recipesResp.json();
+        setPosts(postsData || []);
+        setRecipes(recipesData || []);
       } else if (tab === 'comments') {
         const resp = await fetch(`${API_URL}/users/${user.user_id}/comments`);
         const data = await resp.json();
@@ -231,33 +238,66 @@ function ProfilePage() {
                 <>
                   {activeTab === 'posts' && (
                     <div className="space-y-4">
-                      {posts.length === 0 ? (
+                      {posts.length === 0 && recipes.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">ยังไม่มีโพสต์</div>
                       ) : (
-                        posts.map(post => (
-                          <Link
-                            key={post.cpost_id}
-                            to={`/posts/${post.cpost_id}`}
-                            className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="flex gap-4">
-                              {post.cpost_image && (
-                                <img
-                                  src={post.cpost_image}
-                                  alt=""
-                                  className="w-24 h-24 object-cover rounded"
-                                />
-                              )}
-                              <div className="flex-1">
-                                <h3 className="font-semibold mb-1">{post.cpost_title}</h3>
-                                <p className="text-sm text-gray-500">
-                                  {new Date(post.cpost_datetime).toLocaleDateString('th-TH')}
-                                </p>
-                                <p className="text-sm text-gray-500">❤️ {post.like_count || 0}</p>
-                              </div>
-                            </div>
-                          </Link>
-                        ))
+                        <>
+                          {/* รวมโพสต์ชุมชนและสูตรอาหาร แล้วเรียงตามวันที่ */}
+                          {[...posts.map(post => ({
+                            ...post,
+                            type: 'post',
+                            date: post.cpost_datetime
+                          })), ...recipes.map(recipe => ({
+                            ...recipe,
+                            type: 'recipe',
+                            date: recipe.created_at
+                          }))]
+                            .sort((a, b) => new Date(b.date) - new Date(a.date))
+                            .map(item => (
+                              <Link
+                                key={item.type === 'post' ? item.cpost_id : item.recipe_id}
+                                to={item.type === 'post' ? `/community?post=${item.cpost_id}` : `/menus/${item.recipe_id}`}
+                                className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex gap-4">
+                                  {(item.cpost_image || item.recipe_image) && (
+                                    <img
+                                      src={
+                                        (item.type === 'post' ? item.cpost_image : item.recipe_image)?.startsWith('http')
+                                          ? (item.type === 'post' ? item.cpost_image : item.recipe_image)
+                                          : `http://localhost:3000/images/${item.type === 'post' ? item.cpost_image : item.recipe_image}`
+                                      }
+                                      alt=""
+                                      className="w-24 h-24 object-cover rounded"
+                                    />
+                                  )}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h3 className="font-semibold">
+                                        {item.type === 'post' ? item.cpost_title : item.recipe_title}
+                                      </h3>
+                                      <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                        item.type === 'post'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : 'bg-emerald-100 text-emerald-700'
+                                      }`}>
+                                        {item.type === 'post' ? 'โพสต์ชุมชน' : 'สูตรอาหาร'}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-500">
+                                      {new Date(item.date).toLocaleDateString('th-TH')}
+                                    </p>
+                                    {item.type === 'post' && (
+                                      <p className="text-sm text-gray-500">❤️ {item.like_count || 0}</p>
+                                    )}
+                                    {item.type === 'recipe' && item.recipe_category && (
+                                      <p className="text-sm text-gray-500">📁 {item.recipe_category}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </Link>
+                            ))}
+                        </>
                       )}
                     </div>
                   )}
@@ -270,7 +310,7 @@ function ProfilePage() {
                         comments.map(comment => (
                           <Link
                             key={comment.comment_id}
-                            to={`/posts/${comment.cpost_id}`}
+                            to={`/community?post=${comment.cpost_id}`}
                             className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                           >
                             <div className="flex gap-4">
@@ -303,13 +343,13 @@ function ProfilePage() {
                         likedMenus.map(menu => (
                           <Link
                             key={menu.menu_id}
-                            to={`/recipe/${menu.menu_id}`}
+                            to={`/menus/${menu.menu_id}`}
                             className="block border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                           >
                             {menu.menu_image && (
                               <img
-                                src={menu.menu_image}
-                                alt=""
+                                src={menu.menu_image.startsWith('http') ? menu.menu_image : `http://localhost:3000/images/${menu.menu_image}`}
+                                alt={menu.menu_name}
                                 className="w-full h-32 object-cover"
                               />
                             )}

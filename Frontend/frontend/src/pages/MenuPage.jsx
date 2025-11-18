@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import AddMenuModal from '../components/AddMenuModal';
+import ReportModal from '../components/ReportModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const API_URL = 'http://localhost:3000/api';
 const ALL_CATEGORY = 'ALL';
@@ -21,7 +23,7 @@ function formatDateThai(dateString) {
   }
 }
 
-function RecipeCard({ recipe, token, user }) {
+function RecipeCard({ recipe, token, user, onDelete, onReport }) {
   const navigate = useNavigate();
   const imageSrc = recipe.cpost_image
     ? (recipe.cpost_image.startsWith('http') ? recipe.cpost_image : `http://localhost:3000/images/${recipe.cpost_image}`)
@@ -30,21 +32,34 @@ function RecipeCard({ recipe, token, user }) {
   const [likeCount, setLikeCount] = useState(recipe.like_count || 0);
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
+  
+  // ตรวจสอบว่าเป็นเจ้าของสูตรหรือไม่
+  const isOwner = recipe.user_id && user?.user_id === recipe.user_id;
+
+  // ตรวจสอบว่าเป็น UserRecipe (มี recipe_id และ post_type === 'recipe') หรือ CommunityPost
+  // หมายเหตุ: API ส่ง cpost_id: recipe.recipe_id มาด้วย ดังนั้นต้องตรวจสอบ post_type
+  const isUserRecipe = recipe.post_type === 'recipe' && recipe.recipe_id;
+  const recipeId = recipe.recipe_id || recipe.cpost_id;
 
   useEffect(() => {
     setLikeCount(recipe.like_count || 0);
-    setLiked(false);
-  }, [recipe.cpost_id, recipe.like_count]);
+    setLiked(recipe.isLiked || false);
+  }, [recipeId, recipe.like_count, recipe.isLiked]);
 
   useEffect(() => {
     let cancelled = false;
     const fetchStatus = async () => {
-      if (!token) {
+      if (!token || !recipeId) {
         setLiked(false);
         return;
       }
       try {
-        const resp = await fetch(`${API_URL}/posts/${recipe.cpost_id}`, {
+        // ตรวจสอบว่าเป็น UserRecipe หรือ CommunityPost
+        const url = isUserRecipe 
+          ? `${API_URL}/recipes/${recipeId}`
+          : `${API_URL}/posts/${recipeId}`;
+        
+        const resp = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!resp.ok) return;
@@ -61,7 +76,7 @@ function RecipeCard({ recipe, token, user }) {
     return () => {
       cancelled = true;
     };
-  }, [token, recipe.cpost_id]);
+  }, [token, recipeId, isUserRecipe]);
 
   const handleToggleLike = async (e) => {
     e.preventDefault();
@@ -70,11 +85,16 @@ function RecipeCard({ recipe, token, user }) {
       alert('กรุณาเข้าสู่ระบบเพื่อกดไลค์สูตรอาหาร');
       return;
     }
-    if (likeLoading) return;
+    if (likeLoading || !recipeId) return;
 
     setLikeLoading(true);
     try {
-      const resp = await fetch(`${API_URL}/posts/${recipe.cpost_id}/like`, {
+      // ตรวจสอบว่าเป็น UserRecipe หรือ CommunityPost
+      const url = isUserRecipe 
+        ? `${API_URL}/recipes/${recipeId}/like`
+        : `${API_URL}/posts/${recipeId}/like`;
+      
+      const resp = await fetch(url, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -153,6 +173,42 @@ function RecipeCard({ recipe, token, user }) {
           >
             ดูรายละเอียด
           </button>
+          {token && (
+            <>
+              {isOwner && onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDelete(recipe.recipe_id || recipe.cpost_id);
+                  }}
+                  className="px-4 py-2 rounded-full bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
+                  title="ลบสูตรอาหาร"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
+              {!isOwner && onReport && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onReport(recipe.recipe_id || recipe.cpost_id);
+                  }}
+                  className="px-4 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition-colors"
+                  title="รายงานสูตรอาหาร"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </button>
+              )}
+            </>
+          )}
           <button
             type="button"
             onClick={(e) => {
@@ -365,6 +421,10 @@ function MenuPage() {
   const [error, setError] = useState('');
   const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState(false);
   const [isCreateRecipeModalOpen, setIsCreateRecipeModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedRecipeId, setSelectedRecipeId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   
   // Recipe form states
   const [recipeTitle, setRecipeTitle] = useState('');
@@ -424,7 +484,13 @@ function MenuPage() {
     const fetchUserRecipes = async () => {
       setLoadingRecipes(true);
       try {
-        const resp = await fetch(`${API_URL}/recipes`);
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const resp = await fetch(`${API_URL}/recipes`, {
+          headers
+        });
         if (!resp.ok) throw new Error('ไม่สามารถดึงข้อมูลสูตรอาหารได้');
         const recipes = await resp.json();
         setUserRecipes(Array.isArray(recipes) ? recipes : []);
@@ -437,7 +503,63 @@ function MenuPage() {
     };
 
     fetchUserRecipes();
-  }, []);
+  }, [token]);
+
+  const handleDeleteRecipe = (recipeId) => {
+    setSelectedRecipeId(recipeId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteRecipe = async () => {
+    if (!token || !selectedRecipeId) return;
+    
+    setDeleting(true);
+    try {
+      const response = await fetch(`${API_URL}/recipes/${selectedRecipeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'ไม่สามารถลบสูตรอาหารได้');
+      }
+
+      // Refresh recipes list
+      const fetchUserRecipes = async () => {
+        try {
+          const headers = {};
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+          const resp = await fetch(`${API_URL}/recipes`, {
+            headers
+          });
+          if (resp.ok) {
+            const recipes = await resp.json();
+            setUserRecipes(Array.isArray(recipes) ? recipes : []);
+          }
+        } catch (err) {
+          console.error('Error refreshing recipes:', err);
+        }
+      };
+      fetchUserRecipes();
+      
+      setIsDeleteModalOpen(false);
+      setSelectedRecipeId(null);
+    } catch (error) {
+      alert('เกิดข้อผิดพลาด: ' + error.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleReportRecipe = (recipeId) => {
+    setSelectedRecipeId(recipeId);
+    setIsReportModalOpen(true);
+  };
 
   const handleAddMenuSuccess = () => {
     // Refresh menu list after successful addition
@@ -556,7 +678,13 @@ function MenuPage() {
       // Refresh recipes list
       const fetchUserRecipes = async () => {
         try {
-          const resp = await fetch(`${API_URL}/recipes`);
+          const headers = {};
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+          const resp = await fetch(`${API_URL}/recipes`, {
+            headers
+          });
           if (resp.ok) {
             const recipes = await resp.json();
             setUserRecipes(Array.isArray(recipes) ? recipes : []);
@@ -788,10 +916,12 @@ function MenuPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                         {filteredUserRecipes.map((recipe) => (
                           <RecipeCard
-                            key={recipe.cpost_id}
+                            key={recipe.recipe_id || recipe.cpost_id}
                             recipe={recipe}
                             token={token}
                             user={user}
+                            onDelete={handleDeleteRecipe}
+                            onReport={handleReportRecipe}
                           />
                         ))}
                       </div>
@@ -1016,6 +1146,29 @@ function MenuPage() {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSelectedRecipeId(null);
+        }}
+        onConfirm={confirmDeleteRecipe}
+        title="คุณแน่ใจหรือไม่ว่าต้องการลบสูตรอาหารนี้?"
+      />
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => {
+          setIsReportModalOpen(false);
+          setSelectedRecipeId(null);
+        }}
+        recipeId={selectedRecipeId}
+        onReportSubmitted={() => {
+          setIsReportModalOpen(false);
+          setSelectedRecipeId(null);
+        }}
+      />
     </div>
   );
 }

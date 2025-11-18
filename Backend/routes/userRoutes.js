@@ -671,4 +671,24 @@ router.get('/users/:id/liked-menus', async (req, res) => {
   }
 });
 
+// GET /api/users/:id/recipes - รายชื่อสูตรอาหารของผู้ใช้
+router.get('/users/:id/recipes', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: recipes, error } = await supabase
+      .from('UserRecipe')
+      .select('recipe_id, recipe_title, recipe_image, created_at, recipe_category')
+      .eq('user_id', id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(recipes || []);
+  } catch (error) {
+    console.error('Error fetching user recipes:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงสูตรอาหารของผู้ใช้' });
+  }
+});
+
 module.exports = router;
