@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    image: tanupong/mealvault-backend:latest
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./Backend/.ENV
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: tanupong/mealvault-frontend:latest
+    build:
+      context: ./Frontend/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
