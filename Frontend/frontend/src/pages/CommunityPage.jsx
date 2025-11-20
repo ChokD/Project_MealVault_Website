@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import AccordionItem from '../components/AccordionItem';
+import TwitterPostCard from '../components/TwitterPostCard';
 import { AuthContext } from '../context/AuthContext';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SuccessAnimation from '../components/SuccessAnimation';
@@ -10,7 +10,6 @@ function CommunityPage() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const { token, user } = useContext(AuthContext);
-  const [openPostId, setOpenPostId] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,60 +37,28 @@ function CommunityPage() {
     fetchPosts();
   }, []);
 
-  // ตรวจสอบ query parameters สำหรับ highlight
+  // ตรวจสอบ query parameters สำหรับ highlight และ scroll
   useEffect(() => {
     const postId = searchParams.get('post');
     const reported = searchParams.get('reported');
     const commentId = searchParams.get('comment');
 
-    console.log('CommunityPage - Query params:', { postId, reported, commentId });
-    console.log('CommunityPage - Posts loaded:', posts.length);
-    console.log('CommunityPage - Current openPostId:', openPostId);
-
-    if (postId) {
-      if (posts.length > 0) {
-        // ตรวจสอบว่าโพสต์มีอยู่ในรายการหรือไม่
-        const postExists = posts.some(p => p.cpost_id === postId);
-        console.log('CommunityPage - Post exists:', postExists);
+    if (postId && posts.length > 0) {
+      const postExists = posts.some(p => p.cpost_id === postId);
+      
+      if (postExists) {
+        // Scroll ไปที่โพสต์
+        const scrollTimeout = setTimeout(() => {
+          const element = document.getElementById(`post-${postId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 500);
         
-        if (postExists) {
-          console.log('CommunityPage - Opening post:', postId);
-          // เปิดโพสต์ที่ระบุ
-          setOpenPostId(postId);
-          
-          // Scroll ไปที่โพสต์หลังจากโหลดเสร็จและเปิด accordion
-          const scrollTimeout = setTimeout(() => {
-            const element = document.getElementById(`post-${postId}`);
-            console.log('CommunityPage - Scroll to element:', element);
-            if (element) {
-              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              // ถ้ามี comment ให้ scroll ไปที่ comment ด้วย
-              if (commentId) {
-                setTimeout(() => {
-                  const commentElement = document.getElementById(`comment-${commentId}`);
-                  if (commentElement) {
-                    commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                }, 1500);
-              }
-            } else {
-              console.error('CommunityPage - Element not found:', `post-${postId}`);
-            }
-          }, 1200);
-          
-          return () => clearTimeout(scrollTimeout);
-        } else {
-          console.error('CommunityPage - Post not found in list:', postId);
-        }
-      } else {
-        console.log('CommunityPage - Post ID found but posts not loaded yet, will retry');
+        return () => clearTimeout(scrollTimeout);
       }
     }
-  }, [searchParams, posts, openPostId]);
-
-  const handleToggle = (postId) => {
-    setOpenPostId(openPostId === postId ? null : postId);
-  };
+  }, [searchParams, posts]);
 
   const handleDeletePostClick = (postId) => {
     setItemToDelete({ id: postId, type: 'post' });
@@ -134,81 +101,87 @@ function CommunityPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
-      <main className="flex-grow pt-24">
-        <div className="container mx-auto px-6 sm:px-8 py-8">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className={`text-3xl font-bold ${isAdmin ? 'text-red-600' : 'text-gray-800'}`}>
-              ชุมชน MealVault {isAdmin && <span className="text-sm text-red-500">[Admin Mode]</span>}
-            </h1>
-            {token && (
-              <div className="flex gap-3 flex-wrap justify-end">
+      <main className="flex-grow pt-20">
+        <div className="max-w-6xl mx-auto flex">
+          {/* Left Sidebar */}
+          <aside className="hidden md:block w-64 flex-shrink-0 border-r border-gray-200 px-4 py-4">
+            <div className="sticky top-20">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 px-4">ชุมชน</h2>
+              <nav className="space-y-1">
                 <Link 
-                  to="/create-post" 
-                  className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold rounded-full px-6 py-2 transition-colors`}
+                  to="/community" 
+                  className="block px-4 py-3 rounded-full hover:bg-gray-100 transition-colors font-semibold text-gray-900 text-[15px]"
                 >
-                  สร้างโพสต์ใหม่
+                  หน้าแรก
                 </Link>
+                {token && (
+                  <Link 
+                    to="/create-post" 
+                    className={`block px-4 py-3 rounded-full ${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold transition-colors text-center text-[15px]`}
+                  >
+                    สร้างโพสต์ใหม่
+                  </Link>
+                )}
+              </nav>
+            </div>
+          </aside>
+
+          {/* Main Feed */}
+          <div className="flex-1 min-w-0">
+            {/* Mobile Header */}
+            <div className="md:hidden sticky top-20 z-10 bg-white border-b border-gray-200 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <h1 className="text-xl font-bold text-gray-900">ชุมชน</h1>
+                {token && (
+                  <Link 
+                    to="/create-post" 
+                    className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold rounded-full px-4 py-2 text-sm transition-colors`}
+                  >
+                    สร้างโพสต์
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {/* Feed Content */}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-gray-500">กำลังโหลดโพสต์...</p>
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-gray-500">ยังไม่มีโพสต์</p>
+              </div>
+            ) : (
+              <div className="border-x border-gray-200">
+                {posts.map(post => {
+                  const highlightedPostId = searchParams.get('post');
+                  const isReported = searchParams.get('reported') === 'true' && highlightedPostId === post.cpost_id;
+                  const highlightedCommentId = searchParams.get('comment');
+                  
+                  return (
+                    <TwitterPostCard
+                      key={post.cpost_id}
+                      post={post}
+                      onDeleteClick={handleDeletePostClick}
+                      onDeleteComment={handleDeleteCommentClick}
+                      highlightedCommentId={highlightedCommentId && highlightedPostId === post.cpost_id ? highlightedCommentId : null}
+                      isReported={isReported}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
-          
-          {loading ? (
-            <p>กำลังโหลดโพสต์...</p>
-          ) : (
-            <div className="space-y-4">
-              {posts.map(post => {
-                const highlightedPostId = searchParams.get('post');
-                const isReported = searchParams.get('reported') === 'true';
-                const highlightedCommentId = searchParams.get('comment');
-                
-                // Highlight ถ้ามี post parameter และ reported=true
-                const isHighlighted = highlightedPostId === post.cpost_id && isReported;
-                const shouldOpen = highlightedPostId === post.cpost_id;
-                
-                // Debug log
-                if (shouldOpen) {
-                  console.log('CommunityPage - Post matches:', {
-                    postId: post.cpost_id,
-                    highlightedPostId,
-                    isReported,
-                    isHighlighted,
-                    shouldOpen,
-                    highlightedCommentId,
-                    openPostId
-                  });
-                }
-                
-                return (
-                  <div 
-                    key={post.cpost_id}
-                    id={`post-${post.cpost_id}`}
-                    className={isHighlighted ? 'ring-4 ring-red-500 ring-opacity-75 rounded-xl p-2 -m-2 bg-red-50 transition-all duration-500' : ''}
-                    style={isHighlighted ? { 
-                      animation: 'pulse 2s ease-in-out 3',
-                      border: '4px solid #ef4444'
-                    } : {}}
-                  >
-                    {isHighlighted && (
-                      <div className="mb-3 px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-lg inline-block shadow-lg">
-                        ⚠️ โพสต์นี้ถูกรายงาน
-                      </div>
-                    )}
-                    <AccordionItem 
-                      post={post}
-                      isOpen={openPostId === post.cpost_id}
-                      onToggle={() => handleToggle(post.cpost_id)}
-                      onDeleteClick={handleDeletePostClick} 
-                      onDeleteComment={handleDeleteCommentClick}
-                      highlightedCommentId={highlightedCommentId && shouldOpen ? highlightedCommentId : null}
-                      isReported={isHighlighted}
-                    />
-                  </div>
-                );
-              })}
+
+          {/* Right Sidebar (Optional - can be used for suggestions, trending, etc.) */}
+          <aside className="hidden lg:block w-80 flex-shrink-0 px-6 py-4">
+            <div className="sticky top-20">
+              {/* Placeholder for future features */}
             </div>
-          )}
+          </aside>
         </div>
       </main>
 
