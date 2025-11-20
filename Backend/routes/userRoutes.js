@@ -4,9 +4,13 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const { supabase } = require('../config/supabase');
 const sendEmail = require('../utils/sendEmail');
 const authMiddleware = require('../middleware/authMiddleware');
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 const upload = require('../middleware/uploadMiddleware');
 
 // --- AUTHENTICATION ROUTES ---
@@ -183,6 +187,84 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Error during login:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' });
+  }
+});
+
+// POST /api/auth/google - เข้าสู่ระบบด้วย Google
+router.post('/auth/google', async (req, res) => {
+  if (!googleClient) {
+    return res.status(500).json({ message: 'ยังไม่ได้ตั้งค่า Google Client ID บนเซิร์ฟเวอร์' });
+  }
+
+  const { credential } = req.body;
+  if (!credential) {
+    return res.status(400).json({ message: 'ไม่พบข้อมูลรับรองจาก Google' });
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: googleClientId,
+    });
+
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+    if (!email) {
+      return res.status(400).json({ message: 'ไม่พบอีเมลจากบัญชี Google' });
+    }
+
+    const { data: users, error: findErr } = await supabase
+      .from('User')
+      .select('*')
+      .eq('user_email', email)
+      .limit(1);
+    if (findErr) throw findErr;
+
+    let user = users && users[0];
+    let isNewUser = false;
+
+    if (!user) {
+      const tempPassword = crypto.randomBytes(32).toString('hex');
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      const newUser = {
+        user_id: 'U' + Date.now().toString().slice(-6),
+        user_email: email,
+        user_fname: payload?.given_name || email.split('@')[0],
+        user_lname: payload?.family_name || '',
+        user_password: hashedPassword,
+        user_tel: null,
+      };
+
+      const { data: insertedUser, error: insertErr } = await supabase
+        .from('User')
+        .insert([newUser])
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+
+      user = insertedUser || newUser;
+      isNewUser = true;
+    }
+
+    const payloadToken = {
+      user: {
+        id: user.user_id,
+        email: user.user_email,
+      },
+    };
+
+    jwt.sign(
+      payloadToken,
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' },
+      (err, token) => {
+        if (err) throw err;
+        res.json({ token, isNewUser });
+      }
+    );
+  } catch (error) {
+    console.error('Error during Google login:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google' });
   }
 });
 

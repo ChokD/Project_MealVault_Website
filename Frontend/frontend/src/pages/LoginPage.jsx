@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import SuccessAnimation from '../components/SuccessAnimation';
@@ -14,6 +15,40 @@ function LoginPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const isGoogleEnabled = Boolean(googleClientId);
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    try {
+      if (!credentialResponse?.credential) {
+        throw new Error('ไม่สามารถรับข้อมูลจาก Google ได้');
+      }
+
+      const response = await fetch('http://localhost:3000/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google');
+      }
+
+      login(data.token);
+      setShowSuccess(true);
+      setTimeout(() => navigate('/'), 2000);
+    } catch (err) {
+      setError(err.message || 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -128,6 +163,27 @@ function LoginPage() {
                   <button type="submit" className="w-full text-white bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 focus:ring-4 focus:outline-none focus:ring-green-300 font-bold rounded-xl text-lg px-5 py-3.5 text-center transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl shadow-lg">
                     เข้าสู่ระบบ
                   </button>
+                  <div className="flex items-center gap-3">
+                    <span className="flex-1 h-px bg-gray-200" />
+                    <span className="text-xs uppercase text-gray-400">หรือ</span>
+                    <span className="flex-1 h-px bg-gray-200" />
+                  </div>
+                  {isGoogleEnabled ? (
+                    <div className="flex justify-center">
+                      <GoogleLogin
+                        width="300"
+                        onSuccess={handleGoogleSuccess}
+                        onError={handleGoogleError}
+                        text="signin_with"
+                        theme="filled_black"
+                        shape="pill"
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-center text-sm text-gray-400">
+                      Google login ยังไม่พร้อมใช้งาน (ยังไม่ได้ตั้งค่า VITE_GOOGLE_CLIENT_ID)
+                    </p>
+                  )}
                   <p className="text-sm font-light text-center text-gray-500">
                     Don’t have an account yet?{' '}
                     <Link to="/register" className="font-medium text-red-500 hover:underline">
