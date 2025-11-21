@@ -14,7 +14,6 @@ function CreateRecipePage() {
   const [recipeCategory, setRecipeCategory] = useState('');
   const [prepTime, setPrepTime] = useState('');
   const [cookTime, setCookTime] = useState('');
-  const [totalTime, setTotalTime] = useState('');
   const [servings, setServings] = useState('');
   const [ingredients, setIngredients] = useState([emptyIngredient]);
   const [steps, setSteps] = useState([emptyStep]);
@@ -89,6 +88,18 @@ function CreateRecipePage() {
     }
   };
 
+  const parseMinutes = (value) => {
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : Math.max(0, parsed);
+  };
+
+  const prepMinutes = parseMinutes(prepTime);
+  const cookMinutes = parseMinutes(cookTime);
+  const computedTotalTime =
+    prepMinutes === null && cookMinutes === null
+      ? ''
+      : (prepMinutes || 0) + (cookMinutes || 0);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -117,7 +128,7 @@ function CreateRecipePage() {
       formData.append('recipe_category', recipeCategory);
       formData.append('prep_time_minutes', prepTime);
       formData.append('cook_time_minutes', cookTime);
-      formData.append('total_time_minutes', totalTime);
+      formData.append('total_time_minutes', computedTotalTime === '' ? '' : computedTotalTime);
       formData.append('servings', servings);
       formData.append('ingredients', JSON.stringify(filteredIngredients));
       formData.append('steps', JSON.stringify(filteredSteps.map((item, index) => ({
@@ -185,6 +196,9 @@ function CreateRecipePage() {
                   </div>
                 </div>
               </div>
+            )}
+            {checkingPlagiarism && (
+              <p className="mb-4 text-sm text-yellow-600">กำลังตรวจสอบความซ้ำซ้อนของสูตร โปรดรอสักครู่...</p>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-8">
@@ -254,10 +268,10 @@ function CreateRecipePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">เวลารวม (นาที)</label>
                     <input
                       type="number"
-                      min="0"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      value={totalTime}
-                      onChange={(e) => setTotalTime(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50"
+                      value={computedTotalTime}
+                      placeholder="ระบบคำนวณจากเวลาเตรียม + เวลาปรุง"
+                      readOnly
                     />
                   </div>
                   <div>

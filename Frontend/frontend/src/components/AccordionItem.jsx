@@ -334,19 +334,58 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                       </div>
                     )}
                   </div>
-                  {details.cpost_image && (
-                    <div className="mb-6 rounded-lg overflow-hidden shadow-sm">
-                      <img 
-                        src={`http://localhost:3000/images/${details.cpost_image}`}
-                        alt={details.cpost_title}
-                        className="w-full h-auto max-h-96 object-contain bg-gray-100"
-                        style={{ maxWidth: '100%', height: 'auto' }}
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/800x400.png?text=MealVault';
-                        }}
-                      />
-                    </div>
-                  )}
+                  {(() => {
+                    const mediaList = Array.isArray(details?.cpost_images) && details.cpost_images.length > 0
+                      ? details.cpost_images
+                      : details?.cpost_image
+                        ? [details.cpost_image]
+                        : [];
+                    if (mediaList.length === 0) return null;
+                    if (mediaList.length === 1) {
+                      const src = mediaList[0].startsWith('http')
+                        ? mediaList[0]
+                        : `http://localhost:3000/images/${mediaList[0]}`;
+                      return (
+                        <div className="mb-6 rounded-lg overflow-hidden shadow-sm">
+                          <img
+                            src={src}
+                            alt={details.cpost_title}
+                            className="w-full h-auto max-h-96 object-contain bg-gray-100"
+                            onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x400.png?text=MealVault'; }}
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
+                        <div className={`grid gap-3 p-3 ${mediaList.length === 2 ? 'grid-cols-2' : 'grid-cols-2 auto-rows-[160px]'}`}>
+                          {mediaList.slice(0, 4).map((image, idx) => {
+                            const src = image.startsWith('http') ? image : `http://localhost:3000/images/${image}`;
+                            const isFirstLarge = mediaList.length === 3 && idx === 0;
+                            const isLastOverlay = mediaList.length > 4 && idx === 3;
+                            return (
+                              <div
+                                key={`${image}-${idx}`}
+                                className={`relative overflow-hidden rounded-xl ${isFirstLarge ? 'col-span-2 row-span-2' : ''}`}
+                              >
+                                <img
+                                  src={src}
+                                  alt={`รูปที่ ${idx + 1}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/600x400.png?text=MealVault'; }}
+                                />
+                                {isLastOverlay && (
+                                  <div className="absolute inset-0 bg-black/50 text-white text-xl font-semibold flex items-center justify-center">
+                                    +{mediaList.length - 4}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="prose max-w-none mb-8 text-gray-700" style={{whiteSpace: 'pre-wrap'}}>
                     {isRecipe ? (
                       <>

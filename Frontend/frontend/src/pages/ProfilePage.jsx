@@ -260,17 +260,22 @@ function ProfilePage() {
                                 className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                               >
                                 <div className="flex gap-4">
-                                  {(item.cpost_image || item.recipe_image) && (
-                                    <img
-                                      src={
-                                        (item.type === 'post' ? item.cpost_image : item.recipe_image)?.startsWith('http')
-                                          ? (item.type === 'post' ? item.cpost_image : item.recipe_image)
-                                          : `http://localhost:3000/images/${item.type === 'post' ? item.cpost_image : item.recipe_image}`
-                                      }
-                                      alt=""
-                                      className="w-24 h-24 object-cover rounded"
-                                    />
-                                  )}
+                                  {(() => {
+                                    const previewImage = item.type === 'post'
+                                      ? ((item.cpost_images && item.cpost_images.length > 0) ? item.cpost_images[0] : item.cpost_image)
+                                      : item.recipe_image;
+                                    if (!previewImage) return null;
+                                    const previewUrl = previewImage.startsWith('http')
+                                      ? previewImage
+                                      : `http://localhost:3000/images/${previewImage}`;
+                                    return (
+                                      <img
+                                        src={previewUrl}
+                                        alt=""
+                                        className="w-24 h-24 object-cover rounded"
+                                      />
+                                    );
+                                  })()}
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
                                       <h3 className="font-semibold">
@@ -340,27 +345,45 @@ function ProfilePage() {
                       {likedMenus.length === 0 ? (
                         <div className="col-span-full text-center py-8 text-gray-500">ยังไม่มีเมนูที่ชื่นชอบ</div>
                       ) : (
-                        likedMenus.map(menu => (
-                          <Link
-                            key={menu.menu_id}
-                            to={`/menus/${menu.menu_id}`}
-                            className="block border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-                          >
-                            {menu.menu_image && (
-                              <img
-                                src={menu.menu_image.startsWith('http') ? menu.menu_image : `http://localhost:3000/images/${menu.menu_image}`}
-                                alt={menu.menu_name}
-                                className="w-full h-32 object-cover"
-                              />
-                            )}
-                            <div className="p-3">
-                              <h3 className="font-semibold mb-1 truncate">{menu.menu_name}</h3>
-                              {menu.menu_description && (
-                                <p className="text-sm text-gray-600 line-clamp-2">{menu.menu_description}</p>
-                              )}
-                            </div>
-                          </Link>
-                        ))
+                        likedMenus.map(item => {
+                          const isRecipe = item.type === 'recipe';
+                          const targetId = isRecipe ? item.recipe_id : item.menu_id;
+                          const linkTo = `/menus/${targetId}`;
+                          const imageSrc = item.menu_image
+                            ? (item.menu_image.startsWith('http') ? item.menu_image : `http://localhost:3000/images/${item.menu_image}`)
+                            : '/images/no-image.png';
+
+                          return (
+                            <Link
+                              key={`${item.type}-${targetId}`}
+                              to={linkTo}
+                              className="block border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
+                            >
+                              <div className="relative">
+                                <img
+                                  src={imageSrc}
+                                  alt={item.menu_name}
+                                  className="w-full h-36 object-cover"
+                                  onError={(e) => { e.currentTarget.src = '/images/no-image.png'; }}
+                                />
+                                <span className={`absolute top-2 right-2 px-2 py-1 text-xs font-semibold rounded-full ${
+                                  isRecipe ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-emerald-100 text-emerald-700'
+                                }`}>
+                                  {isRecipe ? 'สูตรผู้ใช้' : 'เมนูระบบ'}
+                                </span>
+                              </div>
+                              <div className="p-3 space-y-1">
+                                <h3 className="font-semibold truncate text-gray-900">{item.menu_name}</h3>
+                                {item.recipe_category && (
+                                  <p className="text-xs text-gray-500">หมวดหมู่: {item.recipe_category}</p>
+                                )}
+                                {item.menu_description && (
+                                  <p className="text-sm text-gray-600 line-clamp-2">{item.menu_description}</p>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })
                       )}
                     </div>
                   )}

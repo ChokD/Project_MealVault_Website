@@ -9,10 +9,10 @@ function EditPostPage() {
   const { token, user } = useContext(AuthContext);
   const navigate = useNavigate();
   
-  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [image, setImage] = useState(null);
-  const [currentImage, setCurrentImage] = useState(null);
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImages, setNewImages] = useState([]);
+  const [newPreviews, setNewPreviews] = useState([]);
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -51,9 +51,14 @@ function EditPostPage() {
         }
         
         // ถ้ามีสิทธิ์ ให้โหลดข้อมูล
-        setTitle(data.cpost_title || '');
         setContent(data.cpost_content || '');
-        setCurrentImage(data.cpost_image);
+        if (Array.isArray(data.cpost_images) && data.cpost_images.length > 0) {
+          setExistingImages(data.cpost_images);
+        } else if (data.cpost_image) {
+          setExistingImages([data.cpost_image]);
+        } else {
+          setExistingImages([]);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -65,20 +70,41 @@ function EditPostPage() {
   }, [id, token, user, navigate]);
 
   const handleImageChange = (e) => {
-    setImage(e.target.files[0]);
+    const files = Array.from(e.target.files || []);
+    newPreviews.forEach(url => URL.revokeObjectURL(url));
+    const previews = files.map(file => URL.createObjectURL(file));
+    setNewImages(files);
+    setNewPreviews(previews);
+  };
+
+  useEffect(() => {
+    return () => {
+      newPreviews.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [newPreviews]);
+
+  const handleRemoveExistingImage = (filename) => {
+    setExistingImages(prev => prev.filter(img => img !== filename));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
+    const buildAutoTitle = (text) => {
+      if (!text) return 'โพสต์ใหม่';
+      const trimmed = text.trim();
+      if (!trimmed) return 'โพสต์ใหม่';
+      const firstLine = trimmed.split('\n').find((line) => line.trim()) || trimmed;
+      return firstLine.slice(0, 80);
+    };
+
     const formData = new FormData();
-    formData.append('cpost_title', title);
+    formData.append('cpost_title', buildAutoTitle(content));
     formData.append('cpost_content', content);
+    formData.append('keep_images', JSON.stringify(existingImages));
     
-    if (image) {
-      formData.append('cpost_image', image);
-    }
+    newImages.forEach(file => formData.append('cpost_images', file));
 
     try {
       const response = await fetch(`http://localhost:3000/api/posts/${id}`, {
@@ -130,17 +156,6 @@ function EditPostPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 
                 <div>
-                  <label htmlFor="title" className="block mb-2 text-sm font-medium text-gray-900">หัวข้อโพสต์</label>
-                  <input
-                    type="text"
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5"
-                    required
-                  />
-                </div>
-                <div>
                   <label htmlFor="content" className="block mb-2 text-sm font-medium text-gray-900">เนื้อหา</label>
                   <textarea
                     id="content"
@@ -152,25 +167,49 @@ function EditPostPage() {
                   ></textarea>
                 </div>
                 <div>
-                  <label htmlFor="image" className="block mb-2 text-sm font-medium text-gray-900">รูปภาพประกอบ (ไม่บังคับ)</label>
-                  {currentImage && (
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-600 mb-2">รูปภาพปัจจุบัน:</p>
-                      <img 
-                        src={`http://localhost:3000/images/${currentImage}`}
-                        alt="Current"
-                        className="w-full max-w-md h-auto rounded-lg"
-                      />
+                  <label className="block mb-2 text-sm font-medium text-gray-900">รูปภาพปัจจุบัน</label>
+                  {existingImages.length === 0 ? (
+                    <p className="text-sm text-gray-500">ยังไม่มีรูปภาพในโพสต์นี้</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                      {existingImages.map((filename) => (
+                        <div key={filename} className="relative rounded-xl overflow-hidden border border-gray-200">
+                          <img
+                            src={`http://localhost:3000/images/${filename}`}
+                            alt="โพสต์"
+                            className="w-full h-32 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExistingImage(filename)}
+                            className="absolute top-1 right-1 bg-black/70 text-white rounded-full px-2 py-0.5 text-xs"
+                          >
+                            ลบ
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
+                  <label htmlFor="image" className="block mb-2 text-sm font-medium text-gray-900">อัปโหลดรูปภาพใหม่ (เลือกได้หลายรูป)</label>
                   <input 
                     type="file" 
                     id="image"
-                    name="cpost_image"
+                    name="cpost_images"
                     onChange={handleImageChange}
+                    multiple
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
                   />
-                  <p className="text-xs text-gray-500 mt-1">เลือกไฟล์ใหม่เพื่อเปลี่ยนรูปภาพ (ถ้าไม่เลือกจะใช้รูปเดิม)</p>
+                  {newPreviews.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {newPreviews.map((src, idx) => (
+                        <div key={src} className="relative rounded-xl overflow-hidden border border-gray-200">
+                          <img src={src} alt={`preview-${idx}`} className="w-full h-32 object-cover" />
+                          <span className="absolute top-1 left-1 px-2 py-1 text-xs bg-black/60 text-white rounded-full">ใหม่ {idx + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">ถ้าไม่เลือกไฟล์ใหม่ ระบบจะใช้รูปเดิมที่เหลือจากด้านบน</p>
                 </div>
 
                 {error && <p className="text-center text-red-500">{error}</p>}

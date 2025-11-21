@@ -27,6 +27,7 @@ import EditPostPage from './pages/EditPostPage';
 import MealCalendarPage from './pages/MealCalendarPage';
 import UserProfilePage from './pages/UserProfilePage';
 import CreateRecipePage from './pages/CreateRecipePage';
+import EditRecipePage from './pages/EditRecipePage';
 import NotificationsPage from './pages/NotificationsPage';
 
 function App() {
@@ -61,6 +62,7 @@ function App() {
           <Route path="/meal-calendar" element={<MealCalendarPage />} />
           <Route path="/create-post" element={<CreatePostPage />} />
           <Route path="/edit-post/:id" element={<EditPostPage />} />
+          <Route path="/menus/:recipeId/edit" element={<EditRecipePage />} />
           {/* สามารถเพิ่ม Route ที่ต้องการป้องกันอื่นๆ ได้ที่นี่ในอนาคต */}
         </Route>
         

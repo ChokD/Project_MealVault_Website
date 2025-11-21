@@ -196,8 +196,25 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
   const canEditPost = user && (user.isAdmin || user.user_id === postUserId);
   const isAdmin = user?.isAdmin || false;
 
-  // Avatar URL - ใช้ placeholder สำหรับตอนนี้
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(post.user_fname || 'User')}&background=10b981&color=fff&size=128`;
+  const buildImageList = () => {
+    if (details?.cpost_images && details.cpost_images.length > 0) return details.cpost_images;
+    if (post?.cpost_images && post.cpost_images.length > 0) return post.cpost_images;
+    if (details?.cpost_image) return [details.cpost_image];
+    if (post?.cpost_image) return [post.cpost_image];
+    return [];
+  };
+
+  const imageList = buildImageList();
+  const resolveImageUrl = (value) => {
+    if (!value) return null;
+    return value.startsWith('http') ? value : `http://localhost:3000/images/${value}`;
+  };
+
+  // Avatar: prefer user's uploaded profile image, fall back to generated initials avatar
+  const userImageFilename = details?.user_image || post.user_image || null;
+  const avatarUrl = userImageFilename
+    ? `http://localhost:3000/images/${userImageFilename}`
+    : `https://ui-avatars.com/api/?name=${encodeURIComponent(post.user_fname || 'User')}&background=10b981&color=fff&size=128`;
 
   return (
     <article 
@@ -305,17 +322,41 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
                 <p className="text-gray-900 text-[15px] leading-6 mb-2">{post.cpost_title}</p>
               )}
               
-              {/* Image */}
-              {details?.cpost_image && (
-                <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200 max-w-full">
-                  <img 
-                    src={`http://localhost:3000/images/${details.cpost_image}`}
-                    alt={post.cpost_title}
-                    className="w-full h-auto max-h-[500px] object-cover bg-gray-50"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/800x400.png?text=MealVault';
-                    }}
-                  />
+              {imageList.length > 0 && (
+                <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
+                  {imageList.length === 1 ? (
+                    <img
+                      src={resolveImageUrl(imageList[0])}
+                      alt="รูปจากโพสต์"
+                      className="w-full h-auto max-h-[500px] object-cover"
+                      onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x400.png?text=MealVault'; }}
+                    />
+                  ) : (
+                    <div className={`grid gap-2 p-2 ${imageList.length === 2 ? 'grid-cols-2' : 'grid-cols-2 auto-rows-[150px] sm:auto-rows-[200px]'}`}>
+                      {imageList.slice(0, 4).map((image, idx) => {
+                        const isFirstLarge = imageList.length === 3 && idx === 0;
+                        const isLastOverlay = imageList.length > 4 && idx === 3;
+                        return (
+                          <div
+                            key={`${image}-${idx}`}
+                            className={`relative overflow-hidden rounded-xl border border-white ${isFirstLarge ? 'col-span-2 row-span-2' : ''}`}
+                          >
+                            <img
+                              src={resolveImageUrl(image)}
+                              alt={`รูปที่ ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/600x400.png?text=MealVault'; }}
+                            />
+                            {isLastOverlay && (
+                              <div className="absolute inset-0 bg-black/50 text-white text-2xl font-bold flex items-center justify-center">
+                                +{imageList.length - 4}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

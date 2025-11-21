@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
@@ -8,9 +8,9 @@ function CreatePostPage() {
   const { token, user } = useContext(AuthContext);
   const navigate = useNavigate();
   
-  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [warning, setWarning] = useState(null);
@@ -18,22 +18,38 @@ function CreatePostPage() {
   const isAdmin = user?.isAdmin || false;
 
   const handleImageChange = (e) => {
-    setImage(e.target.files[0]);
+    const files = Array.from(e.target.files || []);
+    previews.forEach(url => URL.revokeObjectURL(url));
+    const nextPreviews = files.map(file => URL.createObjectURL(file));
+    setImages(files);
+    setPreviews(nextPreviews);
   };
+
+  useEffect(() => {
+    return () => {
+      previews.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previews]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
+    const buildAutoTitle = (text) => {
+      if (!text) return 'โพสต์ใหม่';
+      const trimmed = text.trim();
+      if (!trimmed) return 'โพสต์ใหม่';
+      const firstLine = trimmed.split('\n').find((line) => line.trim()) || trimmed;
+      return firstLine.slice(0, 80);
+    };
+
     // --- ส่วนที่แก้ไขให้ถูกต้อง ---
     const formData = new FormData();
-    formData.append('cpost_title', title);
+    formData.append('cpost_title', buildAutoTitle(content));
     formData.append('cpost_content', content);
     
     // เพิ่มเงื่อนไข: จะเพิ่มรูปภาพเข้าไปก็ต่อเมื่อผู้ใช้เลือกไฟล์แล้วเท่านั้น
-    if (image) {
-      formData.append('cpost_image', image);
-    }
+    images.forEach(file => formData.append('cpost_images', file));
 
     try {
       const response = await fetch('http://localhost:3000/api/posts', {
@@ -100,17 +116,6 @@ function CreatePostPage() {
                 
                 {/* --- โค้ดที่ถูกต้องสำหรับฟอร์ม --- */}
                 <div>
-                  <label htmlFor="title" className="block mb-2 text-sm font-medium text-gray-900">หัวข้อโพสต์</label>
-                  <input
-                    type="text"
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5"
-                    required
-                  />
-                </div>
-                <div>
                   <label htmlFor="content" className="block mb-2 text-sm font-medium text-gray-900">เนื้อหา</label>
                   <textarea
                     id="content"
@@ -122,15 +127,25 @@ function CreatePostPage() {
                   ></textarea>
                 </div>
                 <div>
-                  <label htmlFor="image" className="block mb-2 text-sm font-medium text-gray-900">รูปภาพประกอบ (ไม่บังคับ)</label>
+                  <label htmlFor="image" className="block mb-2 text-sm font-medium text-gray-900">รูปภาพประกอบ (อัปโหลดได้หลายรูป)</label>
                   <input 
                     type="file" 
                     id="image"
-                    name="cpost_image"
+                    name="cpost_images"
                     onChange={handleImageChange}
+                    multiple
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                    // เอา required ออกเพื่อให้ไม่บังคับใส่รูป
                   />
+                  {previews.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {previews.map((src, idx) => (
+                        <div key={src} className="relative rounded-xl overflow-hidden border border-gray-200">
+                          <img src={src} alt={`preview-${idx}`} className="w-full h-32 object-cover" />
+                          <span className="absolute top-1 left-1 px-2 py-1 text-xs bg-black/60 text-white rounded-full">รูป {idx + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {/* ----------------------------- */}
 

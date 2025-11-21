@@ -25,8 +25,10 @@ function formatDateThai(dateString) {
 
 function RecipeCard({ recipe, token, user, onDelete, onReport }) {
   const navigate = useNavigate();
-  const imageSrc = recipe.cpost_image
-    ? (recipe.cpost_image.startsWith('http') ? recipe.cpost_image : `http://localhost:3000/images/${recipe.cpost_image}`)
+  const recipeImages = (recipe.cpost_images && recipe.cpost_images.length > 0) ? recipe.cpost_images : [];
+  const coverImage = recipeImages.length > 0 ? recipeImages[0] : recipe.cpost_image;
+  const imageSrc = coverImage
+    ? (coverImage.startsWith('http') ? coverImage : `http://localhost:3000/images/${coverImage}`)
     : 'https://via.placeholder.com/400x260.png?text=MealVault';
   const summary = recipe.cpost_content || recipe.recipe?.recipe_summary || 'ยังไม่มีคำอธิบายสูตรอาหารนี้';
   const [likeCount, setLikeCount] = useState(recipe.like_count || 0);
@@ -175,6 +177,22 @@ function RecipeCard({ recipe, token, user, onDelete, onReport }) {
           </button>
           {token && (
             <>
+              {isOwner && isUserRecipe && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(`/menus/${recipe.recipe_id || recipe.cpost_id}/edit`);
+                  }}
+                  className="px-4 py-2 rounded-full bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors"
+                  title="แก้ไขสูตรอาหาร"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4l10.768-10.768a1 1 0 000-1.414l-2.586-2.586a1 1 0 00-1.414 0L4 16v4z" />
+                  </svg>
+                </button>
+              )}
               {isOwner && onDelete && (
                 <button
                   type="button"

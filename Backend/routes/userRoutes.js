@@ -671,13 +671,26 @@ router.get('/users/:id/posts', async (req, res) => {
   try {
     const { data: posts, error } = await supabase
       .from('CommunityPost')
-      .select('cpost_id, cpost_title, cpost_datetime, cpost_image, like_count')
+      .select('cpost_id, cpost_title, cpost_datetime, cpost_image, cpost_images, like_count')
       .eq('user_id', id)
       .order('cpost_datetime', { ascending: false });
 
     if (error) throw error;
+    const formatted = (posts || []).map(post => {
+      let images = [];
+      if (Array.isArray(post.cpost_images)) {
+        images = post.cpost_images.filter(Boolean);
+      } else if (post.cpost_image) {
+        images = [post.cpost_image];
+      }
+      return {
+        ...post,
+        cpost_images: images,
+        cpost_image: images[0] || null
+      };
+    });
 
-    res.json(posts || []);
+    res.json(formatted);
   } catch (error) {
     console.error('Error fetching user posts:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงโพสต์ของผู้ใช้' });
@@ -720,33 +733,70 @@ router.get('/users/:id/comments', async (req, res) => {
   }
 });
 
-// GET /api/users/:id/liked-menus - รายชื่อเมนูที่ผู้ใช้ชื่นชอบ
+// GET /api/users/:id/liked-menus - รายชื่อเมนู/สูตรจากผู้ใช้ที่กดชื่นชอบ
 router.get('/users/:id/liked-menus', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const { data: likes, error } = await supabase
-      .from('MenuLike')
-      .select(`
-        menu_id,
-        Menu:menu_id (menu_id, menu_name, menu_image, menu_description)
-      `)
-      .eq('user_id', id)
-      .order('id', { ascending: false });
+    const [{ data: menuLikes, error: menuError }, { data: recipeLikes, error: recipeError }] = await Promise.all([
+      supabase
+        .from('MenuLike')
+        .select(`
+          id,
+          created_at,
+          menu_id,
+          Menu:menu_id (menu_id, menu_name, menu_image, menu_description)
+        `)
+        .eq('user_id', id)
+        .order('id', { ascending: false }),
+      supabase
+        .from('UserRecipeLike')
+        .select(`
+          id,
+          created_at,
+          recipe_id,
+          UserRecipe:recipe_id (
+            recipe_id,
+            recipe_title,
+            recipe_image,
+            recipe_summary,
+            recipe_category
+          )
+        `)
+        .eq('user_id', id)
+        .order('id', { ascending: false })
+    ]);
 
-    if (error) throw error;
+    if (menuError) throw menuError;
+    if (recipeError) throw recipeError;
 
-    // Format response
-    const formatted = (likes || [])
+    const formattedMenus = (menuLikes || [])
       .filter(like => like.Menu)
       .map(like => ({
+        type: 'menu',
         menu_id: like.menu_id,
         menu_name: like.Menu.menu_name,
         menu_image: like.Menu.menu_image,
-        menu_description: like.Menu.menu_description
+        menu_description: like.Menu.menu_description,
+        liked_at: like.created_at || null
       }));
 
-    res.json(formatted);
+    const formattedRecipes = (recipeLikes || [])
+      .filter(like => like.UserRecipe)
+      .map(like => ({
+        type: 'recipe',
+        recipe_id: like.recipe_id,
+        menu_name: like.UserRecipe.recipe_title,
+        menu_image: like.UserRecipe.recipe_image,
+        menu_description: like.UserRecipe.recipe_summary,
+        recipe_category: like.UserRecipe.recipe_category,
+        liked_at: like.created_at || null
+      }));
+
+    const combined = [...formattedMenus, ...formattedRecipes]
+      .sort((a, b) => new Date(b.liked_at || 0) - new Date(a.liked_at || 0));
+
+    res.json(combined);
   } catch (error) {
     console.error('Error fetching user liked menus:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงเมนูที่ชื่นชอบ' });

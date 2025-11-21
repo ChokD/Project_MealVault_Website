@@ -19,6 +19,42 @@ const parseJsonValue = (value) => {
   }
 };
 
+const buildFallbackTitle = (rawContent) => {
+  if (!rawContent) return 'โพสต์ใหม่';
+  const trimmed = rawContent.trim();
+  if (!trimmed) return 'โพสต์ใหม่';
+  const firstLine = trimmed.split('\n').find((line) => line.trim()) || trimmed;
+  return firstLine.slice(0, 80);
+};
+
+const parseImageList = (value, fallbackSingle) => {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(Boolean);
+      }
+    } catch {
+      return [value];
+    }
+  }
+  if (fallbackSingle) {
+    return [fallbackSingle];
+  }
+  return [];
+};
+
+const collectUploadedImages = (filesInput) => {
+  if (!filesInput) return [];
+  if (Array.isArray(filesInput)) {
+    return filesInput.map((file) => file?.filename).filter(Boolean);
+  }
+  return Object.values(filesInput).flat().map((file) => file?.filename).filter(Boolean);
+};
+
 // Optional auth middleware สำหรับ GET recipes
 const optionalAuth = (req, res, next) => {
   const authHeader = req.header('Authorization');
@@ -226,11 +262,12 @@ router.get('/posts', async (req, res) => {
         cpost_title, 
         cpost_datetime, 
         cpost_image, 
+        cpost_images,
         like_count, 
         post_type,
         user_id,
         cpost_content,
-        User:user_id (user_fname, user_lname)
+        User:user_id (user_fname, user_lname, user_image)
       `)
       .eq('post_type', 'post') // กรองเฉพาะโพสต์ปกติ
       .order('cpost_datetime', { ascending: false });
@@ -242,10 +279,14 @@ router.get('/posts', async (req, res) => {
 
     // แปลงข้อมูลให้ Frontend ใช้งานง่าย
     const formattedPosts = (posts || []).map(post => {
+      const images = parseImageList(post.cpost_images, post.cpost_image);
       return {
         ...post,
+        cpost_images: images,
+        cpost_image: images[0] || null,
         user_fname: post.User?.user_fname || 'Unknown',
-        User: undefined, // ลบ nested object ออก
+        user_image: post.User?.user_image || null,
+        User: undefined, // ลบ nested objectออก
         recipe: null // ไม่มี recipe สำหรับโพสต์ปกติ
       };
     });
@@ -273,7 +314,7 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
       .from('CommunityPost')
       .select(`
         *,
-        User:user_id (user_fname, user_lname)
+        User:user_id (user_fname, user_lname, user_image)
       `)
       .eq('cpost_id', postId)
       .limit(1);
@@ -316,14 +357,19 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
     const formattedComments = (comments || []).map(comment => ({
       ...comment,
       user_fname: comment.User?.user_fname || 'Unknown',
+      user_image: comment.User?.user_image || null,
       comment_content: comment.comment_text, // เพิ่ม alias สำหรับ Frontend
       User: undefined // ลบ nested object ออก
     }));
 
     const basePost = posts[0];
+    const normalizedImages = parseImageList(basePost.cpost_images, basePost.cpost_image);
     const postData = {
       ...basePost,
+      cpost_images: normalizedImages,
+      cpost_image: normalizedImages[0] || null,
       user_fname: basePost.User?.user_fname || 'Unknown',
+      user_image: basePost.User?.user_image || null,
       User: undefined, // ลบ nested object ออก
       comments: formattedComments,
       isLiked: likes && likes.length > 0, // เพิ่ม key ใหม่: ถ้าเจอข้อมูลไลค์จะเป็น true
@@ -341,12 +387,17 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
 // --- PROTECTED ROUTES ---
 
 // POST /api/posts - สร้างโพสต์ใหม่พร้อมรูปภาพ (โพสต์ปกติ)
-router.post('/posts', authMiddleware, upload.single('cpost_image'), moderateContent, async (req, res) => {
+router.post('/posts', authMiddleware, upload.fields([
+  { name: 'cpost_image', maxCount: 1 },
+  { name: 'cpost_images', maxCount: 6 }
+]), moderateContent, async (req, res) => {
   const { cpost_title, cpost_content } = req.body;
   const user_id = req.user.id;
 
-  if (!cpost_title) {
-    return res.status(400).json({ message: 'กรุณากรอกหัวข้อโพสต์' });
+  const finalTitle = (cpost_title || '').trim() || buildFallbackTitle(cpost_content);
+  const uploadedImages = collectUploadedImages(req.files);
+  if (req.file?.filename && !uploadedImages.includes(req.file.filename)) {
+    uploadedImages.unshift(req.file.filename);
   }
 
   // ตรวจสอบว่า Supabase client พร้อมใช้งาน
@@ -358,12 +409,13 @@ router.post('/posts', authMiddleware, upload.single('cpost_image'), moderateCont
   try {
     const newPost = {
       cpost_id: 'CP' + Date.now().toString(),
-      cpost_title,
+      cpost_title: finalTitle,
       cpost_content: cpost_content || null, // เนื้อหาเป็น optional
       post_type: 'post',
       user_id,
       cpost_datetime: new Date().toISOString(),
-      cpost_image: req.file ? req.file.filename : null,
+      cpost_image: uploadedImages[0] || null,
+      cpost_images: uploadedImages,
       like_count: 0
     };
 
@@ -375,7 +427,16 @@ router.post('/posts', authMiddleware, upload.single('cpost_image'), moderateCont
     
     console.log(`Post created successfully: ${newPost.cpost_id}`);
     
-    const response = { message: 'สร้างโพสต์สำเร็จ', post: data?.[0] || newPost };
+    const createdPost = data?.[0] || newPost;
+    const normalizedImages = parseImageList(createdPost?.cpost_images, createdPost?.cpost_image);
+    const response = {
+      message: 'สร้างโพสต์สำเร็จ',
+      post: {
+        ...createdPost,
+        cpost_images: normalizedImages,
+        cpost_image: normalizedImages[0] || null
+      }
+    };
     if (req.moderationWarning) {
       response.warning = req.moderationWarning;
     }
@@ -468,11 +529,15 @@ router.post('/posts/:id/comments', authMiddleware, moderateContent, async (req, 
 });
   
 // PUT /api/posts/:id - แก้ไขโพสต์ (สำหรับเจ้าของโพสต์ หรือ Admin)
-router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (req, res) => {
+router.put('/posts/:id', authMiddleware, upload.fields([
+  { name: 'cpost_image', maxCount: 1 },
+  { name: 'cpost_images', maxCount: 6 }
+]), async (req, res) => {
   try {
     const { id: postId } = req.params;
-    const { cpost_title, cpost_content } = req.body;
+    const { cpost_title, cpost_content, keep_images } = req.body;
     const loggedInUserId = req.user.id;
+    const finalTitle = (cpost_title || '').trim() || buildFallbackTitle(cpost_content);
 
     // ตรวจสอบว่า Supabase client พร้อมใช้งาน
     if (!supabase) {
@@ -480,14 +545,10 @@ router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (re
       return res.status(500).json({ message: 'Database connection error' });
     }
 
-    if (!cpost_title) {
-      return res.status(400).json({ message: 'กรุณากรอกหัวข้อโพสต์' });
-    }
-
     // ดึงข้อมูลโพสต์เพื่อตรวจสอบเจ้าของ
     const { data: posts, error: findErr } = await supabase
       .from('CommunityPost')
-      .select('user_id')
+      .select('user_id, cpost_images, cpost_image')
       .eq('cpost_id', postId)
       .limit(1);
     
@@ -501,6 +562,7 @@ router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (re
     }
 
     const postOwnerId = posts[0].user_id;
+    const currentImages = parseImageList(posts[0].cpost_images, posts[0].cpost_image);
 
     // ตรวจสอบว่าเป็น Admin หรือไม่
     const { data: admins, error: adminErr } = await supabase
@@ -521,16 +583,32 @@ router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (re
       return res.status(403).json({ message: 'คุณไม่มีสิทธิ์แก้ไขโพสต์นี้' });
     }
 
+    let keepImages = currentImages;
+    if (keep_images) {
+      try {
+        const parsed = JSON.parse(keep_images);
+        if (Array.isArray(parsed)) {
+          keepImages = parsed.filter(Boolean);
+        }
+      } catch (err) {
+        console.warn('Failed to parse keep_images payload', err);
+      }
+    }
+
+    const uploadedImages = collectUploadedImages(req.files);
+    if (req.file?.filename && !uploadedImages.includes(req.file.filename)) {
+      uploadedImages.unshift(req.file.filename);
+    }
+
+    const combinedImages = [...keepImages, ...uploadedImages].filter(Boolean);
+
     // เตรียมข้อมูลสำหรับอัปเดต
     const updateData = {
-      cpost_title,
-      cpost_content: cpost_content || null
+      cpost_title: finalTitle,
+      cpost_content: cpost_content || null,
+      cpost_image: combinedImages[0] || null,
+      cpost_images: combinedImages
     };
-
-    // ถ้ามีการอัปโหลดรูปภาพใหม่ ให้เพิ่มเข้าไป
-    if (req.file) {
-      updateData.cpost_image = req.file.filename;
-    }
 
     // อัปเดตโพสต์
     const { data: updatedPost, error: updErr } = await supabase
@@ -543,9 +621,18 @@ router.put('/posts/:id', authMiddleware, upload.single('cpost_image'), async (re
       console.error('Supabase update error:', updErr);
       throw updErr;
     }
+    const updatedEntity = updatedPost?.[0];
+    const normalizedImages = parseImageList(updatedEntity?.cpost_images, updatedEntity?.cpost_image);
 
     console.log(`Post updated successfully: ${postId}`);
-    res.json({ message: 'แก้ไขโพสต์สำเร็จ', post: updatedPost?.[0] });
+    res.json({
+      message: 'แก้ไขโพสต์สำเร็จ',
+      post: {
+        ...updatedEntity,
+        cpost_images: normalizedImages,
+        cpost_image: normalizedImages[0] || null
+      }
+    });
   } catch (error) {
     console.error('Error updating post:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขโพสต์' });
@@ -651,6 +738,133 @@ router.post('/recipes', authMiddleware, upload.single('recipe_image'), moderateC
   } catch (error) {
     console.error('Error creating recipe:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างสูตรอาหาร' });
+  }
+});
+
+// PUT /api/recipes/:recipeId - แก้ไขสูตรอาหาร (เฉพาะเจ้าของสูตร)
+router.put('/recipes/:recipeId', authMiddleware, upload.single('recipe_image'), moderateContent, async (req, res) => {
+  try {
+    const { recipeId } = req.params;
+    const user_id = req.user.id;
+
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    const { data: existingRecipe, error: findErr } = await supabase
+      .from('UserRecipe')
+      .select('*')
+      .eq('recipe_id', recipeId)
+      .single();
+
+    if (findErr || !existingRecipe) {
+      return res.status(404).json({ message: 'ไม่พบสูตรอาหารนี้' });
+    }
+
+    if (existingRecipe.user_id !== user_id) {
+      return res.status(403).json({ message: 'คุณไม่มีสิทธิ์แก้ไขสูตรอาหารนี้' });
+    }
+
+    const {
+      recipe_title,
+      recipe_summary,
+      recipe_category,
+      prep_time_minutes,
+      cook_time_minutes,
+      total_time_minutes,
+      servings,
+      ingredients,
+      steps
+    } = req.body;
+
+    const parsedIngredients = ingredients !== undefined
+      ? (typeof ingredients === 'string' ? parseJsonValue(ingredients) : ingredients)
+      : undefined;
+    const parsedSteps = steps !== undefined
+      ? (typeof steps === 'string' ? parseJsonValue(steps) : steps)
+      : undefined;
+
+    if (parsedIngredients !== undefined) {
+      if (!Array.isArray(parsedIngredients) || parsedIngredients.length === 0) {
+        return res.status(400).json({ message: 'กรุณาระบุรายการวัตถุดิบอย่างน้อย 1 รายการ' });
+      }
+    }
+
+    if (parsedSteps !== undefined) {
+      if (!Array.isArray(parsedSteps) || parsedSteps.length === 0) {
+        return res.status(400).json({ message: 'กรุณาระบุขั้นตอนการทำอาหารอย่างน้อย 1 ขั้นตอน' });
+      }
+    }
+
+    const normalizeText = (value, fallback) => {
+      if (value === undefined) return fallback;
+      const trimmed = typeof value === 'string' ? value.trim() : value;
+      return trimmed === '' ? null : trimmed;
+    };
+
+    const normalizeNumber = (value, fallback) => {
+      if (value === undefined) return fallback;
+      if (value === '' || value === null) return null;
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+
+    const updatePayload = {
+      recipe_title: normalizeText(recipe_title, existingRecipe.recipe_title),
+      recipe_summary: normalizeText(recipe_summary, existingRecipe.recipe_summary),
+      recipe_category: normalizeText(recipe_category, existingRecipe.recipe_category),
+      prep_time_minutes: normalizeNumber(prep_time_minutes, existingRecipe.prep_time_minutes),
+      cook_time_minutes: normalizeNumber(cook_time_minutes, existingRecipe.cook_time_minutes),
+      total_time_minutes: normalizeNumber(total_time_minutes, existingRecipe.total_time_minutes),
+      servings: normalizeNumber(servings, existingRecipe.servings),
+      ingredients: parsedIngredients !== undefined ? parsedIngredients : existingRecipe.ingredients,
+      steps: parsedSteps !== undefined ? parsedSteps : existingRecipe.steps,
+      recipe_image: req.file ? req.file.filename : existingRecipe.recipe_image,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: updated, error: updateErr } = await supabase
+      .from('UserRecipe')
+      .update(updatePayload)
+      .eq('recipe_id', recipeId)
+      .select();
+
+    if (updateErr) {
+      console.error('Supabase update error:', updateErr);
+      throw updateErr;
+    }
+
+    const updatedRecipe = updated?.[0] || { ...existingRecipe, ...updatePayload };
+
+    res.json({
+      message: 'แก้ไขสูตรอาหารสำเร็จ',
+      recipe: updatedRecipe,
+      post: {
+        recipe_id: recipeId,
+        cpost_id: recipeId,
+        cpost_title: updatedRecipe.recipe_title,
+        cpost_datetime: updatedRecipe.updated_at,
+        cpost_image: updatedRecipe.recipe_image,
+        like_count: updatedRecipe.like_count || 0,
+        post_type: 'recipe',
+        user_id,
+        recipe: {
+          recipe_id: recipeId,
+          recipe_summary: updatedRecipe.recipe_summary,
+          recipe_category: updatedRecipe.recipe_category,
+          prep_time_minutes: updatedRecipe.prep_time_minutes,
+          cook_time_minutes: updatedRecipe.cook_time_minutes,
+          total_time_minutes: updatedRecipe.total_time_minutes,
+          servings: updatedRecipe.servings,
+          ingredients: updatedRecipe.ingredients,
+          steps: updatedRecipe.steps
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error updating recipe:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขสูตรอาหาร' });
   }
 });
 

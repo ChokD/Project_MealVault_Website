@@ -204,6 +204,25 @@ router.delete('/weekly-meal-plan/:planId', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/weekly-meal-plan - ลบเมนูทั้งหมดออกจากแผนของผู้ใช้
+router.delete('/weekly-meal-plan', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const { error } = await supabase
+      .from('WeeklyMealPlan')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    res.json({ message: 'ล้างแผนเมนูสำเร็จ' });
+  } catch (error) {
+    console.error('Error clearing weekly meal plan:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการล้างแผนเมนู' });
+  }
+});
+
 // ฟังก์ชันลบจำนวนออกจากชื่อส่วนผสม
 function removeQuantityFromIngredientName(ingredientName) {
   if (!ingredientName) return ingredientName;

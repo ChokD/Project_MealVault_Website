@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import TwitterPostCard from '../components/TwitterPostCard';
 import { AuthContext } from '../context/AuthContext';
@@ -16,6 +16,7 @@ function CommunityPage() {
   const [itemToDelete, setItemToDelete] = useState({ id: null, type: '' });
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ตรวจสอบว่าเป็น Admin หรือไม่
   const isAdmin = user?.isAdmin || false;
@@ -47,14 +48,17 @@ function CommunityPage() {
       const postExists = posts.some(p => p.cpost_id === postId);
       
       if (postExists) {
-        // Scroll ไปที่โพสต์
+        // Scroll ไปที่โพสต์ (ปรับ offset เพื่อไม่ให้ถูก navbar ทับ)
         const scrollTimeout = setTimeout(() => {
           const element = document.getElementById(`post-${postId}`);
           if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const navbar = document.querySelector('nav');
+            const navbarHeight = navbar ? navbar.offsetHeight : 80;
+            const y = element.getBoundingClientRect().top + window.scrollY - navbarHeight - 8;
+            window.scrollTo({ top: y, behavior: 'smooth' });
           }
         }, 500);
-        
+
         return () => clearTimeout(scrollTimeout);
       }
     }
@@ -110,12 +114,48 @@ function CommunityPage() {
             <div className="sticky top-20">
               <h2 className="text-xl font-bold text-gray-900 mb-6 px-4">ชุมชน</h2>
               <nav className="space-y-1">
-                <Link 
-                  to="/community" 
-                  className="block px-4 py-3 rounded-full hover:bg-gray-100 transition-colors font-semibold text-gray-900 text-[15px]"
+                <button
+                  type="button"
+                  onClick={() => {
+                    // If there are posts available, target the latest (first) post id
+                    const latestId = (posts && posts.length > 0) ? posts[0].cpost_id : null;
+
+                    if (location.pathname !== '/community') {
+                      // Navigate to community and include post query so the effect will scroll after load
+                      if (latestId) {
+                        navigate(`/community?post=${latestId}`, { preventScrollReset: true });
+                      } else {
+                        navigate('/community', { preventScrollReset: true });
+                      }
+                      return;
+                    }
+
+                    // If already on the community page, just scroll to the latest post (or top)
+                    if (latestId) {
+                      const el = document.getElementById(`post-${latestId}`);
+                      if (el) {
+                        const navbar = document.querySelector('nav');
+                        const navbarHeight = navbar ? navbar.offsetHeight : 80;
+                        const y = el.getBoundingClientRect().top + window.scrollY - navbarHeight - 8;
+                        window.scrollTo({ top: y, behavior: 'smooth' });
+                        return;
+                      }
+                    }
+                    // Fallback: scroll to top of feed (account for navbar)
+                    const feed = document.querySelector('.border-x');
+                    const navbar = document.querySelector('nav');
+                    const navbarHeight = navbar ? navbar.offsetHeight : 80;
+                    if (feed) {
+                      const y = feed.getBoundingClientRect().top + window.scrollY - navbarHeight - 8;
+                      window.scrollTo({ top: y, behavior: 'smooth' });
+                    } else {
+                      window.scrollTo({ top: Math.max(0, window.scrollY - navbarHeight - 8), behavior: 'smooth' });
+                    }
+                  }}
+                  className="block text-left w-full px-4 py-3 rounded-full hover:bg-gray-100 transition-colors font-semibold text-gray-900 text-[15px]"
                 >
                   หน้าแรก
-                </Link>
+                </button>
                 {token && (
                   <Link 
                     to="/create-post" 

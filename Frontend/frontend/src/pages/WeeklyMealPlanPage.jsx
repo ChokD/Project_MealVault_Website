@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
+import ClearPlanModal from '../components/ClearPlanModal';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -131,6 +132,8 @@ function WeeklyMealPlanPage() {
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [clearingPlan, setClearingPlan] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const QUICK_KEYWORDS = ['ไก่', 'หมู', 'เนื้อ', 'กุ้ง', 'ปลา', 'ผัด', 'แกง', 'ต้ม'];
 
   useEffect(() => {
@@ -260,6 +263,29 @@ function WeeklyMealPlanPage() {
       setShopping(list);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const clearWeeklyPlan = async () => {
+    if (!token) return;
+    setClearingPlan(true);
+    try {
+      const resp = await fetch(`${API_URL}/weekly-meal-plan`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!resp.ok) throw new Error('Failed to clear plan');
+      setPlan(createEmptyPlan());
+      setShopping({});
+      setIsModalOpen(false);
+      setShowClearModal(false);
+    } catch (error) {
+      console.error('Error clearing weekly meal plan:', error);
+      alert(error.message || 'เกิดข้อผิดพลาดในการล้างแผนเมนู');
+    } finally {
+      setClearingPlan(false);
     }
   };
 
@@ -460,6 +486,10 @@ function WeeklyMealPlanPage() {
     URL.revokeObjectURL(url);
   };
 
+  const hasPlannedMenus = Object.values(plan).some(day =>
+    Object.values(day).some(mealList => mealList.length > 0)
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
@@ -470,10 +500,20 @@ function WeeklyMealPlanPage() {
               <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">แผนเมนูรายสัปดาห์</h1>
               <p className="mt-1 text-sm text-gray-500">จัดตารางอาหารของคุณตลอดสัปดาห์ เพิ่มเมนูได้อย่างรวดเร็ว</p>
             </div>
-            <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed">
-              <span className="i-heroicons-shopping-cart-20-solid" />
-              {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowClearModal(true)}
+                disabled={!token || clearingPlan || !hasPlannedMenus}
+                className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg shadow border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="i-heroicons-trash-20-solid" />
+                {clearingPlan ? 'กำลังล้าง...' : 'ล้าง'}
+              </button>
+              <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span className="i-heroicons-shopping-cart-20-solid" />
+                {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
+              </button>
+            </div>
           </div>
           {loadingPlan && (
             <div className="text-center py-8 text-gray-500">กำลังโหลดข้อมูล...</div>
@@ -671,6 +711,13 @@ function WeeklyMealPlanPage() {
           </div>
         </div>
       )}
+
+      <ClearPlanModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={clearWeeklyPlan}
+        loading={clearingPlan}
+      />
     </div>
   );
 }

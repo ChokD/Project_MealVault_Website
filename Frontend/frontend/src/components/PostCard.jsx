@@ -4,9 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 function PostCard({ post }) {
   if (!post) return null;
 
-  // สร้าง URL รูปภาพไปยัง Backend ของเรา
-  const imageUrl = post.cpost_image 
-    ? `http://localhost:3000/images/${post.cpost_image}`
+  const primaryImage = (post.cpost_images && post.cpost_images.length > 0)
+    ? post.cpost_images[0]
+    : post.cpost_image;
+
+  const imageUrl = primaryImage
+    ? (primaryImage.startsWith('http') ? primaryImage : `http://localhost:3000/images/${primaryImage}`)
     : 'https://via.placeholder.com/400x300.png?text=MealVault';
 
   const navigate = useNavigate();
