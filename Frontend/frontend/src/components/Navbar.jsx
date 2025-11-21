@@ -76,8 +76,11 @@ function Navbar() {
           <div className={`w-10 h-10 bg-gradient-to-br ${primaryGradient} rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow`}>
             <span className="text-white font-bold text-xl">🍽️</span>
           </div>
-          <div className={`font-bold text-xl sm:text-2xl bg-gradient-to-r ${primaryTextGradient} bg-clip-text text-transparent`}>
-            MealVault {isAdmin && <span className="text-red-600">[Admin]</span>}
+          <div className={`font-bold text-xl sm:text-2xl bg-gradient-to-r ${primaryTextGradient} bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap`}>
+            <span>MealVault</span>
+            {isAdmin && (
+              <span className="text-red-600 text-base font-semibold tracking-wide">[Admin]</span>
+            )}
           </div>
         </Link>
         
