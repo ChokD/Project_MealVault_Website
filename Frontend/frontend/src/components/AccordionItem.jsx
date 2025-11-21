@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import ReportModal from './ReportModal';
@@ -69,6 +69,8 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportPostId, setReportPostId] = useState(null);
   const [reportCommentId, setReportCommentId] = useState(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const optionsRef = useRef(null);
 
   useEffect(() => {
     const fetchPostDetails = async () => {
@@ -99,6 +101,17 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
     
     fetchPostDetails();
   }, [isOpen, post.cpost_id, token]);
+
+  // ปิดเมนูตัวเลือกเมื่อคลิกนอกเมนู
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (optionsRef.current && !optionsRef.current.contains(e.target)) {
+        setOptionsOpen(false);
+      }
+    };
+    if (optionsOpen) document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [optionsOpen]);
 
   // Scroll ไปที่คอมเมนต์ที่ highlight เมื่อ details โหลดเสร็จ
   useEffect(() => {
@@ -263,19 +276,73 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
             )}
           </div>
         </div>
-        
-        <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+
+        <div className="flex items-center ml-4 flex-shrink-0">
+          <div className="flex items-center space-x-2">
             <button onClick={handleLike} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                 <svg className={`w-6 h-6 transition-colors ${isLiked ? 'text-red-500 fill-current' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z"></path></svg>
             </button>
             <span className="font-semibold text-gray-700 w-4 text-center">{likeCount}</span>
-        </div>
+          </div>
 
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.3 }} className="cursor-pointer p-2" onClick={onToggle}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 9L12 16L5 9" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </motion.div>
+          <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.3 }} className="cursor-pointer p-2" onClick={onToggle}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 9L12 16L5 9" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </motion.div>
+
+          {/* Overflow menu button placed at the far right of this header line */}
+          <div className="relative ml-2" ref={optionsRef}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setOptionsOpen(open => !open); }}
+              aria-haspopup="menu"
+              aria-expanded={optionsOpen}
+              className="p-2 rounded-full hover:bg-gray-100"
+              title="ตัวเลือกเพิ่มเติม"
+            >
+              <svg className="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 7a2 2 0 110-4 2 2 0 010 4zm0 7a2 2 0 110-4 2 2 0 010 4zm0 7a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </button>
+
+            {optionsOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-lg z-50">
+                <ul className="py-1">
+                  {token && user && user.user_id !== postUserId && (
+                    <li>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); handleReportPost(e); }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        รายงานโพสต์
+                      </button>
+                    </li>
+                  )}
+                  {canEditPost && (
+                    <li>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); window.location.href = `/edit-post/${details.cpost_id}`; }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        แก้ไขโพสต์
+                      </button>
+                    </li>
+                  )}
+                  {canDeletePost && (
+                    <li>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); onDeleteClick(details.cpost_id); }}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        ลบโพสต์นี้
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -292,47 +359,58 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
               {details && (
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    {/* ปุ่มรายงานโพสต์ */}
-                    {token && (
+                    <div />
+                    {/* Overflow menu: three-dot */}
+                    <div className="relative" ref={optionsRef}>
                       <button
-                        onClick={handleReportPost}
-                        className="text-gray-500 hover:text-red-500 text-sm flex items-center gap-1 transition-colors"
-                        title="รายงานโพสต์นี้"
+                        onClick={(e) => { e.stopPropagation(); setOptionsOpen(open => !open); }}
+                        aria-haspopup="menu"
+                        aria-expanded={optionsOpen}
+                        className="p-2 rounded-full hover:bg-gray-100"
+                        title="ตัวเลือกเพิ่มเติม"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        <svg className="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M12 7a2 2 0 110-4 2 2 0 010 4zm0 7a2 2 0 110-4 2 2 0 010 4zm0 7a2 2 0 110-4 2 2 0 010 4z" />
                         </svg>
-                        <span>รายงาน</span>
                       </button>
-                    )}
-                    
-                    {/* ปุ่มแก้ไข/ลบโพสต์ */}
-                    {(canEditPost || canDeletePost) && (
-                      <div className="flex justify-end gap-2">
-                        {canEditPost && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.location.href = `/edit-post/${details.cpost_id}`;
-                            }}
-                            className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold text-sm rounded-full px-4 py-1 transition-colors`}
-                          >
-                            แก้ไขโพสต์
-                          </button>
-                        )}
-                        {canDeletePost && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteClick(details.cpost_id);
-                            }}
-                            className="bg-red-500 text-white font-bold text-sm rounded-full px-4 py-1 hover:bg-red-600 transition-colors"
-                          >
-                            ลบโพสต์นี้
-                          </button>
-                        )}
-                      </div>
-                    )}
+
+                      {optionsOpen && (
+                        <div className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-lg z-50">
+                          <ul className="py-1">
+                            {token && user && user.user_id !== postUserId && (
+                              <li>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); handleReportPost(e); }}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  รายงานโพสต์
+                                </button>
+                              </li>
+                            )}
+                            {canEditPost && (
+                              <li>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); window.location.href = `/edit-post/${details.cpost_id}`; }}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  แก้ไขโพสต์
+                                </button>
+                              </li>
+                            )}
+                            {canDeletePost && (
+                              <li>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); onDeleteClick(details.cpost_id); }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                >
+                                  ลบโพสต์นี้
+                                </button>
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {(() => {
                     const mediaList = Array.isArray(details?.cpost_images) && details.cpost_images.length > 0

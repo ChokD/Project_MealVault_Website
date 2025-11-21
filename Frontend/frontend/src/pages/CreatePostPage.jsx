@@ -14,6 +14,7 @@ function CreatePostPage() {
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [warning, setWarning] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const isAdmin = user?.isAdmin || false;
 
@@ -25,6 +26,20 @@ function CreatePostPage() {
     setPreviews(nextPreviews);
   };
 
+  const handleRemoveSelectedImage = (index) => {
+    setImages(prev => {
+      const next = [...prev];
+      next.splice(index, 1);
+      return next;
+    });
+    setPreviews(prev => {
+      const next = [...prev];
+      const url = next.splice(index, 1)[0];
+      if (url) URL.revokeObjectURL(url);
+      return next;
+    });
+  };
+
   useEffect(() => {
     return () => {
       previews.forEach(url => URL.revokeObjectURL(url));
@@ -34,7 +49,8 @@ function CreatePostPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
+    if (submitting) return;
+    setSubmitting(true);
     const buildAutoTitle = (text) => {
       if (!text) return 'โพสต์ใหม่';
       const trimmed = text.trim();
@@ -82,7 +98,17 @@ function CreatePostPage() {
 
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleCancel = () => {
+    if ((content && content.trim()) || (images && images.length > 0)) {
+      const ok = window.confirm('ยังมีข้อมูลที่ยังไม่ได้บันทึก ต้องการยกเลิกและย้อนกลับหรือไม่?');
+      if (!ok) return;
+    }
+    navigate(-1);
   };
 
   return (
@@ -141,6 +167,13 @@ function CreatePostPage() {
                       {previews.map((src, idx) => (
                         <div key={src} className="relative rounded-xl overflow-hidden border border-gray-200">
                           <img src={src} alt={`preview-${idx}`} className="w-full h-32 object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSelectedImage(idx)}
+                            className="absolute top-1 right-1 bg-black/70 text-white rounded-full px-2 py-0.5 text-xs"
+                          >
+                            ลบ
+                          </button>
                           <span className="absolute top-1 left-1 px-2 py-1 text-xs bg-black/60 text-white rounded-full">รูป {idx + 1}</span>
                         </div>
                       ))}
@@ -150,12 +183,23 @@ function CreatePostPage() {
                 {/* ----------------------------- */}
 
                 {error && <p className="text-center text-red-500">{error}</p>}
-                <button 
-                  type="submit" 
-                  className={`w-full text-white ${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} font-medium rounded-full text-sm px-5 py-2.5 text-center transition-colors`}
-                >
-                  เผยแพร่โพสต์
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={submitting}
+                    className={`flex-1 px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors ${submitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={submitting}
+                    className={`flex-1 text-white ${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} font-medium rounded-full text-sm px-5 py-2.5 text-center transition-colors ${submitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    {submitting ? 'กำลังเผยแพร่...' : 'เผยแพร่โพสต์'}
+                  </button>
+                </div>
               </form>
             </>
           )}

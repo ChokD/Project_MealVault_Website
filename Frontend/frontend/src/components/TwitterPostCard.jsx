@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import ReportModal from './ReportModal';
@@ -18,6 +18,8 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportPostId, setReportPostId] = useState(null);
   const [reportCommentId, setReportCommentId] = useState(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const optionsRef = useRef(null);
 
   // โหลดรายละเอียดโพสต์เมื่อ component mount
   useEffect(() => {
@@ -47,6 +49,16 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
     
     fetchPostDetails();
   }, [post.cpost_id, token]);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (optionsRef.current && !optionsRef.current.contains(e.target)) {
+        setOptionsOpen(false);
+      }
+    };
+    if (optionsOpen) document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [optionsOpen]);
 
   // Scroll ไปที่คอมเมนต์ที่ highlight
   useEffect(() => {
@@ -272,45 +284,56 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
                   <span className="text-gray-500 text-sm">{postCreatedAt}</span>
                 </>
               )}
-              {token && (
-                <>
-                  <span className="text-gray-500">·</span>
-                  <button
-                    onClick={handleReportPost}
-                    className="text-gray-500 hover:text-red-500 text-sm"
-                    title="รายงานโพสต์"
-                  >
-                    รายงาน
-                  </button>
-                </>
-              )}
-              {(canEditPost || canDeletePost) && (
-                <>
-                  <span className="text-gray-500">·</span>
-                  {canEditPost && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/edit-post/${post.cpost_id}`);
-                      }}
-                      className="text-gray-500 hover:text-blue-500 text-sm"
-                    >
-                      แก้ไข
-                    </button>
-                  )}
-                  {canDeletePost && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteClick(post.cpost_id);
-                      }}
-                      className="text-red-500 hover:text-red-700 text-sm"
-                    >
-                      ลบ
-                    </button>
-                  )}
-                </>
-              )}
+              <div className="relative ml-auto" ref={optionsRef}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setOptionsOpen(o => !o); }}
+                  aria-haspopup="menu"
+                  aria-expanded={optionsOpen}
+                  className="px-2 py-1 rounded-full hover:bg-gray-100"
+                  title="ตัวเลือกเพิ่มเติม"
+                >
+                  <svg className="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 7a2 2 0 110-4 2 2 0 010 4zm0 7a2 2 0 110-4 2 2 0 010 4zm0 7a2 2 0 110-4 2 2 0 010 4z" />
+                  </svg>
+                </button>
+
+                {optionsOpen && (
+                  <div className="absolute right-0 mt-2 w-40 bg-white border rounded-md shadow-lg z-50">
+                    <ul className="py-1">
+                      {token && user && user.user_id !== postUserId && (
+                        <li>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); handleReportPost(e); }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            รายงานโพสต์
+                          </button>
+                        </li>
+                      )}
+                      {canEditPost && (
+                        <li>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); navigate(`/edit-post/${post.cpost_id}`); }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            แก้ไข
+                          </button>
+                        </li>
+                      )}
+                      {canDeletePost && (
+                        <li>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOptionsOpen(false); onDeleteClick(post.cpost_id); }}
+                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            ลบ
+                          </button>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Post Content */}

@@ -3,6 +3,7 @@ const router = express.Router();
 const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
 const { createNotification } = require('./notificationRoutes');
+const sendEmail = require('../utils/sendEmail');
 
 // รายการประเภทการรายงาน
 const REPORT_TYPES = {
@@ -154,8 +155,14 @@ router.post('/reports', authMiddleware, async (req, res) => {
       .from('Admin')
       .select('admin_id');
 
-    if (!adminErr && admins && admins.length > 0) {
-      // สร้าง notification สำหรับ Admin แต่ละคน
+    const adminIds = !adminErr && Array.isArray(admins)
+      ? admins.map((admin) => admin.admin_id).filter(Boolean)
+      : [];
+
+    if (adminIds.length === 0) {
+      console.warn('Report submitted but no admins are registered to receive notifications.');
+    } else {
+      // เตรียมข้อมูลสำหรับ notification / email
       const reportTypeLabels = {
         [REPORT_TYPES.INAPPROPRIATE_LANGUAGE]: 'ใช้ภาษาไม่เหมาะสม',
         [REPORT_TYPES.FALSE_INFORMATION]: 'เผยแพร่ข้อมูลที่เป็นเท็จ',
@@ -168,23 +175,70 @@ router.post('/reports', authMiddleware, async (req, res) => {
       const reportTypeLabel = reportTypeLabels[creport_type] || 'อื่นๆ';
       let notificationMessage = '';
       if (recipe_id) {
-        notificationMessage = `${reporterName} รายงานสูตรอาหาร: "${postTitle}" (${reportTypeLabel})`;
+        notificationMessage = `${reporterName} รายงานสูตรอาหาร: "${postTitle || 'ไม่ทราบชื่อสูตร'}" (${reportTypeLabel})`;
       } else if (postTitle) {
         notificationMessage = `${reporterName} รายงานโพสต์: "${postTitle}" (${reportTypeLabel})`;
       } else {
         notificationMessage = `${reporterName} รายงานคอมเมนต์ (${reportTypeLabel})`;
       }
 
-      for (const admin of admins) {
+      const reportLinkBase = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
+      const reportLink = finalCpostId
+        ? `${reportLinkBase}/community?post=${finalCpostId}${finalCommentId ? `&comment=${finalCommentId}` : ''}&reported=true`
+        : `${reportLinkBase}/admin/reports`;
+
+      // ดึงอีเมลของ Admin เพื่อส่งอีเมลแจ้งเตือน
+      const { data: adminUsers, error: adminUsersErr } = await supabase
+        .from('User')
+        .select('user_id, user_email, user_fname')
+        .in('user_id', adminIds);
+
+      if (adminUsersErr) {
+        console.error('Error fetching admin emails:', adminUsersErr);
+      }
+
+      const adminInfoMap = new Map();
+      (adminUsers || []).forEach((adminUser) => {
+        adminInfoMap.set(adminUser.user_id, adminUser);
+      });
+
+      const emailEnabled = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+
+      for (const adminId of adminIds) {
         await createNotification({
           notification_type: 'report',
           notification_message: notificationMessage,
-          user_id: admin.admin_id,
-          cpost_id: finalCpostId || null, // ใช้ finalCpostId แทน cpost_id เพื่อให้มีค่าเมื่อรายงานคอมเมนต์
+          user_id: adminId,
+          cpost_id: finalCpostId || null,
           comment_id: finalCommentId || null,
           actor_user_id: user_id,
           creport_id: newReport.creport_id
         });
+
+        if (emailEnabled && adminInfoMap.has(adminId)) {
+          const adminInfo = adminInfoMap.get(adminId);
+          if (adminInfo?.user_email) {
+            const emailSubject = `MealVault: มีรายงานใหม่ (${reportTypeLabel})`;
+            const emailBody = `
+              <p>สวัสดี ${adminInfo.user_fname || 'ผู้ดูแลระบบ'},</p>
+              <p>${reporterName} ได้รายงาน${recipe_id ? 'สูตรอาหาร' : finalCommentId ? 'คอมเมนต์' : 'โพสต์'} (${reportTypeLabel}).</p>
+              ${postTitle ? `<p><strong>หัวข้อ:</strong> ${postTitle}</p>` : ''}
+              ${creport_details ? `<p><strong>รายละเอียดจากผู้รายงาน:</strong> ${creport_details}</p>` : ''}
+              <p><a href="${reportLink}" target="_blank" rel="noopener noreferrer">เปิดดูรายละเอียดการรายงาน</a></p>
+              <p style="margin-top:16px;">ขอบคุณ,<br/>ระบบแจ้งเตือน MealVault</p>
+            `;
+
+            try {
+              await sendEmail({
+                to: adminInfo.user_email,
+                subject: emailSubject,
+                html: emailBody
+              });
+            } catch (emailErr) {
+              console.error(`Error sending report email to admin ${adminId}:`, emailErr);
+            }
+          }
+        }
       }
     }
 

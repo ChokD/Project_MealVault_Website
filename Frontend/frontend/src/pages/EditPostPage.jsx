@@ -16,6 +16,7 @@ function EditPostPage() {
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const isAdmin = user?.isAdmin || false;
 
@@ -91,6 +92,9 @@ function EditPostPage() {
     e.preventDefault();
     setError('');
 
+    if (submitting) return;
+    setSubmitting(true);
+
     const buildAutoTitle = (text) => {
       if (!text) return 'โพสต์ใหม่';
       const trimmed = text.trim();
@@ -127,7 +131,17 @@ function EditPostPage() {
 
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleCancel = () => {
+    if ((content && content.trim()) || (newImages && newImages.length > 0)) {
+      const ok = window.confirm('ยังมีข้อมูลที่ยังไม่ได้บันทึก ต้องการยกเลิกและย้อนกลับหรือไม่?');
+      if (!ok) return;
+    }
+    navigate(-1);
   };
 
   if (loading) {
@@ -213,12 +227,23 @@ function EditPostPage() {
                 </div>
 
                 {error && <p className="text-center text-red-500">{error}</p>}
-                <button 
-                  type="submit" 
-                  className={`w-full ${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-medium rounded-full text-sm px-5 py-2.5 text-center transition-colors`}
-                >
-                  บันทึกการแก้ไข
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={submitting}
+                    className={`flex-1 px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors ${submitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={submitting}
+                    className={`flex-1 ${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-medium rounded-full text-sm px-5 py-2.5 text-center transition-colors ${submitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    {submitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+                  </button>
+                </div>
               </form>
             </>
           )}

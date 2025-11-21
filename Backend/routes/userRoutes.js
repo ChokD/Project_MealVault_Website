@@ -13,6 +13,8 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 const upload = require('../middleware/uploadMiddleware');
 
+// Removed unused helper functions now that community post favorites are not supported
+
 // --- AUTHENTICATION ROUTES ---
 
 // POST /api/register - สมัครสมาชิก
