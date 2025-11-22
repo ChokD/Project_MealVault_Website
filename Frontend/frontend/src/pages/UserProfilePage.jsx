@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
 
@@ -7,6 +7,7 @@ function UserProfilePage() {
   const { userId } = useParams();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -15,15 +16,17 @@ function UserProfilePage() {
       setLoading(true);
       setError('');
       try {
-        const [profileResp, postsResp] = await Promise.all([
+        const [profileResp, postsResp, recipesResp] = await Promise.all([
           fetch(`http://localhost:3000/api/users/${userId}/public-profile`),
-          fetch(`http://localhost:3000/api/users/${userId}/posts`)
+          fetch(`http://localhost:3000/api/users/${userId}/posts`),
+          fetch(`http://localhost:3000/api/users/${userId}/recipes`)
         ]);
 
         if (profileResp.status === 404) {
           setError('ไม่พบผู้ใช้');
           setProfile(null);
           setPosts([]);
+          setRecipes([]);
           return;
         }
 
@@ -37,6 +40,7 @@ function UserProfilePage() {
 
         const profileData = await profileResp.json();
         const postsData = await postsResp.json();
+        const recipesData = recipesResp.ok ? await recipesResp.json() : [];
 
         setProfile(profileData);
         const enrichedPosts = (postsData || []).map(post => ({
@@ -45,10 +49,12 @@ function UserProfilePage() {
           user_id: profileData.user_id
         }));
         setPosts(enrichedPosts);
+        setRecipes(recipesData || []);
       } catch (err) {
         setError(err.message || 'เกิดข้อผิดพลาด');
         setProfile(null);
         setPosts([]);
+        setRecipes([]);
       } finally {
         setLoading(false);
       }
@@ -82,15 +88,60 @@ function UserProfilePage() {
 
               <section>
                 <h2 className="text-2xl font-semibold mb-6 text-gray-800">โพสต์ของ {profile.user_fname}</h2>
-                {posts.length === 0 ? (
+                {posts.length === 0 && recipes.length === 0 ? (
                   <div className="bg-white rounded-xl shadow p-8 text-center text-gray-500">
                     ผู้ใช้นี้ยังไม่มีโพสต์
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {posts.map(post => (
-                      <PostCard key={post.cpost_id} post={post} />
-                    ))}
+                  <div className="space-y-8">
+                    {/* โพสต์ชุมชน */}
+                    {posts.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4 text-gray-700">โพสต์ชุมชน</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {posts.map(post => (
+                            <PostCard key={post.cpost_id} post={post} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* สูตรอาหาร */}
+                    {recipes.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4 text-gray-700">สูตรอาหาร</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {recipes.map(recipe => (
+                            <Link
+                              key={recipe.recipe_id}
+                              to={`/menus/${recipe.recipe_id}`}
+                              className="block border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
+                            >
+                              <div className="relative">
+                                <img
+                                  src={recipe.recipe_image ? `http://localhost:3000/images/${recipe.recipe_image}` : '/images/no-image.png'}
+                                  alt={recipe.recipe_title}
+                                  className="w-full h-36 object-cover"
+                                  onError={(e) => { e.currentTarget.src = '/images/no-image.png'; }}
+                                />
+                                <span className="absolute top-2 right-2 px-2 py-1 text-xs font-semibold rounded-full bg-fuchsia-100 text-fuchsia-700">
+                                  สูตรผู้ใช้
+                                </span>
+                              </div>
+                              <div className="p-3 space-y-1">
+                                <h3 className="font-semibold truncate text-gray-900">{recipe.recipe_title}</h3>
+                                {recipe.recipe_category && (
+                                  <p className="text-xs text-gray-500">หมวดหมู่: {recipe.recipe_category}</p>
+                                )}
+                                {recipe.recipe_description && (
+                                  <p className="text-sm text-gray-600 line-clamp-2">{recipe.recipe_description}</p>
+                                )}
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </section>

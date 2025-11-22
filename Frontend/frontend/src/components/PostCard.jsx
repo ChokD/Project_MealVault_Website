@@ -8,9 +8,10 @@ function PostCard({ post }) {
     ? post.cpost_images[0]
     : post.cpost_image;
 
+  const hasImage = !!primaryImage;
   const imageUrl = primaryImage
     ? (primaryImage.startsWith('http') ? primaryImage : `http://localhost:3000/images/${primaryImage}`)
-    : 'https://via.placeholder.com/400x300.png?text=MealVault';
+    : null;
 
   const navigate = useNavigate();
   const isRecipe = post.post_type === 'recipe';
@@ -28,9 +29,55 @@ function PostCard({ post }) {
     }
   };
 
+  // แสดงผลแบบต่างกันสำหรับโพสต์ที่มีรูปและไม่มีรูป
+  if (!hasImage) {
+    return (
+      <Link to={`/community?post=${post.cpost_id}`} className="block group">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-100">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {post.user_fname?.[0]?.toUpperCase() || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <button
+                type="button"
+                onClick={handleAuthorClick}
+                className="text-sm font-semibold text-gray-800 hover:text-emerald-600 focus:outline-none"
+              >
+                {post.user_fname}
+              </button>
+              {formattedCreatedAt && (
+                <p className="text-xs text-gray-500">{formattedCreatedAt}</p>
+              )}
+            </div>
+            {isRecipe && (
+              <span className="bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-1 rounded-full">
+                สูตรอาหาร
+              </span>
+            )}
+          </div>
+          <h3 className="font-bold text-lg text-gray-800 mb-2 group-hover:text-emerald-600 transition-colors">
+            {post.cpost_title}
+          </h3>
+          {post.cpost_content && (
+            <p className="text-gray-600 text-sm line-clamp-3">{post.cpost_content}</p>
+          )}
+          {isRecipe && recipeInfo?.recipe_category && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+              <span>หมวดหมู่: {recipeInfo.recipe_category}</span>
+              {recipeInfo?.total_time_minutes && (
+                <span>• เวลา: {recipeInfo.total_time_minutes} นาที</span>
+              )}
+            </div>
+          )}
+        </div>
+      </Link>
+    );
+  }
+
   return (
     // ทำให้การ์ดทั้งใบเป็นลิงก์ไปยังหน้ารายละเอียดของโพสต์
-    <Link to={`/posts/${post.cpost_id}`} className="w-full h-full block group relative overflow-hidden rounded-xl shadow-lg">
+    <Link to={`/community?post=${post.cpost_id}`} className="w-full h-full block group relative overflow-hidden rounded-xl shadow-lg">
       <img 
         src={imageUrl} 
         alt={post.cpost_title} 
