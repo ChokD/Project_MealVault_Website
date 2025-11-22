@@ -459,12 +459,13 @@ router.put('/users/profile/image', authMiddleware, ...upload.single('user_image'
   }
 
   try {
-    const imageFilename = req.file.filename;
+    // Use full Supabase URL if available, otherwise fallback to filename
+    const imageUrl = req.uploadedFiles?.[0]?.url || req.file.filename;
     
     // อัปเดตรูปภาพโปรไฟล์ในฐานข้อมูล
     const { error } = await supabase
       .from('User')
-      .update({ user_image: imageFilename })
+      .update({ user_image: imageUrl })
       .eq('user_id', userId);
     
     if (error) throw error;
@@ -472,7 +473,7 @@ router.put('/users/profile/image', authMiddleware, ...upload.single('user_image'
     console.log(`Profile image updated for user: ${userId}`);
     res.json({ 
       message: 'อัปโหลดรูปภาพโปรไฟล์สำเร็จ',
-      image_url: `/images/${imageFilename}`
+      image_url: imageUrl
     });
   } catch (error) {
     console.error('Error updating profile image:', error);

@@ -47,7 +47,13 @@ const parseImageList = (value, fallbackSingle) => {
   return [];
 };
 
-const collectUploadedImages = (filesInput) => {
+const collectUploadedImages = (filesInput, uploadedFiles) => {
+  // If we have Supabase uploaded files with full URLs, use those
+  if (uploadedFiles && Array.isArray(uploadedFiles)) {
+    return uploadedFiles.map((file) => file?.url).filter(Boolean);
+  }
+  
+  // Fallback to old behavior (for backward compatibility)
   if (!filesInput) return [];
   if (Array.isArray(filesInput)) {
     return filesInput.map((file) => file?.filename).filter(Boolean);
@@ -395,7 +401,7 @@ router.post('/posts', authMiddleware, ...upload.fields([
   const user_id = req.user.id;
 
   const finalTitle = (cpost_title || '').trim() || buildFallbackTitle(cpost_content);
-  const uploadedImages = collectUploadedImages(req.files);
+  const uploadedImages = collectUploadedImages(req.files, req.uploadedFiles);
   if (req.file?.filename && !uploadedImages.includes(req.file.filename)) {
     uploadedImages.unshift(req.file.filename);
   }
@@ -595,7 +601,7 @@ router.put('/posts/:id', authMiddleware, ...upload.fields([
       }
     }
 
-    const uploadedImages = collectUploadedImages(req.files);
+    const uploadedImages = collectUploadedImages(req.files, req.uploadedFiles);
     if (req.file?.filename && !uploadedImages.includes(req.file.filename)) {
       uploadedImages.unshift(req.file.filename);
     }
@@ -673,6 +679,8 @@ router.post('/recipes', authMiddleware, ...upload.single('recipe_image'), modera
     const recipeId = 'R' + Date.now().toString();
 
     // สร้างสูตรอาหารใน UserRecipe แทน CommunityPost
+    const recipeImageUrl = req.uploadedFiles?.[0]?.url || (req.file ? req.file.filename : null);
+    
     const newRecipe = {
       recipe_id: recipeId,
       user_id,
@@ -685,7 +693,7 @@ router.post('/recipes', authMiddleware, ...upload.single('recipe_image'), modera
       servings: servings ? Number(servings) : null,
       ingredients: parsedIngredients,
       steps: parsedSteps,
-      recipe_image: req.file ? req.file.filename : null,
+      recipe_image: recipeImageUrl,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -810,6 +818,8 @@ router.put('/recipes/:recipeId', authMiddleware, ...upload.single('recipe_image'
       return Number.isNaN(parsed) ? fallback : parsed;
     };
 
+    const recipeImageUrl = req.uploadedFiles?.[0]?.url || (req.file ? req.file.filename : existingRecipe.recipe_image);
+    
     const updatePayload = {
       recipe_title: normalizeText(recipe_title, existingRecipe.recipe_title),
       recipe_summary: normalizeText(recipe_summary, existingRecipe.recipe_summary),
@@ -820,7 +830,7 @@ router.put('/recipes/:recipeId', authMiddleware, ...upload.single('recipe_image'
       servings: normalizeNumber(servings, existingRecipe.servings),
       ingredients: parsedIngredients !== undefined ? parsedIngredients : existingRecipe.ingredients,
       steps: parsedSteps !== undefined ? parsedSteps : existingRecipe.steps,
-      recipe_image: req.file ? req.file.filename : existingRecipe.recipe_image,
+      recipe_image: recipeImageUrl,
       updated_at: new Date().toISOString()
     };
 
