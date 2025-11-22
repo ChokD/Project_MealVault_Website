@@ -429,7 +429,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                           <img
                             src={src}
                             alt={details.cpost_title}
-                            className="w-full h-auto max-h-96 object-contain bg-gray-100"
+                            className="w-full h-auto max-h-96 object-contain bg-gray-100 transition-transform duration-300 hover:scale-105 cursor-pointer"
                             onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x400.png?text=MealVault'; }}
                           />
                         </div>
@@ -450,7 +450,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                                 <img
                                   src={src}
                                   alt={`รูปที่ ${idx + 1}`}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-110 cursor-pointer"
                                   onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/600x400.png?text=MealVault'; }}
                                 />
                                 {isLastOverlay && (
