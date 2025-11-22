@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware');
+const upload = require('../middleware/supabaseUploadMiddleware');
 const { createNotification } = require('./notificationRoutes');
 const { moderateContent } = require('./contentModerationRoutes');
 

@@ -11,7 +11,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
-const upload = require('../middleware/uploadMiddleware');
+const upload = require('../middleware/supabaseUploadMiddleware');
 
 // Removed unused helper functions now that community post favorites are not supported
 
