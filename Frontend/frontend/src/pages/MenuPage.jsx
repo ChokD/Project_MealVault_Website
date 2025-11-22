@@ -29,7 +29,7 @@ function RecipeCard({ recipe, token, user, onDelete, onReport }) {
   const coverImage = recipeImages.length > 0 ? recipeImages[0] : recipe.cpost_image;
   const imageSrc = coverImage
     ? (coverImage.startsWith('http') ? coverImage : `http://localhost:3000/images/${coverImage}`)
-    : 'https://via.placeholder.com/400x260.png?text=MealVault';
+    : '/placeholder.svg';
   const summary = recipe.cpost_content || recipe.recipe?.recipe_summary || 'ยังไม่มีคำอธิบายสูตรอาหารนี้';
   const [likeCount, setLikeCount] = useState(recipe.like_count || 0);
   const [liked, setLiked] = useState(false);
@@ -253,7 +253,7 @@ function MenuCard({ menu, categoryName, token, user }) {
   const navigate = useNavigate();
   const imageSrc = menu.menu_image
     ? (menu.menu_image.startsWith('http') ? menu.menu_image : `http://localhost:3000/images/${menu.menu_image}`)
-    : 'https://via.placeholder.com/400x260.png?text=MealVault';
+    : '/placeholder.svg';
   const summary = menu.menu_description || menu.menu_recipe || 'ยังไม่มีคำอธิบายเมนูนี้';
   const [likeCount, setLikeCount] = useState(menu.menu_like_count || 0);
   const [liked, setLiked] = useState(false);

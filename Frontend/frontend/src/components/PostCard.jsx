@@ -10,7 +10,7 @@ function PostCard({ post }) {
 
   const imageUrl = primaryImage
     ? (primaryImage.startsWith('http') ? primaryImage : `http://localhost:3000/images/${primaryImage}`)
-    : 'https://via.placeholder.com/400x300.png?text=MealVault';
+    : '/placeholder.svg';
 
   const navigate = useNavigate();
   const isRecipe = post.post_type === 'recipe';

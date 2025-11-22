@@ -352,7 +352,7 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
                       src={resolveImageUrl(imageList[0])}
                       alt="รูปจากโพสต์"
                       className="w-full h-auto max-h-[500px] object-cover"
-                      onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x400.png?text=MealVault'; }}
+                      onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                     />
                   ) : (
                     <div className={`grid gap-2 p-2 ${imageList.length === 2 ? 'grid-cols-2' : 'grid-cols-2 auto-rows-[150px] sm:auto-rows-[200px]'}`}>
@@ -368,7 +368,7 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
                               src={resolveImageUrl(image)}
                               alt={`รูปที่ ${idx + 1}`}
                               className="w-full h-full object-cover"
-                              onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/600x400.png?text=MealVault'; }}
+                              onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                             />
                             {isLastOverlay && (
                               <div className="absolute inset-0 bg-black/50 text-white text-2xl font-bold flex items-center justify-center">

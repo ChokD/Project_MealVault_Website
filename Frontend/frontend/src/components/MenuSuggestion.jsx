@@ -109,7 +109,7 @@ function MenuSuggestion() {
               {results.map(item => (
                 <div key={item.menu_id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
                   <div className="relative">
-                    <img src={item.menu_image || 'https://via.placeholder.com/400x300?text=Menu'} alt={item.menu_name} className="w-full h-48 object-cover" />
+                    <img src={item.menu_image || '/placeholder.svg'} alt={item.menu_name} className="w-full h-48 object-cover" />
                   </div>
                   <div className="p-4">
                     <h3 className="font-semibold text-lg mb-1 truncate" title={item.menu_name}>{item.menu_name}</h3>
