@@ -5,10 +5,12 @@ import { Link } from 'react-router-dom';
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
+    setIsSubmitting(true);
     try {
       const response = await fetch('http://localhost:3000/api/forgot-password', {
         method: 'POST',
@@ -19,6 +21,8 @@ function ForgotPasswordPage() {
       setMessage(data.message);
     } catch (error) {
       setMessage('เกิดข้อผิดพลาด โปรดลองอีกครั้ง');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -44,8 +48,12 @@ function ForgotPasswordPage() {
                   required
                 />
               </div>
-              <button type="submit" className="w-full text-white bg-green-500 hover:bg-green-600 font-medium rounded-full text-sm px-5 py-2.5 text-center">
-                ส่งลิงก์
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full text-white bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium rounded-full text-sm px-5 py-2.5 text-center"
+              >
+                {isSubmitting ? 'กำลังส่ง...' : 'ส่งลิงก์'}
               </button>
             </form>
           ) : (
