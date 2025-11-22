@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import SuccessAnimation from '../components/SuccessAnimation'; // 1. นำเข้า Component Animation
+import SuccessAnimation from '../components/SuccessAnimation';
 
 function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -14,15 +14,36 @@ function SignUpPage() {
     favorite_foods: '',
   });
   const [error, setError] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false); // 2. เพิ่ม State สำหรับควบคุม Animation
+  const [showSuccess, setShowSuccess] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
 
-  // ตรวจสอบว่าผู้ใช้ยอมรับ Terms แล้วหรือไม่
+  const passwordChecks = useMemo(() => {
+    const password = formData.user_password || '';
+    const rules = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[^A-Za-z0-9]/.test(password),
+    };
+    const score = Object.values(rules).filter(Boolean).length;
+    const total = Object.keys(rules).length;
+    const percent = (score / total) * 100;
+    const meta =
+      score <= 2
+        ? { label: 'ความปลอดภัย: อ่อน', color: 'bg-red-400' }
+        : score <= 4
+          ? { label: 'ความปลอดภัย: ปานกลาง', color: 'bg-yellow-400' }
+          : { label: 'ความปลอดภัย: สูง', color: 'bg-emerald-500' };
+    return { rules, score, total, percent, ...meta };
+  }, [formData.user_password]);
+
+  const isPasswordValid = passwordChecks.score >= 4; // ต้องมีระดับอย่างน้อยปานกลาง
+
   useEffect(() => {
     const accepted = localStorage.getItem('termsAccepted') === 'true';
     if (!accepted) {
-      // เก็บข้อมูลว่ามาจากหน้า register
       sessionStorage.setItem('fromRegister', 'true');
       navigate('/terms');
     } else {
@@ -38,15 +59,18 @@ function SignUpPage() {
     event.preventDefault();
     setError('');
 
-    // ตรวจสอบว่ายอมรับ Terms แล้วหรือไม่
     if (!termsAccepted) {
       setError('กรุณายอมรับข้อกำหนดและเงื่อนไขการใช้งานก่อนสมัครสมาชิก');
       navigate('/terms');
       return;
     }
 
+    if (!isPasswordValid) {
+      setError('รหัสผ่านต้องมีระดับความปลอดภัยอย่างน้อยปานกลาง (ครบ 4 เงื่อนไขขึ้นไป)');
+      return;
+    }
+
     try {
-      // Process allergies and favorite_foods - convert to comma-separated strings if provided
       const submitData = {
         ...formData,
         allergies: formData.allergies ? formData.allergies.trim() : null,
@@ -64,12 +88,10 @@ function SignUpPage() {
         throw new Error(data.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
       }
 
-      // 3. แก้ไขส่วนนี้: แสดง Animation แล้วค่อยเปลี่ยนหน้า
       setShowSuccess(true);
       setTimeout(() => {
         navigate('/login');
-      }, 2000); // หน่วงเวลา 2 วินาที
-
+      }, 2000);
     } catch (err) {
       setError(err.message);
     }
@@ -77,18 +99,15 @@ function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-white flex flex-col relative overflow-hidden">
-      {/* Decorative Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 right-10 w-72 h-72 bg-emerald-200 rounded-full opacity-10 blur-3xl animate-pulse"></div>
         <div className="absolute bottom-20 left-10 w-96 h-96 bg-green-200 rounded-full opacity-10 blur-3xl animate-pulse delay-75"></div>
       </div>
-      
+
       <Navbar />
       <main className="flex-grow flex items-center justify-center p-4 pt-24 relative z-10">
         <div className="w-full bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl sm:max-w-md border border-emerald-100 max-h-[90vh] overflow-y-auto">
           <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
-            
-            {/* 4. เพิ่มเงื่อนไขการแสดงผล */}
             {showSuccess ? (
               <SuccessAnimation message="สมัครสมาชิกสำเร็จ!" />
             ) : (
@@ -105,7 +124,6 @@ function SignUpPage() {
                   <p className="text-gray-500 mt-2">เริ่มต้นการเดินทางของคุณ</p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-                  {/* ... โค้ดของฟอร์มทั้งหมดเหมือนเดิม ... */}
                   <div className="flex space-x-4">
                     <div className="w-1/2">
                       <label htmlFor="user_fname" className="block mb-2 text-sm font-medium text-gray-900">ชื่อจริง</label>
@@ -122,7 +140,35 @@ function SignUpPage() {
                   </div>
                   <div>
                     <label htmlFor="user_password" className="block mb-2 text-sm font-medium text-gray-900">รหัสผ่าน</label>
-                    <input type="password" name="user_password" id="user_password" onChange={handleChange} className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" required />
+                    <input type="password" name="user_password" id="user_password" value={formData.user_password} onChange={handleChange} className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" required />
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                        <span className="text-gray-700">{passwordChecks.label}</span>
+                        <span>{Math.round(passwordChecks.percent)}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${passwordChecks.color} transition-all duration-300`}
+                          style={{ width: `${passwordChecks.percent}%` }}
+                        />
+                      </div>
+                      <ul className="mt-1 grid grid-cols-1 gap-1 text-xs text-gray-600">
+                        {[
+                          { key: 'length', label: 'อย่างน้อย 8 ตัวอักษร' },
+                          { key: 'uppercase', label: 'มีตัวอักษรพิมพ์ใหญ่ (A-Z)' },
+                          { key: 'lowercase', label: 'มีตัวอักษรพิมพ์เล็ก (a-z)' },
+                          { key: 'number', label: 'มีตัวเลข (0-9)' },
+                          { key: 'special', label: 'มีอักขระพิเศษ (!@#...)' },
+                        ].map((rule) => (
+                          <li key={rule.key} className={`flex items-center gap-2 ${passwordChecks.rules[rule.key] ? 'text-emerald-600' : 'text-gray-500'}`}>
+                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-current text-[10px]">
+                              {passwordChecks.rules[rule.key] ? '✓' : '•'}
+                            </span>
+                            {rule.label}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                   <div>
                     <label htmlFor="user_tel" className="block mb-2 text-sm font-medium text-gray-900">เบอร์โทรศัพท์ <span className="text-gray-500 font-normal">(optional)</span></label>
@@ -130,32 +176,31 @@ function SignUpPage() {
                   </div>
                   <div>
                     <label htmlFor="allergies" className="block mb-2 text-sm font-medium text-gray-900">แพ้อาหาร <span className="text-gray-500 font-normal">(optional)</span></label>
-                    <input 
-                      type="text" 
-                      name="allergies" 
-                      id="allergies" 
+                    <input
+                      type="text"
+                      name="allergies"
+                      id="allergies"
                       value={formData.allergies}
-                      onChange={handleChange} 
-                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" 
+                      onChange={handleChange}
+                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
                       placeholder="เช่น ถั่ว, นม, กุ้ง (คั่นด้วยเครื่องหมายจุลภาค)"
                     />
                     <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่แพ้โดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ถั่ว, นม, กุ้ง)</p>
                   </div>
                   <div>
                     <label htmlFor="favorite_foods" className="block mb-2 text-sm font-medium text-gray-900">อาหารที่ชอบ <span className="text-gray-500 font-normal">(optional)</span></label>
-                    <input 
-                      type="text" 
-                      name="favorite_foods" 
-                      id="favorite_foods" 
+                    <input
+                      type="text"
+                      name="favorite_foods"
+                      id="favorite_foods"
                       value={formData.favorite_foods}
-                      onChange={handleChange} 
-                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none" 
+                      onChange={handleChange}
+                      className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
                       placeholder="เช่น ข้าวผัด, ต้มยำ, ผัดไทย (คั่นด้วยเครื่องหมายจุลภาค)"
                     />
                     <p className="mt-1 text-xs text-gray-500">กรอกอาหารที่ชอบโดยคั่นด้วยเครื่องหมายจุลภาค (เช่น ข้าวผัด, ต้มยำ, ผัดไทย)</p>
                   </div>
-                  
-                  {/* Terms Acceptance Checkbox */}
+
                   <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
                     <label className="flex items-start cursor-pointer group">
                       <input
@@ -183,12 +228,12 @@ function SignUpPage() {
                   </div>
 
                   {error && <p className="text-sm text-center text-red-500">{error}</p>}
-                  <button 
-                    type="submit" 
-                    disabled={!termsAccepted}
+                  <button
+                    type="submit"
+                    disabled={!termsAccepted || !isPasswordValid}
                     className={`w-full text-white font-bold rounded-xl text-lg px-5 py-3.5 text-center transition-all duration-300 transform shadow-lg ${
-                      termsAccepted
-                        ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 focus:ring-4 focus:outline-none focus:ring-emerald-300 hover:scale-[1.02] hover:shadow-xl cursor-pointer'
+                      termsAccepted && isPasswordValid
+                        ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-emerald-600 focus:ring-4 focus:outline-none focus:ring-emerald-300 hover:scale-[1.02] hover:shadow-xl cursor-pointer'
                         : 'bg-gray-400 cursor-not-allowed'
                     }`}
                   >
