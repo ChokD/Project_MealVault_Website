@@ -128,7 +128,9 @@ function UserProfilePage() {
                             >
                               <div className="relative">
                                 <img
-                                  src={recipe.recipe_image ? `${IMAGE_URL}/${recipe.recipe_image}` : '/images/no-image.png'}
+                                  src={recipe.recipe_image 
+                                    ? (recipe.recipe_image.startsWith('http') ? recipe.recipe_image : `${IMAGE_URL}/${recipe.recipe_image}`)
+                                    : '/images/no-image.png'}
                                   alt={recipe.recipe_title}
                                   className="w-full h-36 object-cover"
                                   onError={(e) => { e.currentTarget.src = '/images/no-image.png'; }}
