@@ -78,7 +78,7 @@ function UserProfilePage() {
               <div className="bg-white rounded-2xl shadow-lg p-8 mb-10 flex items-center gap-6">
                 {profile.user_image ? (
                   <img
-                    src={`${IMAGE_URL}/${profile.user_image}`}
+                    src={profile.user_image.startsWith('http') ? profile.user_image : `${IMAGE_URL}/${profile.user_image}`}
                     alt={profile.user_fname}
                     className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                   />

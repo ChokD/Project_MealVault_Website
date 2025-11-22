@@ -143,7 +143,7 @@ function ProfilePage() {
               <div className="relative group">
                 {user?.user_image ? (
                   <img
-                    src={`${IMAGE_URL}/${user.user_image}`}
+                    src={user.user_image.startsWith('http') ? user.user_image : `${IMAGE_URL}/${user.user_image}`}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                     onError={(e) => {
