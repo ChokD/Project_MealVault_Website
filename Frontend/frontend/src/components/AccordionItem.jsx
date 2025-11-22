@@ -72,6 +72,10 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
   const [reportCommentId, setReportCommentId] = useState(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsRef = useRef(null);
+  
+  // State สำหรับ Image Lightbox
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState('');
 
   useEffect(() => {
     const fetchPostDetails = async () => {
@@ -430,6 +434,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                             src={src}
                             alt={details.cpost_title}
                             className="w-full h-auto max-h-96 object-cover rounded-lg transition-transform duration-300 hover:scale-105 cursor-pointer"
+                            onClick={() => { setLightboxImage(src); setLightboxOpen(true); }}
                             onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x400.png?text=MealVault'; }}
                           />
                         </div>
@@ -446,6 +451,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                               <div
                                 key={`${image}-${idx}`}
                                 className={`relative overflow-hidden rounded-xl ${isFirstLarge ? 'col-span-2 row-span-2' : ''}`}
+                                onClick={() => { setLightboxImage(src); setLightboxOpen(true); }}
                               >
                                 <img
                                   src={src}
@@ -653,6 +659,42 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
           console.log('Report submitted successfully');
         }}
       />
+      
+      {/* Image Lightbox Modal */}
+      <AnimatePresence>
+        {lightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative max-w-7xl max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={lightboxImage}
+                alt="Full size"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              />
+              <button
+                onClick={() => setLightboxOpen(false)}
+                className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-3 backdrop-blur-sm transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
