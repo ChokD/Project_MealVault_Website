@@ -37,6 +37,14 @@ function ProfilePage() {
     }
   }, [activeTab, user]);
 
+  // Debug: ตรวจสอบ user_image
+  useEffect(() => {
+    if (user) {
+      console.log('User data:', user);
+      console.log('User image:', user.user_image);
+    }
+  }, [user]);
+
   const loadTabData = async (tab) => {
     if (!user?.user_id) return;
     setLoadingTab(true);
@@ -123,14 +131,6 @@ function ProfilePage() {
   }
 
   const fullName = user ? `${user.user_fname || ''} ${user.user_lname || ''}`.trim() || 'ไม่มีชื่อ' : 'ไม่มีชื่อ';
-
-  // Debug: ตรวจสอบ user_image
-  useEffect(() => {
-    if (user) {
-      console.log('User data:', user);
-      console.log('User image:', user.user_image);
-    }
-  }, [user]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

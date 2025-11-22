@@ -372,7 +372,22 @@ function RecipeDetailPage() {
             </div>
             <h1 className="text-4xl font-bold mb-4">{recipe.strMeal}</h1>
             <div className="flex flex-wrap items-center gap-4 mb-6">
-              <p className="text-gray-500">{recipe.strCategory} | {recipe.strArea}</p>
+              <p className="text-gray-500">
+                {recipe.strCategory} | {' '}
+                {recipe.isUserRecipe && recipe.user_id ? (
+                  <>
+                    โดย{' '}
+                    <button
+                      onClick={() => navigate(`/users/${recipe.user_id}`)}
+                      className="text-emerald-600 hover:text-emerald-700 hover:underline font-medium"
+                    >
+                      {recipe.userRecipe?.user_fname || 'ผู้ใช้'}
+                    </button>
+                  </>
+                ) : (
+                  recipe.strArea
+                )}
+              </p>
               {recipe.isUserRecipe && recipe.prep_time_minutes && (
                 <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                   เวลาเตรียม: {recipe.prep_time_minutes} นาที

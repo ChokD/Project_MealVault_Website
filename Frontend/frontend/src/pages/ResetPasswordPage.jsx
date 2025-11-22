@@ -7,6 +7,8 @@ function ResetPasswordPage() {
   const { token } = useParams();
   const navigate = useNavigate();
 
+  console.log('ResetPasswordPage rendered, token:', token);
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');

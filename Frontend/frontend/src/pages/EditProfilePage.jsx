@@ -15,11 +15,6 @@ function EditProfilePage() {
     user_lname: '',
     user_tel: '',
   });
-  const [passwordData, setPasswordData] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
   const [message, setMessage] = useState('');
   const [prefsMessage, setPrefsMessage] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -61,56 +56,22 @@ function EditProfilePage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePasswordChange = (e) => {
-    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
     
-    const hasPasswordChange = passwordData.oldPassword || passwordData.newPassword || passwordData.confirmPassword;
-    
-    if (hasPasswordChange) {
-      if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-        setMessage('กรุณากรอกรหัสผ่านเดิม, รหัสผ่านใหม่ และยืนยันรหัสผ่านให้ครบถ้วน');
-        return;
-      }
-      
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setMessage('รหัสผ่านใหม่ไม่ตรงกัน');
-        return;
-      }
-      
-      if (passwordData.newPassword.length < 6) {
-        setMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
-        return;
-      }
-    }
-    
     try {
-      const requestBody = { ...formData };
-      
-      if (hasPasswordChange) {
-        requestBody.oldPassword = passwordData.oldPassword;
-        requestBody.newPassword = passwordData.newPassword;
-      }
-      
       const response = await fetch(`${API_URL}/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(formData),
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.message || 'เกิดข้อผิดพลาด');
-      }
-      
-      if (hasPasswordChange) {
-        setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
       }
       
       setShowSuccess(true);
@@ -223,50 +184,6 @@ function EditProfilePage() {
                     onChange={handleChange}
                     className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
                   />
-                </div>
-
-                {/* ส่วนแก้ไขรหัสผ่าน */}
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">เปลี่ยนรหัสผ่าน (ไม่บังคับ)</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="oldPassword" className="block mb-2 text-sm font-medium text-gray-900">รหัสผ่านเดิม</label>
-                      <input
-                        type="password"
-                        name="oldPassword"
-                        id="oldPassword"
-                        value={passwordData.oldPassword}
-                        onChange={handlePasswordChange}
-                        className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                        placeholder="กรอกเฉพาะเมื่อต้องการเปลี่ยนรหัสผ่าน"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="newPassword" className="block mb-2 text-sm font-medium text-gray-900">รหัสผ่านใหม่</label>
-                      <input
-                        type="password"
-                        name="newPassword"
-                        id="newPassword"
-                        value={passwordData.newPassword}
-                        onChange={handlePasswordChange}
-                        className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                        placeholder="อย่างน้อย 6 ตัวอักษร"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="confirmPassword" className="block mb-2 text-sm font-medium text-gray-900">ยืนยันรหัสผ่านใหม่</label>
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        id="confirmPassword"
-                        value={passwordData.confirmPassword}
-                        onChange={handlePasswordChange}
-                        className="bg-gray-50 border-b-2 border-gray-300 text-gray-900 sm:text-sm focus:ring-green-600 focus:border-green-600 block w-full p-2.5 outline-none"
-                        placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 <div className="flex gap-3">

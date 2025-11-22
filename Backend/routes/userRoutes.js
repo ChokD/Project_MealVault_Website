@@ -706,7 +706,7 @@ router.get('/users/:id/public-profile', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('User')
-      .select('user_id, user_fname, user_lname')
+      .select('user_id, user_fname, user_lname, user_image')
       .eq('user_id', id)
       .limit(1);
 
@@ -720,6 +720,7 @@ router.get('/users/:id/public-profile', async (req, res) => {
       user_id: user.user_id,
       user_fname: user.user_fname,
       user_lname: user.user_lname,
+      user_image: user.user_image,
       full_name: [user.user_fname, user.user_lname].filter(Boolean).join(' ')
     });
   } catch (error) {

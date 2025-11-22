@@ -75,9 +75,17 @@ function UserProfilePage() {
           ) : profile ? (
             <>
               <div className="bg-white rounded-2xl shadow-lg p-8 mb-10 flex items-center gap-6">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-300 to-green-500 flex items-center justify-center text-white text-3xl font-bold uppercase">
-                  {profile.user_fname?.charAt(0) || 'U'}
-                </div>
+                {profile.user_image ? (
+                  <img
+                    src={`http://localhost:3000/images/${profile.user_image}`}
+                    alt={profile.user_fname}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-300 to-green-500 flex items-center justify-center text-white text-3xl font-bold uppercase">
+                    {profile.user_fname?.charAt(0) || 'U'}
+                  </div>
+                )}
                 <div>
                   <h1 className="text-3xl font-bold text-gray-800">
                     {profile.full_name || profile.user_fname}
