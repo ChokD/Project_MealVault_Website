@@ -6,6 +6,9 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import ReportModal from '../components/ReportModal';
 import { API_URL, IMAGE_URL } from '../config/api';
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+
 async function fetchPlanFromAPI(token) {
   try {
     const resp = await fetch(`${API_URL}/weekly-meal-plan`, {

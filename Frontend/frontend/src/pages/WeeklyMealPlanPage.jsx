@@ -4,6 +4,9 @@ import { AuthContext } from '../context/AuthContext';
 import ClearPlanModal from '../components/ClearPlanModal';
 import { API_URL } from '../config/api';
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+
 function createEmptyPlan() {
   const plan = {};
   for (const day of DAYS) {
