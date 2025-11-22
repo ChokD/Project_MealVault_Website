@@ -445,7 +445,7 @@ router.put('/users/profile', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/users/profile/image - อัปโหลดรูปภาพโปรไฟล์
-router.put('/users/profile/image', authMiddleware, upload.single('user_image'), async (req, res) => {
+router.put('/users/profile/image', authMiddleware, ...upload.single('user_image'), async (req, res) => {
   const userId = req.user.id;
 
   if (!req.file) {

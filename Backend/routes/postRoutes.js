@@ -387,7 +387,7 @@ router.get('/posts/:id', authMiddleware, async (req, res) => {
 // --- PROTECTED ROUTES ---
 
 // POST /api/posts - สร้างโพสต์ใหม่พร้อมรูปภาพ (โพสต์ปกติ)
-router.post('/posts', authMiddleware, upload.fields([
+router.post('/posts', authMiddleware, ...upload.fields([
   { name: 'cpost_image', maxCount: 1 },
   { name: 'cpost_images', maxCount: 6 }
 ]), moderateContent, async (req, res) => {
@@ -529,7 +529,7 @@ router.post('/posts/:id/comments', authMiddleware, moderateContent, async (req, 
 });
   
 // PUT /api/posts/:id - แก้ไขโพสต์ (สำหรับเจ้าของโพสต์ หรือ Admin)
-router.put('/posts/:id', authMiddleware, upload.fields([
+router.put('/posts/:id', authMiddleware, ...upload.fields([
   { name: 'cpost_image', maxCount: 1 },
   { name: 'cpost_images', maxCount: 6 }
 ]), async (req, res) => {
@@ -640,7 +640,7 @@ router.put('/posts/:id', authMiddleware, upload.fields([
 });
 
 // POST /api/recipes - สร้างสูตรอาหารใหม่ (เก็บใน UserRecipe แทน CommunityPost)
-router.post('/recipes', authMiddleware, upload.single('recipe_image'), moderateContent, async (req, res) => {
+router.post('/recipes', authMiddleware, ...upload.single('recipe_image'), moderateContent, async (req, res) => {
   const user_id = req.user.id;
   const {
     recipe_title,
@@ -742,7 +742,7 @@ router.post('/recipes', authMiddleware, upload.single('recipe_image'), moderateC
 });
 
 // PUT /api/recipes/:recipeId - แก้ไขสูตรอาหาร (เฉพาะเจ้าของสูตร)
-router.put('/recipes/:recipeId', authMiddleware, upload.single('recipe_image'), moderateContent, async (req, res) => {
+router.put('/recipes/:recipeId', authMiddleware, ...upload.single('recipe_image'), moderateContent, async (req, res) => {
   try {
     const { recipeId } = req.params;
     const user_id = req.user.id;
