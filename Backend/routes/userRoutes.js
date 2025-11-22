@@ -487,6 +487,11 @@ router.put('/users/profile/image', authMiddleware, upload.single('user_image'), 
 router.post('/forgot-password', async (req, res) => {
   try {
     const { user_email } = req.body;
+    
+    if (!user_email) {
+      return res.status(400).json({ message: 'กรุณากรอกอีเมล' });
+    }
+
     const { data: users, error: findErr } = await supabase
       .from('User')
       .select('*')
@@ -496,7 +501,7 @@ router.post('/forgot-password', async (req, res) => {
 
     if (users && users.length > 0) {
       const user = users[0];
-      const resetToken = crypto.randomBytes(20).toString('hex');
+      const resetToken = crypto.randomBytes(32).toString('hex');
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
       const { error: updErr } = await supabase
@@ -505,25 +510,82 @@ router.post('/forgot-password', async (req, res) => {
         .eq('user_id', user.user_id);
       if (updErr) throw updErr;
 
-      const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
-      const message = `
-        <h1>คุณได้ทำการขอรีเซ็ตรหัสผ่านสำหรับ MealVault</h1>
-        <p>กรุณาคลิกที่ลิงก์นี้เพื่อตั้งรหัสผ่านใหม่ (ลิงก์มีอายุ 1 ชั่วโมง):</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-      `;
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+      
+      // Store reset link for development/testing
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🔐 PASSWORD RESET REQUESTED');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📧 User Email: ${user.user_email}`);
+      console.log(`🔗 Reset Link: ${resetUrl}`);
+      console.log(`⏰ Expires: ${new Date(expiresAt).toLocaleString()}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      // Skip email sending if EMAIL_USER not configured
+      if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
+        console.log('⚠️  Email not configured - Reset link printed to console only');
+      } else {
+        // Try to send email if configured
+        try {
+          const message = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+                .button { display: inline-block; padding: 12px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 25px; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>🍽️ MealVault</h1>
+                  <p>คำขอรีเซ็ตรหัสผ่าน</p>
+                </div>
+                <div class="content">
+                  <p>สวัสดีค่ะ,</p>
+                  <p>เราได้รับคำขอรีเซ็ตรหัสผ่านสำหรับบัญชี MealVault ของคุณ</p>
+                  <p>กรุณาคลิกปุ่มด้านล่างเพื่อตั้งรหัสผ่านใหม่:</p>
+                  <center>
+                    <a href="${resetUrl}" class="button">ตั้งรหัสผ่านใหม่</a>
+                  </center>
+                  <p style="color: #ef4444; font-size: 14px;">⚠️ ลิงก์นี้จะหมดอายุใน 1 ชั่วโมง</p>
+                  <p style="font-size: 14px; color: #6b7280;">หากคุณไม่ได้ทำการขอรีเซ็ตรหัสผ่าน กรุณาเพิกเฉยอีเมลนี้</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                  <p style="font-size: 12px; color: #9ca3af;">หากปุ่มไม่ทำงาน คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:<br>
+                  <a href="${resetUrl}" style="color: #10b981;">${resetUrl}</a></p>
+                </div>
+                <div class="footer">
+                  <p>© 2025 MealVault - ระบบจัดการมื้ออาหารอัจฉริยะ</p>
+                </div>
+              </div>
+            </body>
+            </html>
+          `;
 
-      await sendEmail({
-        to: user.user_email,
-        subject: 'คำขอรีเซ็ตรหัสผ่าน MealVault',
-        html: message,
-      });
+          await sendEmail({
+            to: user.user_email,
+            subject: '🔐 คำขอรีเซ็ตรหัสผ่าน MealVault',
+            html: message,
+          });
+          console.log(`✅ Password reset email sent to: ${user.user_email}`);
+        } catch (emailError) {
+          console.error('❌ Failed to send reset email:', emailError.message);
+          console.log('⚠️  Email sending failed - But reset link is available in console above');
+        }
+      }
     }
 
-    res.json({ message: 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์สำหรับรีเซ็ตรหัสผ่านไปให้แล้ว' });
+    res.json({ message: 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์สำหรับรีเซ็ตรหัสผ่านไปให้แล้ว กรุณาตรวจสอบกล่องจดหมายของคุณ' });
 
   } catch (error) {
     console.error('Error in forgot password:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 });
 
