@@ -675,6 +675,7 @@ router.get('/users/:id/posts', async (req, res) => {
       .from('CommunityPost')
       .select('cpost_id, cpost_title, cpost_datetime, cpost_image, cpost_images, like_count')
       .eq('user_id', id)
+      .not('cpost_title', 'like', '[Report Only]%')
       .order('cpost_datetime', { ascending: false });
 
     if (error) throw error;

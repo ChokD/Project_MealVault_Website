@@ -935,30 +935,28 @@ router.post('/recipes/:recipeId/like', authMiddleware, async (req, res) => {
       liked = true;
 
       // สร้าง notification สำหรับเจ้าของสูตร (ถ้าไม่ใช่เจ้าของเอง)
-      // หมายเหตุ: ไม่สร้าง notification สำหรับ recipe like เพราะ Notification table 
-      // ไม่มี recipe_id field และ notification_type ไม่รองรับ 'like_recipe'
-      // ถ้าต้องการ notification ต้องเพิ่ม field ใน database ก่อน
-      // const { data: recipeOwner, error: ownerErr } = await supabase
-      //   .from('UserRecipe')
-      //   .select('user_id, recipe_title')
-      //   .eq('recipe_id', recipeId)
-      //   .single();
+      const { data: recipeOwner, error: ownerErr } = await supabase
+        .from('UserRecipe')
+        .select('user_id, recipe_title')
+        .eq('recipe_id', recipeId)
+        .single();
 
-      // if (!ownerErr && recipeOwner && recipeOwner.user_id !== userId) {
-      //   const { data: liker, error: likerErr } = await supabase
-      //     .from('User')
-      //     .select('user_fname')
-      //     .eq('user_id', userId)
-      //     .single();
+      if (!ownerErr && recipeOwner && recipeOwner.user_id !== userId) {
+        const { data: liker, error: likerErr } = await supabase
+          .from('User')
+          .select('user_fname')
+          .eq('user_id', userId)
+          .single();
 
-      //   const likerName = liker?.user_fname || 'Someone';
-      //   await createNotification({
-      //     notification_type: 'like_post',
-      //     notification_message: `${likerName} ชื่นชอบสูตรอาหารของคุณ: "${recipeOwner.recipe_title}"`,
-      //     user_id: recipeOwner.user_id,
-      //     actor_user_id: userId
-      //   });
-      // }
+        const likerName = liker?.user_fname || 'Someone';
+        await createNotification({
+          notification_type: 'like_recipe',
+          notification_message: `${likerName} ชื่นชอบสูตรอาหารของคุณ: "${recipeOwner.recipe_title}"`,
+          user_id: recipeOwner.user_id,
+          actor_user_id: userId,
+          recipe_id: recipeId
+        });
+      }
     }
 
     // อัปเดต like_count ใน UserRecipe
