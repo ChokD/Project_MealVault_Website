@@ -402,8 +402,13 @@ router.post('/posts', authMiddleware, ...upload.fields([
 
   const finalTitle = (cpost_title || '').trim() || buildFallbackTitle(cpost_content);
   const uploadedImages = collectUploadedImages(req.files, req.uploadedFiles);
-  if (req.file?.filename && !uploadedImages.includes(req.file.filename)) {
-    uploadedImages.unshift(req.file.filename);
+  
+  // Add single file upload if it exists and not already in the list
+  if (req.uploadedFiles && req.uploadedFiles.length > 0) {
+    const singleFileUrl = req.uploadedFiles.find(f => !uploadedImages.includes(f.url))?.url;
+    if (singleFileUrl) {
+      uploadedImages.unshift(singleFileUrl);
+    }
   }
 
   // ตรวจสอบว่า Supabase client พร้อมใช้งาน
@@ -602,8 +607,13 @@ router.put('/posts/:id', authMiddleware, ...upload.fields([
     }
 
     const uploadedImages = collectUploadedImages(req.files, req.uploadedFiles);
-    if (req.file?.filename && !uploadedImages.includes(req.file.filename)) {
-      uploadedImages.unshift(req.file.filename);
+    
+    // Add single file upload if it exists and not already in the list
+    if (req.uploadedFiles && req.uploadedFiles.length > 0) {
+      const singleFileUrl = req.uploadedFiles.find(f => !uploadedImages.includes(f.url))?.url;
+      if (singleFileUrl) {
+        uploadedImages.unshift(singleFileUrl);
+      }
     }
 
     const combinedImages = [...keepImages, ...uploadedImages].filter(Boolean);
