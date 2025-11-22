@@ -226,7 +226,7 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
   // Avatar: prefer user's uploaded profile image, fall back to generated initials avatar
   const userImageFilename = details?.user_image || post.user_image || null;
   const avatarUrl = userImageFilename
-    ? `${IMAGE_URL}/${userImageFilename}`
+    ? (userImageFilename.startsWith('http') ? userImageFilename : `${IMAGE_URL}/${userImageFilename}`)
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(post.user_fname || 'User')}&background=10b981&color=fff&size=128`;
 
   return (
