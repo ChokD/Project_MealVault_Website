@@ -425,11 +425,11 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                         ? mediaList[0]
                         : `${IMAGE_URL}/${mediaList[0]}`;
                       return (
-                        <div className="mb-6 rounded-lg shadow-sm">
+                        <div className="mb-6 rounded-lg shadow-sm overflow-hidden">
                           <img
                             src={src}
                             alt={details.cpost_title}
-                            className="w-full h-auto max-h-96 object-contain bg-gray-100 rounded-lg transition-transform duration-300 hover:scale-105 cursor-pointer"
+                            className="w-full h-auto max-h-96 object-cover rounded-lg transition-transform duration-300 hover:scale-105 cursor-pointer"
                             onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x400.png?text=MealVault'; }}
                           />
                         </div>
