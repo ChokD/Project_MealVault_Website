@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useContext, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import AddMenuModal from '../components/AddMenuModal';
@@ -23,7 +23,7 @@ function formatDateThai(dateString) {
   }
 }
 
-function RecipeCard({ recipe, token, user, onDelete, onReport }) {
+function RecipeCard({ recipe, token, user, onDelete, onReport, recipeRef, isHighlighted }) {
   const navigate = useNavigate();
   const recipeImages = (recipe.cpost_images && recipe.cpost_images.length > 0) ? recipe.cpost_images : [];
   const coverImage = recipeImages.length > 0 ? recipeImages[0] : recipe.cpost_image;
@@ -112,7 +112,12 @@ function RecipeCard({ recipe, token, user, onDelete, onReport }) {
   };
 
   return (
-    <div className="group bg-white rounded-[1.75rem] shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col">
+    <div 
+      ref={recipeRef}
+      className={`group bg-white rounded-[1.75rem] shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden flex flex-col ${
+        isHighlighted ? 'border-4 border-red-500 ring-4 ring-red-300 animate-pulse' : 'border border-gray-100'
+      }`}
+    >
       <div className="relative h-56 overflow-hidden">
         <img
           src={imageSrc}
@@ -429,6 +434,8 @@ function MenuCard({ menu, categoryName, token, user }) {
 
 function MenuPage() {
   const { token, user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [menus, setMenus] = useState([]);
   const [userRecipes, setUserRecipes] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -443,6 +450,11 @@ function MenuPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRecipeId, setSelectedRecipeId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  
+  // สำหรับ highlight สูตรอาหารที่ถูกรายงาน
+  const highlightedRecipeId = searchParams.get('recipe');
+  const isReported = searchParams.get('reported') === 'true';
+  const recipeRefs = useRef({});
   
   // Recipe form states
   const [recipeTitle, setRecipeTitle] = useState('');
@@ -578,6 +590,22 @@ function MenuPage() {
     setSelectedRecipeId(recipeId);
     setIsReportModalOpen(true);
   };
+  
+  // Scroll และ highlight สูตรอาหารที่ถูกรายงาน
+  useEffect(() => {
+    if (highlightedRecipeId && userRecipes.length > 0 && !loadingRecipes) {
+      setTimeout(() => {
+        const element = recipeRefs.current[highlightedRecipeId];
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-4', 'ring-red-500', 'ring-offset-4');
+          setTimeout(() => {
+            element.classList.remove('ring-4', 'ring-red-500', 'ring-offset-4');
+          }, 3000);
+        }
+      }, 500);
+    }
+  }, [highlightedRecipeId, userRecipes, loadingRecipes]);
 
   const handleAddMenuSuccess = () => {
     // Refresh menu list after successful addition
@@ -940,6 +968,10 @@ function MenuPage() {
                             user={user}
                             onDelete={handleDeleteRecipe}
                             onReport={handleReportRecipe}
+                            recipeRef={(el) => {
+                              if (el) recipeRefs.current[recipe.recipe_id] = el;
+                            }}
+                            isHighlighted={highlightedRecipeId === recipe.recipe_id}
                           />
                         ))}
                       </div>

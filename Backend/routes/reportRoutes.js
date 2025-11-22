@@ -18,11 +18,19 @@ const REPORT_TYPES = {
 // สร้าง API Endpoint สำหรับส่งรายงาน
 // POST /api/reports
 router.post('/reports', authMiddleware, async (req, res) => {
+  console.log('=== Received Report Request ===');
+  console.log('Body:', req.body);
+  
   // ดึงข้อมูลจาก Request Body
   const { cpost_id, comment_id, recipe_id, creport_type, creport_details } = req.body;
 
   // ดึง user_id ของผู้ที่รายงานจาก Token
   const user_id = req.user.id;
+  
+  console.log('User ID:', user_id);
+  console.log('Recipe ID:', recipe_id);
+  console.log('CPost ID:', cpost_id);
+  console.log('Comment ID:', comment_id);
 
   // ตรวจสอบว่าต้องมี cpost_id, comment_id หรือ recipe_id อย่างน้อย 1 ตัว
   if (!cpost_id && !comment_id && !recipe_id) {
@@ -39,43 +47,80 @@ router.post('/reports', authMiddleware, async (req, res) => {
     return res.status(400).json({ message: 'ประเภทการรายงานไม่ถูกต้อง' });
   }
 
-    // ตรวจสอบว่าโพสต์, คอมเมนต์ หรือสูตรอาหารที่รายงานมีอยู่จริงหรือไม่
-    try {
-      if (recipe_id) {
-        // ตรวจสอบว่าสูตรอาหารมีอยู่จริง
-        const { data: recipe, error: recipeError } = await supabase
-          .from('UserRecipe')
-          .select('recipe_id, user_id, recipe_title')
-          .eq('recipe_id', recipe_id)
-          .limit(1);
-        
-        if (recipeError) throw recipeError;
-        if (!recipe || recipe.length === 0) {
-          return res.status(404).json({ message: 'ไม่พบสูตรอาหารที่ต้องการรายงาน' });
-        }
-        
-        // ตรวจสอบว่าไม่ใช่เจ้าของสูตร
-        if (recipe[0].user_id === user_id) {
-          return res.status(400).json({ message: 'คุณไม่สามารถรายงานสูตรอาหารของตัวเองได้' });
-        }
-      }
-      
-      if (cpost_id) {
-        const { data: post, error: postError } = await supabase
-          .from('CommunityPost')
-          .select('cpost_id')
-          .eq('cpost_id', cpost_id)
-          .limit(1);
-        
-        if (postError) throw postError;
-        if (!post || post.length === 0) {
-          return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการรายงาน' });
-        }
-      }
-
-    // สำหรับกรณีรายงานคอมเมนต์ ต้องดึง cpost_id จาก comment
+  // ตรวจสอบว่าโพสต์, คอมเมนต์ หรือสูตรอาหารที่รายงานมีอยู่จริงหรือไม่
+  try {
+    // ประกาศตัวแปรไว้ก่อน
     let finalCpostId = cpost_id;
     let finalCommentId = comment_id;
+
+    if (recipe_id) {
+      // ตรวจสอบว่าสูตรอาหารมีอยู่จริง
+      const { data: recipe, error: recipeError } = await supabase
+        .from('UserRecipe')
+        .select('recipe_id, user_id, recipe_title')
+        .eq('recipe_id', recipe_id)
+        .limit(1);
+      
+      if (recipeError) throw recipeError;
+      if (!recipe || recipe.length === 0) {
+        return res.status(404).json({ message: 'ไม่พบสูตรอาหารที่ต้องการรายงาน' });
+      }
+      
+      // ตรวจสอบว่าไม่ใช่เจ้าของสูตร
+      if (recipe[0].user_id === user_id) {
+        return res.status(400).json({ message: 'คุณไม่สามารถรายงานสูตรอาหารของตัวเองได้' });
+      }
+      
+      // ตรวจสอบว่าสูตรอาหารนี้ถูกโพสต์ใน CommunityPost หรือไม่
+      const { data: communityPost, error: cpError } = await supabase
+        .from('CommunityPost')
+        .select('cpost_id')
+        .eq('recipe_id', recipe_id)
+        .eq('post_type', 'recipe')
+        .limit(1);
+      
+      if (!cpError && communityPost && communityPost.length > 0) {
+        // ถ้าสูตรอาหารถูกโพสต์ใน community แล้ว ใช้ cpost_id นั้น
+        finalCpostId = communityPost[0].cpost_id;
+      } else {
+        // ถ้าสูตรอาหารยังไม่ได้โพสต์ใน community
+        // สร้าง CommunityPost placeholder เพื่อให้สามารถรายงานได้
+        const newCpostId = `CP${Date.now()}`;
+        const { error: insertError } = await supabase
+          .from('CommunityPost')
+          .insert([{
+            cpost_id: newCpostId,
+            cpost_title: `[Report Only] ${recipe[0].recipe_title}`,
+            cpost_content: `This post was auto-created for reporting recipe ${recipe_id}`,
+            user_id: recipe[0].user_id,
+            post_type: 'recipe',
+            cpost_datetime: new Date().toISOString(),
+            cpost_image: null
+          }]);
+        
+        if (insertError) {
+          console.error('Error creating placeholder post:', insertError);
+          throw insertError;
+        }
+        
+        finalCpostId = newCpostId;
+      }
+    }
+    
+    if (cpost_id) {
+      const { data: post, error: postError } = await supabase
+        .from('CommunityPost')
+        .select('cpost_id')
+        .eq('cpost_id', cpost_id)
+        .limit(1);
+      
+      if (postError) throw postError;
+      if (!post || post.length === 0) {
+        return res.status(404).json({ message: 'ไม่พบโพสต์ที่ต้องการรายงาน' });
+      }
+    }
+
+    // สำหรับกรณีรายงานคอมเมนต์ ต้องดึง cpost_id จาก comment
     
     if (comment_id) {
       // ดึงข้อมูลคอมเมนต์พร้อม cpost_id
@@ -128,8 +173,8 @@ router.post('/reports', authMiddleware, async (req, res) => {
     }
 
     // สร้างรายงานใหม่
-    // สำหรับสูตรอาหาร เก็บ recipe_id ใน creport_details หรือสร้าง field ใหม่
-    // เนื่องจาก CommunityReport ไม่มี recipe_id field โดยตรง เราจะเก็บใน creport_details
+    // สำหรับสูตรอาหาร เก็บ recipe_id ใน creport_details
+    // ถ้าสูตรอาหารยังไม่ได้โพสต์ใน community ให้ cpost_id = NULL
     const reportDetails = recipe_id 
       ? `[RECIPE_ID:${recipe_id}] ${creport_details || ''}`.trim()
       : creport_details || null;
@@ -143,6 +188,9 @@ router.post('/reports', authMiddleware, async (req, res) => {
       user_id,
       creport_datetime: new Date().toISOString()
     };
+    
+    console.log('Creating report with finalCpostId:', finalCpostId);
+    console.log('New report object:', newReport);
 
     const { error } = await supabase.from('CommunityReport').insert([newReport]);
     if (error) {
@@ -205,6 +253,8 @@ router.post('/reports', authMiddleware, async (req, res) => {
       const emailEnabled = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
 
       for (const adminId of adminIds) {
+        console.log(`Creating notification for admin ${adminId} with cpost_id: ${finalCpostId || null}`);
+        
         await createNotification({
           notification_type: 'report',
           notification_message: notificationMessage,
@@ -245,8 +295,12 @@ router.post('/reports', authMiddleware, async (req, res) => {
     res.status(201).json({ message: 'ส่งรายงานสำเร็จ', report: newReport });
 
   } catch (error) {
-    console.error('Error creating report:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการส่งรายงาน' });
+    console.error('=== Error creating report ===');
+    console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error details:', error.details);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการส่งรายงาน', error: error.message });
   }
 });
 

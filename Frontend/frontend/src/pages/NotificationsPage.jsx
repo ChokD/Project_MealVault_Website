@@ -149,8 +149,33 @@ function NotificationsPage() {
 
     console.log('Final values:', { targetCpostId, targetCommentId });
 
-    // นำทางไปยังโพสต์ที่เกี่ยวข้อง
-    if (targetCpostId) {
+    // ตรวจสอบว่าเป็นการรายงานสูตรอาหารหรือไม่
+    const isRecipeReport = notification.notification_type === 'report' && 
+                          notification.report_data?.creport_details?.includes('[RECIPE_ID:');
+    
+    // ดึง recipe_id จาก creport_details ถ้าเป็นการรายงานสูตรอาหาร
+    let recipeId = null;
+    if (isRecipeReport && notification.report_data?.creport_details) {
+      const match = notification.report_data.creport_details.match(/\[RECIPE_ID:([^\]]+)\]/);
+      if (match) {
+        recipeId = match[1];
+      }
+    }
+
+    console.log('Is recipe report:', isRecipeReport);
+    console.log('Recipe ID:', recipeId);
+
+    // นำทางไปยังโพสต์หรือสูตรอาหารที่เกี่ยวข้อง
+    if (isRecipeReport && recipeId) {
+      // ถ้าเป็นการรายงานสูตรอาหาร ไปที่หน้าเมนูอาหาร
+      const params = new URLSearchParams();
+      params.set('recipe', recipeId);
+      params.set('reported', 'true');
+      const url = `/menus?${params.toString()}`;
+      console.log('Navigating to recipe:', url);
+      navigate(url, { replace: false });
+    } else if (targetCpostId) {
+      // ถ้าเป็นการรายงานโพสต์/คอมเมนต์ ไปที่หน้า community
       // สร้าง query parameters สำหรับ highlight
       const params = new URLSearchParams();
       params.set('post', targetCpostId);
@@ -266,21 +291,58 @@ function NotificationsPage() {
                         
                         {/* แสดงข้อมูลรายงานสำหรับ Admin */}
                         {notification.notification_type === 'report' && notification.report_data && (
-                          <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                            <p className="text-xs text-gray-600">
-                              <strong>ประเภท:</strong> {notification.report_data.creport_type}
-                            </p>
-                            {notification.report_data.creport_details && (
-                              <p className="text-xs text-gray-600 mt-1">
-                                <strong>รายละเอียด:</strong> {notification.report_data.creport_details}
+                          <div className="mt-2 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="space-y-2">
+                              <p className="text-xs text-gray-600">
+                                <strong className="text-gray-800">ประเภท:</strong> {notification.report_data.creport_type}
                               </p>
-                            )}
-                            {notification.report_data.reporter_fname && (
-                              <p className="text-xs text-gray-600 mt-1">
-                                <strong>รายงานโดย:</strong> {notification.report_data.reporter_fname}
-                              </p>
-                            )}
+                              {notification.report_data.creport_details && (
+                                <p className="text-xs text-gray-600">
+                                  <strong className="text-gray-800">รายละเอียด:</strong> {notification.report_data.creport_details}
+                                </p>
+                              )}
+                              {notification.report_data.reporter_fname && (
+                                <p className="text-xs text-gray-600">
+                                  <strong className="text-gray-800">รายงานโดย:</strong> {notification.report_data.reporter_fname}
+                                </p>
+                              )}
+                              {notification.report_data.post_title && (
+                                <p className="text-xs text-gray-600">
+                                  <strong className="text-gray-800">โพสต์:</strong> {notification.report_data.post_title}
+                                </p>
+                              )}
+                              {notification.report_data.cpost_id && (
+                                <p className="text-xs text-gray-500">
+                                  <strong>Post ID:</strong> {notification.report_data.cpost_id}
+                                </p>
+                              )}
+                              {notification.report_data.comment_id && (
+                                <p className="text-xs text-gray-500">
+                                  <strong>Comment ID:</strong> {notification.report_data.comment_id}
+                                </p>
+                              )}
+                            </div>
                           </div>
+                        )}
+                        
+                        {/* Debug: แสดงข้อมูล notification สำหรับ Admin */}
+                        {isAdmin && notification.notification_type === 'report' && (
+                          <details className="mt-2 text-xs">
+                            <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                              🔍 Debug Info (Admin only)
+                            </summary>
+                            <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+                              {JSON.stringify({
+                                notification_id: notification.notification_id,
+                                notification_type: notification.notification_type,
+                                cpost_id: notification.cpost_id,
+                                comment_id: notification.comment_id,
+                                creport_id: notification.creport_id,
+                                has_report_data: !!notification.report_data,
+                                report_data: notification.report_data
+                              }, null, 2)}
+                            </pre>
+                          </details>
                         )}
                       </div>
                       {!notification.is_read && (
