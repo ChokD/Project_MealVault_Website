@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { API_URL } from '../config/api';
 
 function ResetPasswordPage() {
   // useParams() ใช้สำหรับดึงค่า "token" มาจาก URL
   const { token } = useParams();
   const navigate = useNavigate();
-
-  console.log('ResetPasswordPage rendered, token:', token);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,7 +22,7 @@ function ResetPasswordPage() {
     setMessage('');
 
     try {
-      const response = await fetch(`${API_URL}/reset-password/${token}`, {
+      const response = await fetch(`http://localhost:3000/api/reset-password/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPassword: password }),

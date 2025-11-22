@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { supabase } = require('../config/supabase');
 const authMiddleware = require('../middleware/authMiddleware');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // GET /api/weekly-meal-plan - ดึง weekly meal plan ของ user
 router.get('/weekly-meal-plan', authMiddleware, async (req, res) => {
@@ -204,246 +203,21 @@ router.delete('/weekly-meal-plan/:planId', authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /api/weekly-meal-plan - ลบเมนูทั้งหมดออกจากแผนของผู้ใช้
-router.delete('/weekly-meal-plan', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const { error } = await supabase
-      .from('WeeklyMealPlan')
-      .delete()
-      .eq('user_id', userId);
-
-    if (error) throw error;
-
-    res.json({ message: 'ล้างแผนเมนูสำเร็จ' });
-  } catch (error) {
-    console.error('Error clearing weekly meal plan:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการล้างแผนเมนู' });
-  }
-});
-
-// ฟังก์ชันลบจำนวนออกจากชื่อส่วนผสม
-function removeQuantityFromIngredientName(ingredientName) {
-  if (!ingredientName) return ingredientName;
-  
-  let cleaned = ingredientName.trim();
-  
-  // ลบเศษส่วนและจำนวนที่ตามด้วยหน่วย (เช่น "1/2 ช้อนโต๊ะ", "1 ช้อนชา")
-  // รองรับทั้งจำนวนเต็ม เศษส่วน และทศนิยม
-  cleaned = cleaned.replace(/\s*\d+(\/\d+)?(\.\d+)?\s*(ช้อนชา|ช้อนโต๊ะ|ถ้วย|กิโลกรัม|กรัม|มิลลิลิตร|ลิตร|ชิ้น|อัน|หัว|กลีบ|ใบ|ต้น|ก้าน|ผล|เม็ด|ฟอง|ตัว|แผ่น|ก้อน|กี่โล|กก|แก้ว|ถุง|ซอง|ขวด|กระป๋อง|ห่อ|แพ็ค|กล่อง)\s*/gi, '');
-  
-  // ลบเศษส่วนและจำนวนที่อยู่ท้ายชื่อ (เช่น "กะปิ 1/2", "เนื้อหมู 1/", "มันแกว 1/")
-  // รองรับทั้ง "1/2", "1/", "1" ที่อยู่ท้าย รวมถึงทศนิยม
-  // จับทั้ง "1/" และ "1/2" ที่ท้าย
-  cleaned = cleaned.replace(/\s+\d+\/\d*\s*$/g, ''); // จับ "1/2" หรือ "1/" ที่ท้าย
-  cleaned = cleaned.replace(/\s+\d+(\.\d+)?\s*$/g, ''); // จับ "1" หรือ "1.5" ที่ท้าย
-  
-  // ลบเศษส่วนและจำนวนที่อยู่หน้าชื่อ (เช่น "1/2 กะปิ", "1 เนื้อหมู")
-  cleaned = cleaned.replace(/^\d+(\/\d+)?(\.\d+)?\s+\/?/g, '');
-  
-  // ลบเศษส่วนและจำนวนที่อยู่กลางชื่อ (เช่น "กะปิ 1/2 ช้อนโต๊ะ" -> "กะปิ")
-  // แต่ต้องระวังไม่ให้ลบชื่อส่วนผสมที่มีตัวเลขเป็นส่วนหนึ่งของชื่อ
-  cleaned = cleaned.replace(/\s+\d+(\/\d+)?(\.\d+)?\/?\s+/g, ' ');
-  
-  return cleaned.trim();
-}
-
-// GET /api/weekly-meal-plan/calculate-calories - คำนวณแคลอรี่จาก weekly meal plan โดยใช้ Gemini AI
-router.get('/weekly-meal-plan/calculate-calories', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    // ตรวจสอบ API Key
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY กรุณาใส่ API Key ในไฟล์ .env' });
-    }
-
-    // ดึงข้อมูล calorie_limit ของ user
-    const { data: userData, error: userError } = await supabase
-      .from('User')
-      .select('calorie_limit')
-      .eq('user_id', userId)
-      .limit(1);
-
-    if (userError) throw userError;
-    const calorieLimit = userData && userData.length > 0 ? userData[0].calorie_limit : null;
-
-    // ดึง weekly meal plan
-    const { data: planItems, error: planError } = await supabase
-      .from('WeeklyMealPlan')
-      .select('day, meal_type, menu_id')
-      .eq('user_id', userId)
-      .order('day')
-      .order('meal_type');
-
-    if (planError) throw planError;
-
-    if (!planItems || planItems.length === 0) {
-      return res.json({
-        total_calories: 0,
-        daily_calories: {},
-        weekly_total: 0,
-        calorie_limit: calorieLimit,
-        warnings: [],
-        message: 'ยังไม่มีเมนูในแผนรายสัปดาห์'
-      });
-    }
-
-    // ดึงข้อมูลเมนูทั้งหมด
-    const uniqueMenuIds = [...new Set(planItems.map(item => item.menu_id))];
-    const { data: menus, error: menusError } = await supabase
-      .from('Menu')
-      .select('menu_id, menu_name, menu_description, menu_recipe')
-      .in('menu_id', uniqueMenuIds);
-
-    if (menusError) throw menusError;
-
-    const menuMap = new Map();
-    if (menus) {
-      for (const menu of menus) {
-        menuMap.set(menu.menu_id, menu);
-      }
-    }
-
-    // จัดกลุ่มเมนูตามวันและมื้อ
-    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
-    const mealPlanByDay = {};
-
-    for (const day of DAYS) {
-      mealPlanByDay[day] = {};
-      for (const meal of MEALS) {
-        mealPlanByDay[day][meal] = [];
-      }
-    }
-
-    for (const item of planItems) {
-      const menu = menuMap.get(item.menu_id);
-      if (menu && mealPlanByDay[item.day] && mealPlanByDay[item.day][item.meal_type]) {
-        mealPlanByDay[item.day][item.meal_type].push(menu.menu_name);
-      }
-    }
-
-    // สร้าง prompt สำหรับ Gemini
-    let prompt = `คุณคือผู้เชี่ยวชาญด้านโภชนาการ กรุณาคำนวณจำนวนแคลอรี่จากรายการเมนูอาหารต่อไปนี้:
-
-`;
-    
-    for (const day of DAYS) {
-      const dayMenus = [];
-      for (const meal of MEALS) {
-        if (mealPlanByDay[day][meal].length > 0) {
-          dayMenus.push(`${meal}: ${mealPlanByDay[day][meal].join(', ')}`);
-        }
-      }
-      if (dayMenus.length > 0) {
-        prompt += `${day}:\n${dayMenus.join('\n')}\n\n`;
-      }
-    }
-
-    prompt += `กรุณาคำนวณและตอบกลับในรูปแบบ JSON เท่านั้น โดยมีโครงสร้างดังนี้:
-{
-  "daily_calories": {
-    "Sun": 0,
-    "Mon": 0,
-    "Tue": 0,
-    "Wed": 0,
-    "Thu": 0,
-    "Fri": 0,
-    "Sat": 0
-  },
-  "weekly_total": 0,
-  "meal_details": {
-    "Sun": {
-      "breakfast": 0,
-      "lunch": 0,
-      "dinner": 0,
-      "snack": 0
-    }
-  }
-}
-
-กรุณาตอบกลับเฉพาะ JSON เท่านั้น ไม่ต้องมีข้อความอื่น`;
-
-    // เรียก Gemini API
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    // Parse JSON จาก response
-    let caloriesData;
-    try {
-      // ลบ markdown code blocks ถ้ามี
-      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      caloriesData = JSON.parse(cleanedText);
-    } catch (parseError) {
-      console.error('Error parsing Gemini response:', parseError);
-      console.error('Raw response:', text);
-      throw new Error('ไม่สามารถแปลงผลลัพธ์จาก AI ได้ กรุณาลองใหม่อีกครั้ง');
-    }
-
-    // ตรวจสอบและคำนวณ warnings
-    const warnings = [];
-    const dailyCalories = caloriesData.daily_calories || {};
-    const weeklyTotal = caloriesData.weekly_total || 0;
-
-    if (calorieLimit) {
-      for (const day of DAYS) {
-        const dayCalories = dailyCalories[day] || 0;
-        if (dayCalories > calorieLimit) {
-          const excess = dayCalories - calorieLimit;
-          warnings.push({
-            day: day,
-            calories: dayCalories,
-            limit: calorieLimit,
-            excess: excess,
-            message: `${day}: เกิน ${excess} แคลอรี่ (${dayCalories}/${calorieLimit})`
-          });
-        }
-      }
-    }
-
-    res.json({
-      total_calories: weeklyTotal,
-      daily_calories: dailyCalories,
-      meal_details: caloriesData.meal_details || {},
-      weekly_total: weeklyTotal,
-      calorie_limit: calorieLimit,
-      warnings: warnings,
-      has_warnings: warnings.length > 0
-    });
-
-  } catch (error) {
-    console.error('Error calculating calories:', error);
-    const errorMsg = error.message || 'เกิดข้อผิดพลาดในการคำนวณแคลอรี่';
-    res.status(500).json({ 
-      error: errorMsg,
-      details: error.toString()
-    });
-  }
-});
-
 // GET /api/weekly-meal-plan/shopping-list - สร้างรายการของซื้อจาก weekly meal plan
 router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // ดึง weekly meal plan พร้อม day และ meal_type
+    // ดึง weekly meal plan
     const { data: planItems, error: planError } = await supabase
       .from('WeeklyMealPlan')
-      .select('menu_id, day, meal_type')
-      .eq('user_id', userId)
-      .order('day')
-      .order('meal_type');
+      .select('menu_id')
+      .eq('user_id', userId);
 
     if (planError) throw planError;
 
     if (!planItems || planItems.length === 0) {
-      return res.json({});
+      return res.json([]);
     }
 
     // ดึง menu_id ทั้งหมดที่ไม่ซ้ำ
@@ -466,73 +240,39 @@ router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) =
 
     if (menusError) throw menusError;
 
-    // สร้าง map สำหรับเก็บข้อมูลเมนู
-    const menuMap = new Map();
+    // สร้างรายการของซื้อ
+    const ingredientMap = new Map();
+
     for (const menu of menus || []) {
-      menuMap.set(menu.menu_id, menu);
-    }
-
-    // สร้างรายการของซื้อแยกตามวัน
-    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const shoppingListByDay = {};
-
-    for (const day of DAYS) {
-      shoppingListByDay[day] = [];
-    }
-
-    // จัดกลุ่ม plan items ตามวัน
-    const planByDay = {};
-    for (const item of planItems) {
-      if (!planByDay[item.day]) {
-        planByDay[item.day] = [];
-      }
-      planByDay[item.day].push(item);
-    }
-
-    // สร้างรายการของซื้อสำหรับแต่ละวัน
-    for (const day of DAYS) {
-      if (!planByDay[day] || planByDay[day].length === 0) {
-        continue;
-      }
-
-      const ingredientMap = new Map();
-
-      for (const planItem of planByDay[day]) {
-        const menu = menuMap.get(planItem.menu_id);
-        if (!menu) continue;
-
-        // ถ้ามี MenuIngredient ใช้ข้อมูลจากนั้น
-        if (menu.MenuIngredient && menu.MenuIngredient.length > 0) {
-          for (const mi of menu.MenuIngredient) {
-            if (mi.Ingredient) {
-              // ลบจำนวนออกจากชื่อส่วนผสม
-              const cleanedName = removeQuantityFromIngredientName(mi.Ingredient.ingredient_name);
-              const key = cleanedName.toLowerCase();
-              if (!ingredientMap.has(key)) {
-                ingredientMap.set(key, {
-                  name: cleanedName,
-                  count: 0
-                });
-              }
-              ingredientMap.get(key).count++;
+      // ถ้ามี MenuIngredient ใช้ข้อมูลจากนั้น
+      if (menu.MenuIngredient && menu.MenuIngredient.length > 0) {
+        for (const mi of menu.MenuIngredient) {
+          if (mi.Ingredient) {
+            const key = mi.Ingredient.ingredient_name.toLowerCase();
+            if (!ingredientMap.has(key)) {
+              ingredientMap.set(key, {
+                name: mi.Ingredient.ingredient_name,
+                count: 0
+              });
             }
+            ingredientMap.get(key).count++;
           }
         }
-      }
-
-      const dayShoppingList = Array.from(ingredientMap.values())
-        .map(item => ({
-          name: item.name,
-          measure: '' // ไม่แสดงจำนวนครั้งแม้จะซ้ำกัน
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-
-      if (dayShoppingList.length > 0) {
-        shoppingListByDay[day] = dayShoppingList;
+      } else if (menu.menu_recipe) {
+        // ถ้าไม่มี MenuIngredient แต่มี menu_recipe ให้พยายาม parse (แบบง่ายๆ)
+        // ในกรณีนี้เราจะส่งกลับ menu_recipe ให้ frontend จัดการเอง
+        // หรืออาจจะต้อง parse จาก recipe text
       }
     }
 
-    res.json(shoppingListByDay);
+    const shoppingList = Array.from(ingredientMap.values())
+      .map(item => ({
+        name: item.name,
+        measure: item.count > 1 ? `${item.count} ครั้ง` : ''
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json(shoppingList);
   } catch (error) {
     console.error('Error generating shopping list:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรายการของซื้อ' });

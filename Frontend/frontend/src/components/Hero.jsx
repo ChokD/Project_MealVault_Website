@@ -13,7 +13,7 @@ function Hero() {
     const mainIngredient = query.trim().split(/[, ]+/)[0];
 
     if (!mainIngredient) {
-      setError('กรุณากรอกวัตถุดิบ (ภาษาไทย)');
+      setError('กรุณากรอกวัตถุดิบ (ภาษาอังกฤษ)');
       setTimeout(() => setError(''), 3000); 
       return;
     }
@@ -49,7 +49,7 @@ function Hero() {
         </motion.h2>
         
         <p className="text-gray-600 mb-8 text-lg max-w-2xl mx-auto">
-          ลองพิมพ์วัตถุดิบหลักที่คุณมี (เช่น ไก่, หมู, เนื้อ)
+          ลองพิมพ์วัตถุดิบหลักที่คุณมี (เช่น chicken, salmon, pork)
         </p>
 
         {/* Search Form */}
@@ -62,7 +62,7 @@ function Hero() {
             </div>
             <input 
               type="text" 
-              placeholder="ค้นหาด้วยวัตถุดิบหลัก 1 อย่าง (ภาษาไทย)" 
+              placeholder="ค้นหาด้วยวัตถุดิบหลัก 1 อย่าง (ภาษาอังกฤษ)" 
               className="w-full px-4 py-3 text-gray-700 focus:outline-none text-lg"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -93,7 +93,7 @@ function Hero() {
         {/* Quick Suggestions */}
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <span className="text-gray-600 font-semibold">ตัวอย่าง:</span>
-          {['ไก่', 'หมู', 'เนื้อ', 'กุ้ง', 'ปลา', 'ผัด', 'แกง', 'ต้ม'].map((tag) => (
+          {['chicken', 'salmon', 'pork', 'beef', 'vegetable'].map((tag) => (
             <motion.button
               key={tag}
               whileHover={{ scale: 1.05 }}

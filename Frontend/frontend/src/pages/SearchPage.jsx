@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import RecipeCard from '../components/RecipeCard'; // ใช้ RecipeCard เดิม
-import { AuthContext } from '../context/AuthContext';
-import { API_URL } from '../config/api';
 
 function SearchPage() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q'); // 1. ดึงคำค้นหา (q) มาจาก URL
-  const { token, user } = useContext(AuthContext);
 
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,31 +20,9 @@ function SearchPage() {
     const fetchRecipes = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`${API_URL}/thai-food/filter.php?i=${query}`);
+        const response = await fetch(`http://localhost:3000/api/thai-food/filter.php?i=${query}`);
         const data = await response.json();
-        const resultCount = data.meals ? data.meals.length : 0;
         setRecipes(data.meals || []);
-        
-        // Track search behavior
-        if (token) {
-          try {
-            await fetch(`${API_URL}/behavior/search`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                search_query: query,
-                search_type: 'ingredient',
-                result_count: resultCount,
-                user_id: user?.user_id
-              })
-            });
-          } catch (trackError) {
-            console.error("Failed to track search:", trackError);
-          }
-        }
       } catch (error) {
         console.error("Failed to fetch from TheMealDB:", error);
       } finally {
@@ -56,7 +31,7 @@ function SearchPage() {
     };
 
     fetchRecipes();
-  }, [query, token, user]);
+  }, [query]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

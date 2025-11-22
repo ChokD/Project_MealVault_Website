@@ -1,11 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { GoogleLogin } from '@react-oauth/google';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import SuccessAnimation from '../components/SuccessAnimation';
-import TermsModal from '../components/TermsModal';
-import { API_URL, IMAGE_URL } from '../config/api';
 
 function LoginPage() {
   // --- ส่วนที่เพิ่มเข้ามา: State ที่จำเป็นสำหรับฟอร์ม ---
@@ -14,84 +11,16 @@ function LoginPage() {
   const [error, setError] = useState('');
   // --------------------------------------------------
 
-  const getInitialTermsConsent = () => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('termsAccepted') === 'true';
-  };
-
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
-  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(getInitialTermsConsent);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const isGoogleEnabled = Boolean(googleClientId);
-
-  const openTermsModal = () => setIsTermsModalOpen(true);
-  const closeTermsModal = () => setIsTermsModalOpen(false);
-
-  const persistTermsAcceptance = (value) => {
-    if (typeof window === 'undefined') return;
-    if (value) {
-      localStorage.setItem('termsAccepted', 'true');
-    } else {
-      localStorage.removeItem('termsAccepted');
-    }
-  };
-
-  const handleAcceptTerms = () => {
-    persistTermsAcceptance(true);
-    setHasAcceptedTerms(true);
-    closeTermsModal();
-  };
-
-  const handleCheckboxToggle = () => {
-    if (hasAcceptedTerms) {
-      persistTermsAcceptance(false);
-      setHasAcceptedTerms(false);
-    } else {
-      openTermsModal();
-    }
-  };
-
-  const handleGoogleSuccess = async (credentialResponse) => {
-    setError('');
-    try {
-      if (!credentialResponse?.credential) {
-        throw new Error('ไม่สามารถรับข้อมูลจาก Google ได้');
-      }
-
-      const response = await fetch(`${API_URL}/auth/google`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ credential: credentialResponse.credential }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google');
-      }
-
-      login(data.token);
-      setShowSuccess(true);
-      setTimeout(() => navigate('/'), 2000);
-    } catch (err) {
-      setError(err.message || 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
-    }
-  };
-
-  const handleGoogleError = () => {
-    setError('ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
-  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch('http://localhost:3000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -121,8 +50,7 @@ function LoginPage() {
   };
 
   return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-white flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-white flex flex-col relative overflow-hidden">
       {/* Decorative Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-green-200 rounded-full opacity-10 blur-3xl animate-pulse"></div>
@@ -200,72 +128,6 @@ function LoginPage() {
                   <button type="submit" className="w-full text-white bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 focus:ring-4 focus:outline-none focus:ring-green-300 font-bold rounded-xl text-lg px-5 py-3.5 text-center transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl shadow-lg">
                     เข้าสู่ระบบ
                   </button>
-                  <div className="flex items-center gap-3">
-                    <span className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs uppercase text-gray-400">หรือ</span>
-                    <span className="flex-1 h-px bg-gray-200" />
-                  </div>
-                  {isGoogleEnabled ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-center gap-2 text-sm text-gray-600 flex-wrap">
-                        <input
-                          id="terms-checkbox"
-                          type="checkbox"
-                          checked={hasAcceptedTerms}
-                          onChange={handleCheckboxToggle}
-                          className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 cursor-pointer"
-                        />
-                        <label htmlFor="terms-checkbox" className="flex items-center gap-1 text-sm">
-                          ฉันยอมรับ
-                          <button
-                            type="button"
-                            onClick={openTermsModal}
-                            className="text-emerald-600 font-semibold hover:underline"
-                          >
-                            ข้อกำหนดการใช้งาน
-                          </button>
-                        </label>
-                      </div>
-                      <div className="flex justify-center">
-                        <div className={`relative w-full max-w-[220px] sm:max-w-[260px] transition duration-200 ${!hasAcceptedTerms ? 'opacity-40' : ''}`} style={{overflow: 'hidden'}}>
-                          <GoogleLogin
-                            onSuccess={handleGoogleSuccess}
-                            onError={handleGoogleError}
-                            text="signin_with"
-                            theme="filled_black"
-                            shape="pill"
-                          />
-                          {!hasAcceptedTerms && (
-                            <button
-                              type="button"
-                              onClick={openTermsModal}
-                              aria-label="เปิดหน้าต่างข้อกำหนด"
-                              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-white"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                className="w-6 h-6"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M15 11V7a3 3 0 10-6 0v4m-3 4h12a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z"
-                                />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-center text-sm text-gray-400">
-                      Google login ยังไม่พร้อมใช้งาน (ยังไม่ได้ตั้งค่า VITE_GOOGLE_CLIENT_ID)
-                    </p>
-                  )}
                   <p className="text-sm font-light text-center text-gray-500">
                     Don’t have an account yet?{' '}
                     <Link to="/register" className="font-medium text-red-500 hover:underline">
@@ -281,12 +143,6 @@ function LoginPage() {
         </div>
       </main>
     </div>
-    <TermsModal
-      isOpen={isTermsModalOpen}
-      onClose={closeTermsModal}
-      onAccept={handleAcceptTerms}
-    />
-    </>
   );
 }
 

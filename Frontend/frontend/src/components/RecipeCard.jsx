@@ -1,10 +1,10 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { API_URL, IMAGE_URL } from '../config/api';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+const API_URL = 'http://localhost:3000/api';
 
 async function fetchPlanFromAPI(token) {
   try {
@@ -29,29 +29,9 @@ async function findMenuIdByName(menuName) {
     const data = await resp.json();
     // หาเมนูที่ชื่อตรงกัน
     const menu = data.find(m => m.menu_name === menuName);
-    return menu
-      ? {
-          id: menu.menu_id,
-          likeCount: menu.menu_like_count || 0
-        }
-      : null;
+    return menu ? menu.menu_id : null;
   } catch (error) {
     console.error('Error finding menu:', error);
-    return null;
-  }
-}
-
-async function fetchMenuLikeStatus(menuId, token) {
-  try {
-    const resp = await fetch(`${API_URL}/menus/${menuId}/likes`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch (error) {
-    console.error('Error fetching menu like status:', error);
     return null;
   }
 }
@@ -91,43 +71,10 @@ function RecipeCard({ recipe }) {
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [menuId, setMenuId] = useState(null);
-  const [menuLikeCount, setMenuLikeCount] = useState(0);
-  const [menuLiked, setMenuLiked] = useState(false);
-  const [likeLoading, setLikeLoading] = useState(false);
 
   const categoryAndArea = [recipe.strCategory, recipe.strArea]
     .filter(Boolean)
     .join(' / ');
-
-  // Load menu ID & like count on mount
-  useEffect(() => {
-    let cancelled = false;
-    const loadMenuInfo = async () => {
-      const menuInfo = await findMenuIdByName(recipe.strMeal);
-      if (cancelled) return;
-      if (menuInfo) {
-        setMenuId(menuInfo.id);
-        setMenuLikeCount(menuInfo.likeCount || 0);
-        if (token) {
-          const status = await fetchMenuLikeStatus(menuInfo.id, token);
-          if (!cancelled && status) {
-            setMenuLiked(!!status.liked);
-            setMenuLikeCount(status.like_count || 0);
-          }
-        } else {
-          setMenuLiked(false);
-        }
-      } else {
-        setMenuId(null);
-        setMenuLikeCount(0);
-        setMenuLiked(false);
-      }
-    };
-    loadMenuInfo();
-    return () => {
-      cancelled = true;
-    };
-  }, [recipe.strMeal, token]);
 
   const openModal = async () => {
     if (!token) {
@@ -137,13 +84,9 @@ function RecipeCard({ recipe }) {
     setIsModalOpen(true);
     setLoading(true);
     try {
-      if (!menuId) {
-        const menuInfo = await findMenuIdByName(recipe.strMeal);
-        if (menuInfo) {
-          setMenuId(menuInfo.id);
-          setMenuLikeCount(menuInfo.likeCount || 0);
-        }
-      }
+      // หา menu_id ก่อน
+      const id = await findMenuIdByName(recipe.strMeal);
+      if (id) setMenuId(id);
       
       // ดึง plan
       const planData = await fetchPlanFromAPI(token);
@@ -188,41 +131,10 @@ function RecipeCard({ recipe }) {
   // Reset menuId เมื่อปิด modal
   useEffect(() => {
     if (!isModalOpen) {
+      setMenuId(null);
       setPlan(null);
     }
   }, [isModalOpen]);
-
-  const handleToggleLike = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!token) {
-      alert('กรุณาเข้าสู่ระบบเพื่อกดไลค์เมนู');
-      return;
-    }
-    if (!menuId) {
-      alert('ไม่พบเมนูนี้ในฐานข้อมูล');
-      return;
-    }
-    if (likeLoading) return;
-
-    setLikeLoading(true);
-    try {
-      const resp = await fetch(`${API_URL}/menus/${menuId}/like`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.message || 'ไม่สามารถกดไลค์เมนูได้');
-      setMenuLikeCount(data.like_count || 0);
-      setMenuLiked(!!data.liked);
-    } catch (error) {
-      alert(error.message || 'เกิดข้อผิดพลาดในการกดไลค์เมนู');
-    } finally {
-      setLikeLoading(false);
-    }
-  };
 
   return (
     <>
@@ -233,28 +145,7 @@ function RecipeCard({ recipe }) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
           <div className="p-5">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="font-bold text-lg mb-2 truncate text-gray-800 group-hover:text-green-600 transition-colors" title={recipe.strMeal}>{recipe.strMeal}</h3>
-              <button
-                type="button"
-                onClick={handleToggleLike}
-                disabled={!menuId || likeLoading}
-                className={`flex items-center gap-1 text-sm px-3 py-1 rounded-full border ${
-                  menuLiked ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-white text-gray-600 border-gray-200'
-                } ${(!menuId || likeLoading) ? 'opacity-60 cursor-not-allowed' : 'hover:border-rose-300 hover:text-rose-600'}`}
-              >
-                <svg
-                  className={`w-4 h-4 ${menuLiked ? 'fill-current text-rose-500' : 'text-rose-400'}`}
-                  viewBox="0 0 24 24"
-                  fill={menuLiked ? 'currentColor' : 'none'}
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
-                  <path d="M12 21s-5.434-4.45-8.152-7.168C1.97 11.954 1 10.329 1 8.5 1 5.995 2.995 4 5.5 4c1.57 0 3.057.874 3.862 2.253C10.443 4.874 11.93 4 13.5 4 16.005 4 18 5.995 18 8.5c0 1.83-.97 3.454-2.848 5.332C17.434 16.55 12 21 12 21z" />
-                </svg>
-                <span>{menuLikeCount}</span>
-              </button>
-            </div>
+            <h3 className="font-bold text-lg mb-2 truncate text-gray-800 group-hover:text-green-600 transition-colors" title={recipe.strMeal}>{recipe.strMeal}</h3>
             <p className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full inline-block">{categoryAndArea}</p>
           </div>
         </Link>

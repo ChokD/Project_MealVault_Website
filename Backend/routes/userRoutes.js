@@ -4,22 +4,15 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
 const { supabase } = require('../config/supabase');
 const sendEmail = require('../utils/sendEmail');
 const authMiddleware = require('../middleware/authMiddleware');
-
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
-const upload = require('../middleware/uploadMiddleware');
-
-// Removed unused helper functions now that community post favorites are not supported
 
 // --- AUTHENTICATION ROUTES ---
 
 // POST /api/register - สมัครสมาชิก
 router.post('/register', async (req, res) => {
-  const { user_email, user_fname, user_lname, user_password, user_tel, allergies, favorite_foods } = req.body;
+  const { user_email, user_fname, user_lname, user_password, user_tel } = req.body;
 
   if (!user_email || !user_password || !user_fname) {
     return res.status(400).json({ message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน' });
@@ -54,23 +47,13 @@ router.post('/register', async (req, res) => {
     console.log(`Registering new user: ${user_email}`);
     console.log(`Password hash generated: ${hashedPassword.substring(0, 20)}...`);
 
-    // Process allergies and favorite_foods (convert array to comma-separated string if needed)
-    const allergiesStr = Array.isArray(allergies) 
-      ? allergies.join(',') 
-      : (allergies || null);
-    const favoriteFoodsStr = Array.isArray(favorite_foods) 
-      ? favorite_foods.join(',') 
-      : (favorite_foods || null);
-
     const newUser = {
       user_id: 'U' + Date.now().toString().slice(-6),
       user_email,
       user_fname,
       user_lname,
       user_password: hashedPassword,
-      user_tel: user_tel || null, // เบอร์โทรเป็น optional
-      allergies: allergiesStr,
-      favorite_foods: favoriteFoodsStr
+      user_tel: user_tel || null // เบอร์โทรเป็น optional
     };
 
     const { data, error } = await supabase.from('User').insert([newUser]).select();
@@ -192,84 +175,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/google - เข้าสู่ระบบด้วย Google
-router.post('/auth/google', async (req, res) => {
-  if (!googleClient) {
-    return res.status(500).json({ message: 'ยังไม่ได้ตั้งค่า Google Client ID บนเซิร์ฟเวอร์' });
-  }
-
-  const { credential } = req.body;
-  if (!credential) {
-    return res.status(400).json({ message: 'ไม่พบข้อมูลรับรองจาก Google' });
-  }
-
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: googleClientId,
-    });
-
-    const payload = ticket.getPayload();
-    const email = payload?.email;
-    if (!email) {
-      return res.status(400).json({ message: 'ไม่พบอีเมลจากบัญชี Google' });
-    }
-
-    const { data: users, error: findErr } = await supabase
-      .from('User')
-      .select('*')
-      .eq('user_email', email)
-      .limit(1);
-    if (findErr) throw findErr;
-
-    let user = users && users[0];
-    let isNewUser = false;
-
-    if (!user) {
-      const tempPassword = crypto.randomBytes(32).toString('hex');
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
-      const newUser = {
-        user_id: 'U' + Date.now().toString().slice(-6),
-        user_email: email,
-        user_fname: payload?.given_name || email.split('@')[0],
-        user_lname: payload?.family_name || '',
-        user_password: hashedPassword,
-        user_tel: null,
-      };
-
-      const { data: insertedUser, error: insertErr } = await supabase
-        .from('User')
-        .insert([newUser])
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
-
-      user = insertedUser || newUser;
-      isNewUser = true;
-    }
-
-    const payloadToken = {
-      user: {
-        id: user.user_id,
-        email: user.user_email,
-      },
-    };
-
-    jwt.sign(
-      payloadToken,
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token, isNewUser });
-      }
-    );
-  } catch (error) {
-    console.error('Error during Google login:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google' });
-  }
-});
-
 
 // --- USER PROFILE ROUTES (Protected) ---
 
@@ -278,7 +183,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const { data: users, error: userErr } = await supabase
       .from('User')
-      .select('user_id, user_email, user_fname, user_lname, user_tel, user_image, allergies, favorite_foods')
+      .select('user_id, user_email, user_fname, user_lname, user_tel')
       .eq('user_id', req.user.id)
       .limit(1);
     if (userErr) throw userErr;
@@ -293,19 +198,8 @@ router.get('/me', authMiddleware, async (req, res) => {
       .limit(1);
     if (adminErr) throw adminErr;
 
-    const user = users[0];
-    // Convert comma-separated strings to arrays for allergies and favorite_foods
-    const allergiesArray = user.allergies 
-      ? String(user.allergies).split(',').map(s => s.trim()).filter(Boolean) 
-      : [];
-    const favoriteFoodsArray = user.favorite_foods 
-      ? String(user.favorite_foods).split(',').map(s => s.trim()).filter(Boolean) 
-      : [];
-
     const userData = {
-      ...user,
-      allergies: allergiesArray,
-      favorite_foods: favoriteFoodsArray,
+      ...users[0],
       isAdmin: !!(admins && admins.length > 0)
     };
 
@@ -444,42 +338,6 @@ router.put('/users/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/users/profile/image - อัปโหลดรูปภาพโปรไฟล์
-router.put('/users/profile/image', authMiddleware, upload.single('user_image'), async (req, res) => {
-  const userId = req.user.id;
-
-  if (!req.file) {
-    return res.status(400).json({ message: 'กรุณาเลือกไฟล์รูปภาพ' });
-  }
-
-  // ตรวจสอบว่า Supabase client พร้อมใช้งาน
-  if (!supabase) {
-    console.error('Supabase client is not initialized');
-    return res.status(500).json({ message: 'Database connection error' });
-  }
-
-  try {
-    const imageFilename = req.file.filename;
-    
-    // อัปเดตรูปภาพโปรไฟล์ในฐานข้อมูล
-    const { error } = await supabase
-      .from('User')
-      .update({ user_image: imageFilename })
-      .eq('user_id', userId);
-    
-    if (error) throw error;
-
-    console.log(`Profile image updated for user: ${userId}`);
-    res.json({ 
-      message: 'อัปโหลดรูปภาพโปรไฟล์สำเร็จ',
-      image_url: `/images/${imageFilename}`
-    });
-  } catch (error) {
-    console.error('Error updating profile image:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพโปรไฟล์' });
-  }
-});
-
 
 // --- PASSWORD RESET ROUTES (Public) ---
 
@@ -487,11 +345,6 @@ router.put('/users/profile/image', authMiddleware, upload.single('user_image'), 
 router.post('/forgot-password', async (req, res) => {
   try {
     const { user_email } = req.body;
-    
-    if (!user_email) {
-      return res.status(400).json({ message: 'กรุณากรอกอีเมล' });
-    }
-
     const { data: users, error: findErr } = await supabase
       .from('User')
       .select('*')
@@ -501,7 +354,7 @@ router.post('/forgot-password', async (req, res) => {
 
     if (users && users.length > 0) {
       const user = users[0];
-      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetToken = crypto.randomBytes(20).toString('hex');
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
       const { error: updErr } = await supabase
@@ -510,82 +363,25 @@ router.post('/forgot-password', async (req, res) => {
         .eq('user_id', user.user_id);
       if (updErr) throw updErr;
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
-      
-      // Store reset link for development/testing
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🔐 PASSWORD RESET REQUESTED');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log(`📧 User Email: ${user.user_email}`);
-      console.log(`🔗 Reset Link: ${resetUrl}`);
-      console.log(`⏰ Expires: ${new Date(expiresAt).toLocaleString()}`);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      // Skip email sending if EMAIL_USER not configured
-      if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
-        console.log('⚠️  Email not configured - Reset link printed to console only');
-      } else {
-        // Try to send email if configured
-        try {
-          const message = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-                .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
-                .button { display: inline-block; padding: 12px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 25px; margin: 20px 0; }
-                .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1>🍽️ MealVault</h1>
-                  <p>คำขอรีเซ็ตรหัสผ่าน</p>
-                </div>
-                <div class="content">
-                  <p>สวัสดีค่ะ,</p>
-                  <p>เราได้รับคำขอรีเซ็ตรหัสผ่านสำหรับบัญชี MealVault ของคุณ</p>
-                  <p>กรุณาคลิกปุ่มด้านล่างเพื่อตั้งรหัสผ่านใหม่:</p>
-                  <center>
-                    <a href="${resetUrl}" class="button">ตั้งรหัสผ่านใหม่</a>
-                  </center>
-                  <p style="color: #ef4444; font-size: 14px;">⚠️ ลิงก์นี้จะหมดอายุใน 1 ชั่วโมง</p>
-                  <p style="font-size: 14px; color: #6b7280;">หากคุณไม่ได้ทำการขอรีเซ็ตรหัสผ่าน กรุณาเพิกเฉยอีเมลนี้</p>
-                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-                  <p style="font-size: 12px; color: #9ca3af;">หากปุ่มไม่ทำงาน คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:<br>
-                  <a href="${resetUrl}" style="color: #10b981;">${resetUrl}</a></p>
-                </div>
-                <div class="footer">
-                  <p>© 2025 MealVault - ระบบจัดการมื้ออาหารอัจฉริยะ</p>
-                </div>
-              </div>
-            </body>
-            </html>
-          `;
+      const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+      const message = `
+        <h1>คุณได้ทำการขอรีเซ็ตรหัสผ่านสำหรับ MealVault</h1>
+        <p>กรุณาคลิกที่ลิงก์นี้เพื่อตั้งรหัสผ่านใหม่ (ลิงก์มีอายุ 1 ชั่วโมง):</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+      `;
 
-          await sendEmail({
-            to: user.user_email,
-            subject: '🔐 คำขอรีเซ็ตรหัสผ่าน MealVault',
-            html: message,
-          });
-          console.log(`✅ Password reset email sent to: ${user.user_email}`);
-        } catch (emailError) {
-          console.error('❌ Failed to send reset email:', emailError.message);
-          console.log('⚠️  Email sending failed - But reset link is available in console above');
-        }
-      }
+      await sendEmail({
+        to: user.user_email,
+        subject: 'คำขอรีเซ็ตรหัสผ่าน MealVault',
+        html: message,
+      });
     }
 
-    res.json({ message: 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์สำหรับรีเซ็ตรหัสผ่านไปให้แล้ว กรุณาตรวจสอบกล่องจดหมายของคุณ' });
+    res.json({ message: 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์สำหรับรีเซ็ตรหัสผ่านไปให้แล้ว' });
 
   } catch (error) {
     console.error('Error in forgot password:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
   }
 });
 
@@ -635,15 +431,14 @@ router.get('/preferences', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const { data, error } = await supabase
       .from('User')
-      .select('calorie_limit, allergies, favorite_foods')
+      .select('calorie_limit, allergies')
       .eq('user_id', userId)
       .limit(1);
     if (error) throw error;
-    if (!data || data.length === 0) return res.json({ calorie_limit: null, allergens: [], favorite_foods: [] });
+    if (!data || data.length === 0) return res.json({ calorie_limit: null, allergens: [] });
     const row = data[0];
     const allergens = row.allergies ? String(row.allergies).split(',').map(s => s.trim()).filter(Boolean) : [];
-    const favoriteFoods = row.favorite_foods ? String(row.favorite_foods).split(',').map(s => s.trim()).filter(Boolean) : [];
-    res.json({ calorie_limit: row.calorie_limit ?? null, allergens, favorite_foods: favoriteFoods });
+    res.json({ calorie_limit: row.calorie_limit ?? null, allergens });
   } catch (error) {
     console.error('Error fetching preferences:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงค่าการตั้งค่า' });
@@ -654,238 +449,17 @@ router.get('/preferences', authMiddleware, async (req, res) => {
 router.put('/preferences', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { calorie_limit, allergens, favorite_foods } = req.body;
-    
-    const updateData = {};
-    
-    // Always update calorie_limit if provided
-    if (calorie_limit !== undefined) {
-      updateData.calorie_limit = calorie_limit;
-    }
-    
-    // Process allergies: convert array to comma-separated string, or null if empty
-    if (allergens !== undefined) {
-      if (Array.isArray(allergens)) {
-        updateData.allergies = allergens.length > 0 ? allergens.join(',') : null;
-      } else if (typeof allergens === 'string') {
-        updateData.allergies = allergens.trim() || null;
-      } else {
-        updateData.allergies = null;
-      }
-    }
-    
-    // Process favorite_foods: convert array to comma-separated string, or null if empty
-    if (favorite_foods !== undefined) {
-      if (Array.isArray(favorite_foods)) {
-        updateData.favorite_foods = favorite_foods.length > 0 ? favorite_foods.join(',') : null;
-      } else if (typeof favorite_foods === 'string') {
-        updateData.favorite_foods = favorite_foods.trim() || null;
-      } else {
-        updateData.favorite_foods = null;
-      }
-    }
-    
+    const { calorie_limit, allergens } = req.body;
+    const allergies = Array.isArray(allergens) ? allergens.join(',') : null;
     const { error } = await supabase
       .from('User')
-      .update(updateData)
+      .update({ calorie_limit, allergies })
       .eq('user_id', userId);
     if (error) throw error;
     res.json({ message: 'อัปเดตการตั้งค่าสำเร็จ' });
   } catch (error) {
     console.error('Error updating preferences:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตการตั้งค่า' });
-  }
-});
-
-// --- PUBLIC USER PROFILE ROUTES ---
-
-// GET /api/users/:id/public-profile - ข้อมูลสาธารณะของผู้ใช้
-router.get('/users/:id/public-profile', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const { data, error } = await supabase
-      .from('User')
-      .select('user_id, user_fname, user_lname, user_image')
-      .eq('user_id', id)
-      .limit(1);
-
-    if (error) throw error;
-    if (!data || data.length === 0) {
-      return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
-    }
-
-    const user = data[0];
-    res.json({
-      user_id: user.user_id,
-      user_fname: user.user_fname,
-      user_lname: user.user_lname,
-      user_image: user.user_image,
-      full_name: [user.user_fname, user.user_lname].filter(Boolean).join(' ')
-    });
-  } catch (error) {
-    console.error('Error fetching public profile:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้' });
-  }
-});
-
-// GET /api/users/:id/posts - รายชื่อโพสต์ของผู้ใช้
-router.get('/users/:id/posts', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const { data: posts, error } = await supabase
-      .from('CommunityPost')
-      .select('cpost_id, cpost_title, cpost_datetime, cpost_image, cpost_images, like_count')
-      .eq('user_id', id)
-      .not('cpost_title', 'like', '[Report Only]%')
-      .order('cpost_datetime', { ascending: false });
-
-    if (error) throw error;
-    const formatted = (posts || []).map(post => {
-      let images = [];
-      if (Array.isArray(post.cpost_images)) {
-        images = post.cpost_images.filter(Boolean);
-      } else if (post.cpost_image) {
-        images = [post.cpost_image];
-      }
-      return {
-        ...post,
-        cpost_images: images,
-        cpost_image: images[0] || null
-      };
-    });
-
-    res.json(formatted);
-  } catch (error) {
-    console.error('Error fetching user posts:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงโพสต์ของผู้ใช้' });
-  }
-});
-
-// GET /api/users/:id/comments - รายชื่อคอมเมนต์ของผู้ใช้
-router.get('/users/:id/comments', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const { data: comments, error } = await supabase
-      .from('CommunityComment')
-      .select(`
-        comment_id,
-        comment_text,
-        comment_datetime,
-        cpost_id,
-        CommunityPost:cpost_id (cpost_id, cpost_title, cpost_image)
-      `)
-      .eq('user_id', id)
-      .order('comment_datetime', { ascending: false });
-
-    if (error) throw error;
-
-    // Format response
-    const formatted = (comments || []).map(comment => ({
-      comment_id: comment.comment_id,
-      comment_text: comment.comment_text,
-      comment_datetime: comment.comment_datetime,
-      cpost_id: comment.cpost_id,
-      post_title: comment.CommunityPost?.cpost_title || '',
-      post_image: comment.CommunityPost?.cpost_image || null
-    }));
-
-    res.json(formatted);
-  } catch (error) {
-    console.error('Error fetching user comments:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงคอมเมนต์ของผู้ใช้' });
-  }
-});
-
-// GET /api/users/:id/liked-menus - รายชื่อเมนู/สูตรจากผู้ใช้ที่กดชื่นชอบ
-router.get('/users/:id/liked-menus', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const [{ data: menuLikes, error: menuError }, { data: recipeLikes, error: recipeError }] = await Promise.all([
-      supabase
-        .from('MenuLike')
-        .select(`
-          id,
-          created_at,
-          menu_id,
-          Menu:menu_id (menu_id, menu_name, menu_image, menu_description)
-        `)
-        .eq('user_id', id)
-        .order('id', { ascending: false }),
-      supabase
-        .from('UserRecipeLike')
-        .select(`
-          id,
-          created_at,
-          recipe_id,
-          UserRecipe:recipe_id (
-            recipe_id,
-            recipe_title,
-            recipe_image,
-            recipe_summary,
-            recipe_category
-          )
-        `)
-        .eq('user_id', id)
-        .order('id', { ascending: false })
-    ]);
-
-    if (menuError) throw menuError;
-    if (recipeError) throw recipeError;
-
-    const formattedMenus = (menuLikes || [])
-      .filter(like => like.Menu)
-      .map(like => ({
-        type: 'menu',
-        menu_id: like.menu_id,
-        menu_name: like.Menu.menu_name,
-        menu_image: like.Menu.menu_image,
-        menu_description: like.Menu.menu_description,
-        liked_at: like.created_at || null
-      }));
-
-    const formattedRecipes = (recipeLikes || [])
-      .filter(like => like.UserRecipe)
-      .map(like => ({
-        type: 'recipe',
-        recipe_id: like.recipe_id,
-        menu_name: like.UserRecipe.recipe_title,
-        menu_image: like.UserRecipe.recipe_image,
-        menu_description: like.UserRecipe.recipe_summary,
-        recipe_category: like.UserRecipe.recipe_category,
-        liked_at: like.created_at || null
-      }));
-
-    const combined = [...formattedMenus, ...formattedRecipes]
-      .sort((a, b) => new Date(b.liked_at || 0) - new Date(a.liked_at || 0));
-
-    res.json(combined);
-  } catch (error) {
-    console.error('Error fetching user liked menus:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงเมนูที่ชื่นชอบ' });
-  }
-});
-
-// GET /api/users/:id/recipes - รายชื่อสูตรอาหารของผู้ใช้
-router.get('/users/:id/recipes', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const { data: recipes, error } = await supabase
-      .from('UserRecipe')
-      .select('recipe_id, recipe_title, recipe_image, created_at, recipe_category')
-      .eq('user_id', id)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    res.json(recipes || []);
-  } catch (error) {
-    console.error('Error fetching user recipes:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงสูตรอาหารของผู้ใช้' });
   }
 });
 

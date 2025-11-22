@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
-import { API_URL, IMAGE_URL } from '../config/api';
 
 function MealCalendarPage() {
   const { token } = useContext(AuthContext);
@@ -16,7 +15,7 @@ function MealCalendarPage() {
       const params = new URLSearchParams();
       if (from) params.set('from', from);
       if (to) params.set('to', to);
-      const resp = await fetch(`${API_URL}/meal-calendar?${params.toString()}`, {
+      const resp = await fetch(`http://localhost:3000/api/meal-calendar?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await resp.json();
@@ -35,7 +34,7 @@ function MealCalendarPage() {
     setError('');
     try {
       const body = { ...form, calories: form.calories === '' ? null : Number(form.calories), menu_id: form.menu_id || null };
-      const resp = await fetch(`${API_URL}/meal-calendar`, {
+      const resp = await fetch('http://localhost:3000/api/meal-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
@@ -51,7 +50,7 @@ function MealCalendarPage() {
 
   const handleDelete = async (id) => {
     try {
-      const resp = await fetch(`${API_URL}/meal-calendar/${id}`, {
+      const resp = await fetch(`http://localhost:3000/api/meal-calendar/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

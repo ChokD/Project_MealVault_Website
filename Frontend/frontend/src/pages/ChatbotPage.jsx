@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
-import { API_URL, IMAGE_URL } from '../config/api';
 
 const initialMessage = { 
   sender: 'ai', 
@@ -29,7 +28,7 @@ function ChatbotPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/chatbot/send`, {
+      const response = await fetch('http://localhost:3000/api/chatbot/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),

@@ -10,7 +10,6 @@ create table if not exists "User" (
   user_tel text,
   calorie_limit integer,
   allergies text,
-  favorite_foods text,
   reset_password_token text,
   reset_password_expires timestamptz
 );
@@ -32,16 +31,7 @@ create table if not exists "Menu" (
   menu_image text,
   menu_datetime timestamptz default now(),
   user_id text references "User"(user_id) on delete set null,
-  category_id text references "Category"(category_id) on delete set null,
-  menu_like_count integer default 0
-);
-
-create table if not exists "MenuLike" (
-  id bigserial primary key,
-  menu_id text references "Menu"(menu_id) on delete cascade,
-  user_id text references "User"(user_id) on delete cascade,
-  created_at timestamptz default now(),
-  unique (menu_id, user_id)
+  category_id text references "Category"(category_id) on delete set null
 );
 
 create table if not exists "Ingredient" (
@@ -58,44 +48,10 @@ create table if not exists "MenuIngredient" (
 create table if not exists "CommunityPost" (
   cpost_id text primary key,
   cpost_title text not null,
-  cpost_content text,
   cpost_datetime timestamptz default now(),
   cpost_image text,
   like_count integer default 0,
-  post_type text default 'post' check (post_type in ('post','recipe')),
   user_id text references "User"(user_id) on delete cascade
-);
-
-create table if not exists "CommunityRecipe" (
-  recipe_id text primary key,
-  cpost_id text unique references "CommunityPost"(cpost_id) on delete cascade,
-  recipe_summary text,
-  recipe_category text,
-  prep_time_minutes integer,
-  cook_time_minutes integer,
-  total_time_minutes integer,
-  servings integer,
-  ingredients jsonb,
-  steps jsonb,
-  created_at timestamptz default now()
-);
-
--- UserRecipe table for storing user-created recipes (separate from community posts)
-create table if not exists "UserRecipe" (
-  recipe_id text primary key,
-  user_id text references "User"(user_id) on delete cascade not null,
-  recipe_title text not null,
-  recipe_summary text,
-  recipe_category text,
-  prep_time_minutes integer,
-  cook_time_minutes integer,
-  total_time_minutes integer,
-  servings integer,
-  ingredients jsonb not null,
-  steps jsonb not null,
-  recipe_image text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
 );
 
 create table if not exists "CommunityComment" (
@@ -115,14 +71,10 @@ create table if not exists "PostLike" (
 
 create table if not exists "CommunityReport" (
   creport_id text primary key,
-  creport_type text not null,
-  creport_reason text,
-  creport_details text,
+  creport_reason text not null,
   creport_datetime timestamptz default now(),
   cpost_id text references "CommunityPost"(cpost_id) on delete cascade,
-  comment_id text references "CommunityComment"(comment_id) on delete cascade,
-  user_id text references "User"(user_id) on delete set null,
-  check (cpost_id is not null or comment_id is not null)
+  user_id text references "User"(user_id) on delete set null
 );
 
 -- Meal Calendar
@@ -147,37 +99,12 @@ create table if not exists "WeeklyMealPlan" (
   created_at timestamptz default now()
 );
 
--- Notification system
-create table if not exists "Notification" (
-  notification_id text primary key,
-  notification_type text not null check (notification_type in ('comment', 'like_post', 'like_comment', 'report')),
-  notification_message text not null,
-  is_read boolean default false,
-  notification_datetime timestamptz default now(),
-  user_id text references "User"(user_id) on delete cascade not null,
-  cpost_id text references "CommunityPost"(cpost_id) on delete cascade,
-  comment_id text references "CommunityComment"(comment_id) on delete cascade,
-  actor_user_id text references "User"(user_id) on delete set null,
-  creport_id text references "CommunityReport"(creport_id) on delete cascade
-);
-
 -- Indexes
 create index if not exists idx_menu_name on "Menu" (menu_name);
 create index if not exists idx_category_name on "Category" (category_name);
 create index if not exists idx_post_datetime on "CommunityPost" (cpost_datetime desc);
 create index if not exists idx_comment_post on "CommunityComment" (cpost_id);
-create index if not exists idx_report_post on "CommunityReport" (cpost_id);
-create index if not exists idx_report_comment on "CommunityReport" (comment_id);
 create index if not exists idx_weeklymealplan_user on "WeeklyMealPlan" (user_id);
-create index if not exists idx_notification_user on "Notification" (user_id);
-create index if not exists idx_notification_read on "Notification" (is_read);
-create index if not exists idx_notification_datetime on "Notification" (notification_datetime desc);
-create index if not exists idx_notification_type on "Notification" (notification_type);
-create index if not exists idx_notification_post on "Notification" (cpost_id);
-create index if not exists idx_notification_comment on "Notification" (comment_id);
-create index if not exists idx_user_recipe_user on "UserRecipe" (user_id);
-create index if not exists idx_user_recipe_created on "UserRecipe" (created_at desc);
-create index if not exists idx_user_recipe_category on "UserRecipe" (recipe_category);
 
 -- RLS policies (example: enable for anon/service as needed)
 alter table "User" enable row level security;
@@ -191,8 +118,6 @@ alter table "MealCalendar" enable row level security;
 alter table "WeeklyMealPlan" enable row level security;
 alter table "Ingredient" enable row level security;
 alter table "MenuIngredient" enable row level security;
-alter table "Notification" enable row level security;
-alter table "UserRecipe" enable row level security;
 
 -- Simplified permissive policies for backend anon key use
 drop policy if exists user_all on "User";
@@ -227,11 +152,5 @@ create policy ingredient_all on "Ingredient" for all using (true) with check (tr
 
 drop policy if exists menu_ingredient_all on "MenuIngredient";
 create policy menu_ingredient_all on "MenuIngredient" for all using (true) with check (true);
-
-drop policy if exists notification_all on "Notification";
-create policy notification_all on "Notification" for all using (true) with check (true);
-
-drop policy if exists user_recipe_all on "UserRecipe";
-create policy user_recipe_all on "UserRecipe" for all using (true) with check (true);
 
 

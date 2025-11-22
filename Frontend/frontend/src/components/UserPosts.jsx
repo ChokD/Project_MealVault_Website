@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PostCard from './PostCard'; // นำเข้าการ์ดที่เราเพิ่งสร้าง
-import { API_URL, IMAGE_URL } from '../config/api';
 
 function UserPosts() {
   const [latestPosts, setLatestPosts] = useState([]);
@@ -16,7 +15,7 @@ function UserPosts() {
       setLoading(true);
       try {
         // ดึงข้อมูลโพสต์จาก API ของเราเอง
-        const response = await fetch(`${API_URL}/posts`);
+        const response = await fetch('http://localhost:3000/api/posts');
         const data = await response.json();
         // นำมาแค่ 6 โพสต์ล่าสุดเพื่อทำสไลด์โชว์ 2 หน้า
         setLatestPosts(data.slice(0, 6)); 
@@ -60,7 +59,7 @@ function UserPosts() {
   if (loading) {
     return (
       <section className="py-8">
-        <h2 className="text-3xl font-bold mb-8">หมวดหมู่ชุมชน</h2>
+        <h2 className="text-3xl font-bold mb-8">หมวดหมู่อาหาร</h2>
         <div className="relative w-full h-64 flex items-center justify-center bg-gray-100 rounded-xl"><p>กำลังโหลดโพสต์ล่าสุด...</p></div>
       </section>
     );
@@ -72,7 +71,7 @@ function UserPosts() {
         <div className="flex items-center space-x-3">
           <div className="w-1 h-10 bg-gradient-to-b from-emerald-500 to-green-500 rounded-full"></div>
           <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-            หมวดหมู่ชุมชน
+            หมวดหมู่อาหาร
           </h2>
         </div>
         <div className="flex space-x-2">

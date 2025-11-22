@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import TwitterPostCard from '../components/TwitterPostCard';
+import AccordionItem from '../components/AccordionItem';
 import { AuthContext } from '../context/AuthContext';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SuccessAnimation from '../components/SuccessAnimation';
-import { API_URL, IMAGE_URL } from '../config/api';
 
 function CommunityPage() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const { token, user } = useContext(AuthContext);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [openPostId, setOpenPostId] = useState(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState({ id: null, type: '' });
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
   // ตรวจสอบว่าเป็น Admin หรือไม่
   const isAdmin = user?.isAdmin || false;
@@ -25,7 +23,7 @@ function CommunityPage() {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/posts`);
+      const response = await fetch('http://localhost:3000/api/posts');
       const data = await response.json();
       setPosts(data);
     } catch (error) {
@@ -39,31 +37,9 @@ function CommunityPage() {
     fetchPosts();
   }, []);
 
-  // ตรวจสอบ query parameters สำหรับ highlight และ scroll
-  useEffect(() => {
-    const postId = searchParams.get('post');
-    const reported = searchParams.get('reported');
-    const commentId = searchParams.get('comment');
-
-    if (postId && posts.length > 0) {
-      const postExists = posts.some(p => p.cpost_id === postId);
-      
-      if (postExists) {
-        // Scroll ไปที่โพสต์ (ปรับ offset เพื่อไม่ให้ถูก navbar ทับ)
-        const scrollTimeout = setTimeout(() => {
-          const element = document.getElementById(`post-${postId}`);
-          if (element) {
-            const navbar = document.querySelector('nav');
-            const navbarHeight = navbar ? navbar.offsetHeight : 80;
-            const y = element.getBoundingClientRect().top + window.scrollY - navbarHeight - 8;
-            window.scrollTo({ top: y, behavior: 'smooth' });
-          }
-        }, 500);
-
-        return () => clearTimeout(scrollTimeout);
-      }
-    }
-  }, [searchParams, posts]);
+  const handleToggle = (postId) => {
+    setOpenPostId(openPostId === postId ? null : postId);
+  };
 
   const handleDeletePostClick = (postId) => {
     setItemToDelete({ id: postId, type: 'post' });
@@ -83,8 +59,8 @@ function CommunityPage() {
     
     // ใช้ route ใหม่สำหรับลบคอมเมนต์ (รองรับทั้งเจ้าของและ Admin)
     const url = type === 'post' 
-      ? `${API_URL}/posts/${id}`
-      : `${API_URL}/posts/comments/${id}`;
+      ? `http://localhost:3000/api/posts/${id}`
+      : `http://localhost:3000/api/posts/comments/${id}`;
     
     try {
       const response = await fetch(url, {
@@ -106,123 +82,40 @@ function CommunityPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <main className="flex-grow pt-20">
-        <div className="max-w-6xl mx-auto flex">
-          {/* Left Sidebar */}
-          <aside className="hidden md:block w-64 flex-shrink-0 border-r border-gray-200 px-4 py-4">
-            <div className="sticky top-20">
-              <h2 className="text-xl font-bold text-gray-900 mb-6 px-4">ชุมชน</h2>
-              <nav className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    // If there are posts available, target the latest (first) post id
-                    const latestId = (posts && posts.length > 0) ? posts[0].cpost_id : null;
-
-                    if (location.pathname !== '/community') {
-                      // Navigate to community and include post query so the effect will scroll after load
-                      if (latestId) {
-                        navigate(`/community?post=${latestId}`, { preventScrollReset: true });
-                      } else {
-                        navigate('/community', { preventScrollReset: true });
-                      }
-                      return;
-                    }
-
-                    // If already on the community page, just scroll to the latest post (or top)
-                    if (latestId) {
-                      const el = document.getElementById(`post-${latestId}`);
-                      if (el) {
-                        const navbar = document.querySelector('nav');
-                        const navbarHeight = navbar ? navbar.offsetHeight : 80;
-                        const y = el.getBoundingClientRect().top + window.scrollY - navbarHeight - 8;
-                        window.scrollTo({ top: y, behavior: 'smooth' });
-                        return;
-                      }
-                    }
-                    // Fallback: scroll to top of feed (account for navbar)
-                    const feed = document.querySelector('.border-x');
-                    const navbar = document.querySelector('nav');
-                    const navbarHeight = navbar ? navbar.offsetHeight : 80;
-                    if (feed) {
-                      const y = feed.getBoundingClientRect().top + window.scrollY - navbarHeight - 8;
-                      window.scrollTo({ top: y, behavior: 'smooth' });
-                    } else {
-                      window.scrollTo({ top: Math.max(0, window.scrollY - navbarHeight - 8), behavior: 'smooth' });
-                    }
-                  }}
-                  className="block text-left w-full px-4 py-3 rounded-full hover:bg-gray-100 transition-colors font-semibold text-gray-900 text-[15px]"
-                >
-                  หน้าแรก
-                </button>
-                {token && (
-                  <Link 
-                    to="/create-post" 
-                    className={`block px-4 py-3 rounded-full ${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold transition-colors text-center text-[15px]`}
-                  >
-                    สร้างโพสต์ใหม่
-                  </Link>
-                )}
-              </nav>
-            </div>
-          </aside>
-
-          {/* Main Feed */}
-          <div className="flex-1 min-w-0">
-            {/* Mobile Header */}
-            <div className="md:hidden sticky top-20 z-10 bg-white border-b border-gray-200 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <h1 className="text-xl font-bold text-gray-900">ชุมชน</h1>
-                {token && (
-                  <Link 
-                    to="/create-post" 
-                    className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold rounded-full px-4 py-2 text-sm transition-colors`}
-                  >
-                    สร้างโพสต์
-                  </Link>
-                )}
-              </div>
-            </div>
-
-            {/* Feed Content */}
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <p className="text-gray-500">กำลังโหลดโพสต์...</p>
-              </div>
-            ) : posts.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <p className="text-gray-500">ยังไม่มีโพสต์</p>
-              </div>
-            ) : (
-              <div className="border-x border-gray-200">
-                {posts.map(post => {
-                  const highlightedPostId = searchParams.get('post');
-                  const isReported = searchParams.get('reported') === 'true' && highlightedPostId === post.cpost_id;
-                  const highlightedCommentId = searchParams.get('comment');
-                  
-                  return (
-                    <TwitterPostCard
-                      key={post.cpost_id}
-                      post={post}
-                      onDeleteClick={handleDeletePostClick}
-                      onDeleteComment={handleDeleteCommentClick}
-                      highlightedCommentId={highlightedCommentId && highlightedPostId === post.cpost_id ? highlightedCommentId : null}
-                      isReported={isReported}
-                    />
-                  );
-                })}
-              </div>
+      <main className="flex-grow pt-24">
+        <div className="container mx-auto px-6 sm:px-8 py-8">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className={`text-3xl font-bold ${isAdmin ? 'text-red-600' : 'text-gray-800'}`}>
+              ชุมชน MealVault {isAdmin && <span className="text-sm text-red-500">[Admin Mode]</span>}
+            </h1>
+            {token && (
+              <Link 
+                to="/create-post" 
+                className={`${isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white font-bold rounded-full px-6 py-2 transition-colors`}
+              >
+                สร้างโพสต์ใหม่
+              </Link>
             )}
           </div>
-
-          {/* Right Sidebar (Optional - can be used for suggestions, trending, etc.) */}
-          <aside className="hidden lg:block w-80 flex-shrink-0 px-6 py-4">
-            <div className="sticky top-20">
-              {/* Placeholder for future features */}
+          
+          {loading ? (
+            <p>กำลังโหลดโพสต์...</p>
+          ) : (
+            <div className="space-y-4">
+              {posts.map(post => (
+                <AccordionItem 
+                  key={post.cpost_id}
+                  post={post}
+                  isOpen={openPostId === post.cpost_id}
+                  onToggle={() => handleToggle(post.cpost_id)}
+                  onDeleteClick={handleDeletePostClick} 
+                  onDeleteComment={handleDeleteCommentClick} // 3. ส่งฟังก์ชันลบคอมเมนต์ไปให้ลูก
+                />
+              ))}
             </div>
-          </aside>
+          )}
         </div>
       </main>
 

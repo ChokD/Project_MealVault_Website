@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { API_URL, IMAGE_URL } from '../config/api';
 
 // Component สำหรับการ์ดเมนูแต่ละอัน
 function RecipeCard({ recipe }) {
@@ -35,7 +34,7 @@ function Recommended() {
       setLoading(true);
       try {
         // ดึงเมนูทั้งหมดจาก API ใหม่ แล้วสุ่มเลือก 6 เมนู
-        const response = await fetch(`${API_URL}/thai-food/filter.php`);
+        const response = await fetch('http://localhost:3000/api/thai-food/filter.php');
         const data = await response.json();
         const allMenus = data.meals || [];
         

@@ -36,18 +36,14 @@ create table if not exists "PostLike" (
 );
 
 -- ============================================
--- 4. สร้างตาราง CommunityReport (รายงานโพสต์และคอมเมนต์)
+-- 4. สร้างตาราง CommunityReport (รายงานโพสต์)
 -- ============================================
 create table if not exists "CommunityReport" (
   creport_id text primary key,
-  creport_type text not null,
-  creport_reason text,
-  creport_details text,
+  creport_reason text not null,
   creport_datetime timestamptz default now(),
   cpost_id text references "CommunityPost"(cpost_id) on delete cascade,
-  comment_id text references "CommunityComment"(comment_id) on delete cascade,
-  user_id text references "User"(user_id) on delete set null,
-  check (cpost_id is not null or comment_id is not null)
+  user_id text references "User"(user_id) on delete set null
 );
 
 -- ============================================
@@ -59,7 +55,6 @@ create index if not exists idx_comment_user on "CommunityComment" (user_id);
 create index if not exists idx_like_post on "PostLike" (post_id);
 create index if not exists idx_like_user on "PostLike" (user_id);
 create index if not exists idx_report_post on "CommunityReport" (cpost_id);
-create index if not exists idx_report_comment on "CommunityReport" (comment_id);
 
 -- ============================================
 -- 6. ตั้งค่า Row Level Security (RLS)
