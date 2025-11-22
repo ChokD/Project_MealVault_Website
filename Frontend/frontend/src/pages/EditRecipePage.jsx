@@ -2,8 +2,8 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
+import { API_URL, IMAGE_URL } from '../config/api';
 
-const API_URL = 'http://localhost:3000/api';
 const emptyIngredient = { name: '', amount: '' };
 const emptyStep = { detail: '' };
 
@@ -66,7 +66,7 @@ function EditRecipePage() {
           : [emptyStep]);
         setCurrentImage(data.recipe_image ? (data.recipe_image.startsWith('http')
           ? data.recipe_image
-          : `http://localhost:3000/images/${data.recipe_image}`) : null);
+          : `${IMAGE_URL}/${data.recipe_image}`) : null);
       } catch (err) {
         setError(err.message);
       } finally {

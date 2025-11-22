@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import SuccessAnimation from '../components/SuccessAnimation';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function CreatePostPage() {
   const { token, user } = useContext(AuthContext);
@@ -68,7 +69,7 @@ function CreatePostPage() {
     images.forEach(file => formData.append('cpost_images', file));
 
     try {
-      const response = await fetch('http://localhost:3000/api/posts', {
+      const response = await fetch(`${API_URL}/posts`, {
         method: 'POST',
         headers: {
           // ไม่ต้องใส่ 'Content-Type' ตอนส่ง FormData

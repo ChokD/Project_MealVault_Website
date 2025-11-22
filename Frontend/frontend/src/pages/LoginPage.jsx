@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import SuccessAnimation from '../components/SuccessAnimation';
 import TermsModal from '../components/TermsModal';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function LoginPage() {
   // --- ส่วนที่เพิ่มเข้ามา: State ที่จำเป็นสำหรับฟอร์ม ---
@@ -60,7 +61,7 @@ function LoginPage() {
         throw new Error('ไม่สามารถรับข้อมูลจาก Google ได้');
       }
 
-      const response = await fetch('http://localhost:3000/api/auth/google', {
+      const response = await fetch(`${API_URL}/auth/google`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +91,7 @@ function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/api/login', {
+      const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

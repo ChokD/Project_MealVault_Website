@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import RecipeCard from '../components/RecipeCard'; // ใช้ RecipeCard เดิม
 import { AuthContext } from '../context/AuthContext';
+import { API_URL } from '../config/api';
 
 function SearchPage() {
   const [searchParams] = useSearchParams();
@@ -22,7 +23,7 @@ function SearchPage() {
     const fetchRecipes = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`http://localhost:3000/api/thai-food/filter.php?i=${query}`);
+        const response = await fetch(`${API_URL}/thai-food/filter.php?i=${query}`);
         const data = await response.json();
         const resultCount = data.meals ? data.meals.length : 0;
         setRecipes(data.meals || []);
@@ -30,7 +31,7 @@ function SearchPage() {
         // Track search behavior
         if (token) {
           try {
-            await fetch('http://localhost:3000/api/behavior/search', {
+            await fetch(`${API_URL}/behavior/search`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,

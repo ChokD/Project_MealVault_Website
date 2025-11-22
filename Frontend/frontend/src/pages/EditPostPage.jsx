@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import SuccessAnimation from '../components/SuccessAnimation';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function EditPostPage() {
   const { id } = useParams();
@@ -34,7 +35,7 @@ function EditPostPage() {
       }
 
       try {
-        const response = await fetch(`http://localhost:3000/api/posts/${id}`, {
+        const response = await fetch(`${API_URL}/posts/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -111,7 +112,7 @@ function EditPostPage() {
     newImages.forEach(file => formData.append('cpost_images', file));
 
     try {
-      const response = await fetch(`http://localhost:3000/api/posts/${id}`, {
+      const response = await fetch(`${API_URL}/posts/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -189,7 +190,7 @@ function EditPostPage() {
                       {existingImages.map((filename) => (
                         <div key={filename} className="relative rounded-xl overflow-hidden border border-gray-200">
                           <img
-                            src={`http://localhost:3000/images/${filename}`}
+                            src={`${IMAGE_URL}/${filename}`}
                             alt="โพสต์"
                             className="w-full h-32 object-cover"
                           />

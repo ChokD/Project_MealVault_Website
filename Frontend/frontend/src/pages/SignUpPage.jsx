@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import SuccessAnimation from '../components/SuccessAnimation';
+import { API_URL } from '../config/api';
 
 function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -77,7 +78,7 @@ function SignUpPage() {
         favorite_foods: formData.favorite_foods ? formData.favorite_foods.trim() : null,
       };
 
-      const response = await fetch('http://localhost:3000/api/register', {
+      const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData),

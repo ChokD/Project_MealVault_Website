@@ -5,6 +5,7 @@ import TwitterPostCard from '../components/TwitterPostCard';
 import { AuthContext } from '../context/AuthContext';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SuccessAnimation from '../components/SuccessAnimation';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function CommunityPage() {
   const [posts, setPosts] = useState([]);
@@ -24,7 +25,7 @@ function CommunityPage() {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/posts');
+      const response = await fetch(`${API_URL}/posts`);
       const data = await response.json();
       setPosts(data);
     } catch (error) {
@@ -82,8 +83,8 @@ function CommunityPage() {
     
     // ใช้ route ใหม่สำหรับลบคอมเมนต์ (รองรับทั้งเจ้าของและ Admin)
     const url = type === 'post' 
-      ? `http://localhost:3000/api/posts/${id}`
-      : `http://localhost:3000/api/posts/comments/${id}`;
+      ? `${API_URL}/posts/${id}`
+      : `${API_URL}/posts/comments/${id}`;
     
     try {
       const response = await fetch(url, {

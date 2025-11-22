@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function ChipInput({ label, placeholder, values, setValues }) {
   const [input, setInput] = useState('');
@@ -53,7 +54,7 @@ function MenuSuggestion() {
     setResults([]);
     setLoading(true);
     try {
-      const resp = await fetch('http://localhost:3000/api/menus/suggest', {
+      const resp = await fetch(`${API_URL}/menus/suggest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ likes, allergies })

@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import SuccessAnimation from '../components/SuccessAnimation';
-
-const API_URL = 'http://localhost:3000/api';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function EditProfilePage() {
   const { token, user } = useContext(AuthContext);

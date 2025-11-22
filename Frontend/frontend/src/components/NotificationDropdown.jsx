@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function NotificationDropdown() {
   const { token, user } = useContext(AuthContext);
@@ -17,7 +18,7 @@ function NotificationDropdown() {
 
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:3000/api/notifications', {
+      const response = await fetch(`${API_URL}/notifications`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -36,7 +37,7 @@ function NotificationDropdown() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api/notifications/unread-count', {
+      const response = await fetch(`${API_URL}/notifications/unread-count`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -53,7 +54,7 @@ function NotificationDropdown() {
     if (!token) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });

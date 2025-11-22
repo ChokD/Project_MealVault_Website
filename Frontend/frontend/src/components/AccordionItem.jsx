@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import ReportModal from './ReportModal';
 import { useNavigate } from 'react-router-dom';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 // --- ฟอร์มคอมเมนต์ (เหมือนเดิม) ---
 function CommentForm({ postId, onCommentAdded }) {
@@ -17,7 +18,7 @@ function CommentForm({ postId, onCommentAdded }) {
     if (!content.trim()) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/posts/${postId}/comments`, {
+      const response = await fetch(`${API_URL}/posts/${postId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ comment_content: content }),
@@ -78,7 +79,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
         setIsLoading(true);
         try {
           const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-          const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, { headers });
+          const response = await fetch(`${API_URL}/posts/${post.cpost_id}`, { headers });
           if (!response.ok) {
             throw new Error('Failed to fetch post details');
           }
@@ -154,7 +155,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
     setLikeCount(prev => (originalLiked ? prev - 1 : prev + 1));
 
     try {
-      await fetch(`http://localhost:3000/api/posts/${post.cpost_id}/like`, {
+      await fetch(`${API_URL}/posts/${post.cpost_id}/like`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -169,7 +170,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
     // Re-fetch post details เพื่อให้ได้ข้อมูลคอมเมนต์ที่ถูกต้องจาก backend
     if (isOpen && token) {
       try {
-        const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, {
+        const response = await fetch(`${API_URL}/posts/${post.cpost_id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -422,7 +423,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                     if (mediaList.length === 1) {
                       const src = mediaList[0].startsWith('http')
                         ? mediaList[0]
-                        : `http://localhost:3000/images/${mediaList[0]}`;
+                        : `${IMAGE_URL}/${mediaList[0]}`;
                       return (
                         <div className="mb-6 rounded-lg overflow-hidden shadow-sm">
                           <img
@@ -438,7 +439,7 @@ function AccordionItem({ post, isOpen, onToggle, onDeleteClick, onDeleteComment,
                       <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
                         <div className={`grid gap-3 p-3 ${mediaList.length === 2 ? 'grid-cols-2' : 'grid-cols-2 auto-rows-[160px]'}`}>
                           {mediaList.slice(0, 4).map((image, idx) => {
-                            const src = image.startsWith('http') ? image : `http://localhost:3000/images/${image}`;
+                            const src = image.startsWith('http') ? image : `${IMAGE_URL}/${image}`;
                             const isFirstLarge = mediaList.length === 3 && idx === 0;
                             const isLastOverlay = mediaList.length > 4 && idx === 3;
                             return (

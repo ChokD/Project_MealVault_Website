@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PostCard from './PostCard'; // นำเข้าการ์ดที่เราเพิ่งสร้าง
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function UserPosts() {
   const [latestPosts, setLatestPosts] = useState([]);
@@ -15,7 +16,7 @@ function UserPosts() {
       setLoading(true);
       try {
         // ดึงข้อมูลโพสต์จาก API ของเราเอง
-        const response = await fetch('http://localhost:3000/api/posts');
+        const response = await fetch(`${API_URL}/posts`);
         const data = await response.json();
         // นำมาแค่ 6 โพสต์ล่าสุดเพื่อทำสไลด์โชว์ 2 หน้า
         setLatestPosts(data.slice(0, 6)); 

@@ -5,8 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 import AddMenuModal from '../components/AddMenuModal';
 import ReportModal from '../components/ReportModal';
 import ConfirmationModal from '../components/ConfirmationModal';
-
-const API_URL = 'http://localhost:3000/api';
+import { API_URL, IMAGE_URL } from '../config/api';
 const ALL_CATEGORY = 'ALL';
 const UNCATEGORIZED = 'UNCATEGORIZED';
 
@@ -28,7 +27,7 @@ function RecipeCard({ recipe, token, user, onDelete, onReport, recipeRef, isHigh
   const recipeImages = (recipe.cpost_images && recipe.cpost_images.length > 0) ? recipe.cpost_images : [];
   const coverImage = recipeImages.length > 0 ? recipeImages[0] : recipe.cpost_image;
   const imageSrc = coverImage
-    ? (coverImage.startsWith('http') ? coverImage : `http://localhost:3000/images/${coverImage}`)
+    ? (coverImage.startsWith('http') ? coverImage : `${IMAGE_URL}/${coverImage}`)
     : 'https://via.placeholder.com/400x260.png?text=MealVault';
   const summary = recipe.cpost_content || recipe.recipe?.recipe_summary || 'ยังไม่มีคำอธิบายสูตรอาหารนี้';
   const [likeCount, setLikeCount] = useState(recipe.like_count || 0);
@@ -257,7 +256,7 @@ function RecipeCard({ recipe, token, user, onDelete, onReport, recipeRef, isHigh
 function MenuCard({ menu, categoryName, token, user }) {
   const navigate = useNavigate();
   const imageSrc = menu.menu_image
-    ? (menu.menu_image.startsWith('http') ? menu.menu_image : `http://localhost:3000/images/${menu.menu_image}`)
+    ? (menu.menu_image.startsWith('http') ? menu.menu_image : `${IMAGE_URL}/${menu.menu_image}`)
     : 'https://via.placeholder.com/400x260.png?text=MealVault';
   const summary = menu.menu_description || menu.menu_recipe || 'ยังไม่มีคำอธิบายเมนูนี้';
   const [likeCount, setLikeCount] = useState(menu.menu_like_count || 0);

@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 const emptyIngredient = { name: '', amount: '' };
 const emptyStep = { detail: '' };
@@ -60,7 +61,7 @@ function CreateRecipePage() {
     setPlagiarismWarning(null);
     
     try {
-      const response = await fetch('http://localhost:3000/api/plagiarism/check-recipe', {
+      const response = await fetch(`${API_URL}/plagiarism/check-recipe`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -139,7 +140,7 @@ function CreateRecipePage() {
         formData.append('recipe_image', imageFile);
       }
 
-      const response = await fetch('http://localhost:3000/api/recipes', {
+      const response = await fetch(`${API_URL}/recipes`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`

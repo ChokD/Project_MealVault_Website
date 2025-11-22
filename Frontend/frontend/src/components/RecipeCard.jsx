@@ -1,10 +1,10 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
-const API_URL = 'http://localhost:3000/api';
 
 async function fetchPlanFromAPI(token) {
   try {

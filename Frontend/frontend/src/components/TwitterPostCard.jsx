@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import ReportModal from './ReportModal';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedCommentId, isReported }) {
   const [details, setDetails] = useState(null);
@@ -27,7 +28,7 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
       setIsLoading(true);
       try {
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, { headers });
+        const response = await fetch(`${API_URL}/posts/${post.cpost_id}`, { headers });
         if (!response.ok) {
           throw new Error('Failed to fetch post details');
         }
@@ -84,7 +85,7 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
     setLikeCount(prev => (originalLiked ? prev - 1 : prev + 1));
 
     try {
-      await fetch(`http://localhost:3000/api/posts/${post.cpost_id}/like`, {
+      await fetch(`${API_URL}/posts/${post.cpost_id}/like`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -135,7 +136,7 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
     // Re-fetch post details
     if (token) {
       try {
-        const response = await fetch(`http://localhost:3000/api/posts/${post.cpost_id}`, {
+        const response = await fetch(`${API_URL}/posts/${post.cpost_id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -219,13 +220,13 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
   const imageList = buildImageList();
   const resolveImageUrl = (value) => {
     if (!value) return null;
-    return value.startsWith('http') ? value : `http://localhost:3000/images/${value}`;
+    return value.startsWith('http') ? value : `${IMAGE_URL}/${value}`;
   };
 
   // Avatar: prefer user's uploaded profile image, fall back to generated initials avatar
   const userImageFilename = details?.user_image || post.user_image || null;
   const avatarUrl = userImageFilename
-    ? `http://localhost:3000/images/${userImageFilename}`
+    ? `${IMAGE_URL}/${userImageFilename}`
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(post.user_fname || 'User')}&background=10b981&color=fff&size=128`;
 
   return (
@@ -570,7 +571,7 @@ function CommentForm({ postId, onCommentAdded }) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`http://localhost:3000/api/posts/${postId}/comments`, {
+      const response = await fetch(`${API_URL}/posts/${postId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ comment_content: content }),

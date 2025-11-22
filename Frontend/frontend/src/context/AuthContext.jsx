@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 export const AuthContext = createContext(null);
 
@@ -10,7 +11,7 @@ export const AuthProvider = ({ children }) => {
     const fetchUserData = async () => {
       if (token) {
         try {
-          const response = await fetch('http://localhost:3000/api/me', {
+          const response = await fetch(`${API_URL}/me`, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
@@ -53,7 +54,7 @@ export const AuthProvider = ({ children }) => {
   const refreshUser = async () => {
     if (token) {
       try {
-        const response = await fetch('http://localhost:3000/api/me', {
+        const response = await fetch(`${API_URL}/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

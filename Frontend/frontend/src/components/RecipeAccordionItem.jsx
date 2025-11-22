@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function RecipeAccordionItem({ recipe, isOpen, onToggle }) {
   const [details, setDetails] = useState(null);
@@ -10,7 +11,7 @@ function RecipeAccordionItem({ recipe, isOpen, onToggle }) {
     const fetchRecipeDetails = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`http://localhost:3000/api/thai-food/lookup.php?i=${recipe.idMeal}`);
+        const response = await fetch(`${API_URL}/thai-food/lookup.php?i=${recipe.idMeal}`);
         const data = await response.json();
         setDetails(data.meals ? data.meals[0] : null);
       } catch (error) {

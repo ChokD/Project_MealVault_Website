@@ -2,8 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
-
-const API_URL = 'http://localhost:3000/api';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function ProfilePage() {
   const { token, user, refreshUser } = useContext(AuthContext);
@@ -144,7 +143,7 @@ function ProfilePage() {
               <div className="relative group">
                 {user?.user_image ? (
                   <img
-                    src={`http://localhost:3000/images/${user.user_image}`}
+                    src={`${IMAGE_URL}/${user.user_image}`}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                     onError={(e) => {
@@ -267,7 +266,7 @@ function ProfilePage() {
                                     if (!previewImage) return null;
                                     const previewUrl = previewImage.startsWith('http')
                                       ? previewImage
-                                      : `http://localhost:3000/images/${previewImage}`;
+                                      : `${IMAGE_URL}/${previewImage}`;
                                     return (
                                       <img
                                         src={previewUrl}
@@ -350,7 +349,7 @@ function ProfilePage() {
                           const targetId = isRecipe ? item.recipe_id : item.menu_id;
                           const linkTo = `/menus/${targetId}`;
                           const imageSrc = item.menu_image
-                            ? (item.menu_image.startsWith('http') ? item.menu_image : `http://localhost:3000/images/${item.menu_image}`)
+                            ? (item.menu_image.startsWith('http') ? item.menu_image : `${IMAGE_URL}/${item.menu_image}`)
                             : '/images/no-image.png';
 
                           return (

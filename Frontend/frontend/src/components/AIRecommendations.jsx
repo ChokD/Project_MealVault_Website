@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-
-const API_URL = 'http://localhost:3000/api';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function AIRecommendations() {
   const { token, user } = useContext(AuthContext);
@@ -127,7 +126,7 @@ function AIRecommendations() {
                 <img
                   src={rec.menu_image.startsWith('http') 
                     ? rec.menu_image 
-                    : `http://localhost:3000/images/${rec.menu_image}`}
+                    : `${IMAGE_URL}/${rec.menu_image}`}
                   alt={rec.menu_name}
                   className="w-20 h-20 rounded-xl object-cover"
                 />

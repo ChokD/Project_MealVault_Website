@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function ReportModal({ isOpen, onClose, cpostId, commentId, recipeId, onReportSubmitted }) {
   const { token } = useContext(AuthContext);
@@ -14,7 +15,7 @@ function ReportModal({ isOpen, onClose, cpostId, commentId, recipeId, onReportSu
   useEffect(() => {
     const fetchReportTypes = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/reports/types');
+        const response = await fetch(`${API_URL}/reports/types`);
         if (!response.ok) throw new Error('Failed to fetch report types');
         const data = await response.json();
         setReportTypes(data);
@@ -59,7 +60,7 @@ function ReportModal({ isOpen, onClose, cpostId, commentId, recipeId, onReportSu
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/reports', {
+      const response = await fetch(`${API_URL}/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

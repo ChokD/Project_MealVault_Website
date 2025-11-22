@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function AddMenuModal({ isOpen, onClose, onSuccess, token, categories }) {
   const [formData, setFormData] = useState({
@@ -50,7 +51,7 @@ function AddMenuModal({ isOpen, onClose, onSuccess, token, categories }) {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/menus', {
+      const response = await fetch(`${API_URL}/menus`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

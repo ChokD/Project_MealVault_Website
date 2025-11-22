@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function UserProfilePage() {
   const { userId } = useParams();
@@ -17,9 +18,9 @@ function UserProfilePage() {
       setError('');
       try {
         const [profileResp, postsResp, recipesResp] = await Promise.all([
-          fetch(`http://localhost:3000/api/users/${userId}/public-profile`),
-          fetch(`http://localhost:3000/api/users/${userId}/posts`),
-          fetch(`http://localhost:3000/api/users/${userId}/recipes`)
+          fetch(`${API_URL}/users/${userId}/public-profile`),
+          fetch(`${API_URL}/users/${userId}/posts`),
+          fetch(`${API_URL}/users/${userId}/recipes`)
         ]);
 
         if (profileResp.status === 404) {
@@ -77,7 +78,7 @@ function UserProfilePage() {
               <div className="bg-white rounded-2xl shadow-lg p-8 mb-10 flex items-center gap-6">
                 {profile.user_image ? (
                   <img
-                    src={`http://localhost:3000/images/${profile.user_image}`}
+                    src={`${IMAGE_URL}/${profile.user_image}`}
                     alt={profile.user_fname}
                     className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                   />
@@ -127,7 +128,7 @@ function UserProfilePage() {
                             >
                               <div className="relative">
                                 <img
-                                  src={recipe.recipe_image ? `http://localhost:3000/images/${recipe.recipe_image}` : '/images/no-image.png'}
+                                  src={recipe.recipe_image ? `${IMAGE_URL}/${recipe.recipe_image}` : '/images/no-image.png'}
                                   alt={recipe.recipe_title}
                                   className="w-full h-36 object-cover"
                                   onError={(e) => { e.currentTarget.src = '/images/no-image.png'; }}

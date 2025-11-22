@@ -2,10 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import ClearPlanModal from '../components/ClearPlanModal';
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
-const API_URL = 'http://localhost:3000/api';
+import { API_URL } from '../config/api';
 
 function createEmptyPlan() {
   const plan = {};

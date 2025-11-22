@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function NotificationsPage() {
   const { token, user } = useContext(AuthContext);
@@ -19,7 +20,7 @@ function NotificationsPage() {
 
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:3000/api/notifications', {
+      const response = await fetch(`${API_URL}/notifications`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -38,7 +39,7 @@ function NotificationsPage() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api/notifications/unread-count', {
+      const response = await fetch(`${API_URL}/notifications/unread-count`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -55,7 +56,7 @@ function NotificationsPage() {
     if (!token) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -80,7 +81,7 @@ function NotificationsPage() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api/notifications/read-all', {
+      const response = await fetch(`${API_URL}/notifications/read-all`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });

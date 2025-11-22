@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function PostCard({ post }) {
   if (!post) return null;
@@ -10,7 +11,7 @@ function PostCard({ post }) {
 
   const hasImage = !!primaryImage;
   const imageUrl = primaryImage
-    ? (primaryImage.startsWith('http') ? primaryImage : `http://localhost:3000/images/${primaryImage}`)
+    ? (primaryImage.startsWith('http') ? primaryImage : `${IMAGE_URL}/${primaryImage}`)
     : null;
 
   const navigate = useNavigate();

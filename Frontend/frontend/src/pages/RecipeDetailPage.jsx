@@ -4,10 +4,7 @@ import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import ConfirmationModal from '../components/ConfirmationModal';
 import ReportModal from '../components/ReportModal';
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
-const API_URL = 'http://localhost:3000/api';
+import { API_URL, IMAGE_URL } from '../config/api';
 
 async function fetchPlanFromAPI(token) {
   try {
@@ -117,7 +114,7 @@ function RecipeDetailPage() {
             strMealThumb: userRecipe.recipe_image 
               ? (userRecipe.recipe_image.startsWith('http') 
                   ? userRecipe.recipe_image 
-                  : `http://localhost:3000/images/${userRecipe.recipe_image}`)
+                  : `${IMAGE_URL}/${userRecipe.recipe_image}`)
               : null,
             strInstructions: userRecipe.steps 
               ? userRecipe.steps.map((step, idx) => `${idx + 1}. ${step.detail || step}`).join('\n\n')
@@ -138,7 +135,7 @@ function RecipeDetailPage() {
           setLiked(userRecipe.isLiked || false);
         } else {
           // ดึงเมนูจากระบบ (Thai Food API)
-          const response = await fetch(`http://localhost:3000/api/thai-food/lookup.php?i=${recipeId}`);
+          const response = await fetch(`${API_URL}/thai-food/lookup.php?i=${recipeId}`);
           const data = await response.json();
           setRecipe(data.meals ? data.meals[0] : null);
         }
@@ -510,7 +507,7 @@ function RecipeDetailPage() {
                 src={
                   recipe.strMealThumb.startsWith('http') 
                     ? recipe.strMealThumb 
-                    : `http://localhost:3000/images/${recipe.strMealThumb}`
+                    : `${IMAGE_URL}/${recipe.strMealThumb}`
                 } 
                 alt={recipe.strMeal} 
                 className="w-full rounded-lg mb-6 shadow-md" 
