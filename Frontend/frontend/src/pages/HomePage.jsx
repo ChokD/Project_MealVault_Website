@@ -1,8 +1,10 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
+import MenuSuggestion from '../components/MenuSuggestion';
 import Recommended from '../components/Recommended';
 import UserPosts from '../components/UserPosts';
+import AIRecommendations from '../components/AIRecommendations';
 
 function HomePage() {
   return (
@@ -16,9 +18,17 @@ function HomePage() {
             <Hero />
           </div>
           
-          {/* Recommended Section with modern card design */}
+          {/* AI Recommendations - personalized based on behavior */}
+          <div className="mb-16">
+            <AIRecommendations />
+          </div>
+          
+          {/* Recommended on top, AI Suggestion below */}
           <div className="mb-16">
             <Recommended />
+          </div>
+          <div className="mb-16">
+            <MenuSuggestion />
           </div>
           
           {/* User Posts Section */}

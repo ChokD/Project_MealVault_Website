@@ -69,7 +69,7 @@ router.post('/menus', authMiddleware, async (req, res) => {
     }
 
     // 2. ถ้าเป็น Admin ให้ทำการเพิ่มเมนูใหม่
-    const { menu_name, menu_description, menu_recipe, menu_image, category_id } = req.body;
+    const { menu_name, menu_description, menu_recipe, menu_image, category_id, menu_source, menu_source_url } = req.body;
 
     if (!menu_name || !menu_description || !menu_recipe) {
       return res.status(400).json({ message: 'กรุณากรอกข้อมูลเมนูให้ครบถ้วน' });
@@ -83,7 +83,9 @@ router.post('/menus', authMiddleware, async (req, res) => {
       menu_image: menu_image || 'default.jpg', // ใส่รูปภาพ default ถ้าไม่มี
       menu_datetime: new Date(),
       user_id: adminId, // บันทึกว่า Admin คนไหนเป็นคนสร้าง
-      category_id
+      category_id,
+      menu_source: menu_source || null,
+      menu_source_url: menu_source_url || null
     };
 
     const { error } = await supabase.from('Menu').insert([newMenu]);
@@ -117,16 +119,28 @@ router.put('/menus/:id', authMiddleware, async (req, res) => {
     const { id: menuId } = req.params;
 
     // 3. ดึงข้อมูลใหม่ที่จะอัปเดตจาก Request Body
-    const { menu_name, menu_description, menu_recipe, menu_image, category_id } = req.body;
+    const { menu_name, menu_description, menu_recipe, menu_image, category_id, menu_source, menu_source_url } = req.body;
 
     if (!menu_name || !menu_description || !menu_recipe) {
       return res.status(400).json({ message: 'กรุณากรอกข้อมูลเมนูที่จำเป็นให้ครบถ้วน' });
     }
 
     // 4. เขียนคำสั่ง SQL UPDATE
+    const updateData = {
+      menu_name,
+      menu_description,
+      menu_recipe,
+      menu_image,
+      category_id
+    };
+    
+    // เพิ่ม source ถ้ามีการส่งมา
+    if (menu_source !== undefined) updateData.menu_source = menu_source;
+    if (menu_source_url !== undefined) updateData.menu_source_url = menu_source_url;
+
     const { data, error } = await supabase
       .from('Menu')
-      .update({ menu_name, menu_description, menu_recipe, menu_image, category_id })
+      .update(updateData)
       .eq('menu_id', menuId)
       .select();
     if (error) throw error;
@@ -178,6 +192,99 @@ router.delete('/menus/:id', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error deleting menu:', error);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบเมนู' });
+  }
+});
+
+// --- Menu Like Routes ---
+
+// GET /api/menus/:id/likes - สถานะการกดไลค์ของเมนู
+router.get('/menus/:id/likes', authMiddleware, async (req, res) => {
+  const { id: menuId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { data: menuData, error: menuErr } = await supabase
+      .from('Menu')
+      .select('menu_like_count')
+      .eq('menu_id', menuId)
+      .limit(1);
+    if (menuErr) throw menuErr;
+    if (!menuData || menuData.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบเมนู' });
+    }
+
+    const { data: likeData, error: likeErr } = await supabase
+      .from('MenuLike')
+      .select('id')
+      .eq('menu_id', menuId)
+      .eq('user_id', userId)
+      .limit(1);
+    if (likeErr) throw likeErr;
+
+    res.json({
+      like_count: menuData[0].menu_like_count || 0,
+      liked: !!(likeData && likeData.length > 0)
+    });
+  } catch (error) {
+    console.error('Error fetching menu likes:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลไลค์เมนู' });
+  }
+});
+
+// POST /api/menus/:id/like - toggle like
+router.post('/menus/:id/like', authMiddleware, async (req, res) => {
+  const { id: menuId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { data: existingLike, error: likeErr } = await supabase
+      .from('MenuLike')
+      .select('*')
+      .eq('menu_id', menuId)
+      .eq('user_id', userId)
+      .limit(1);
+    if (likeErr) throw likeErr;
+
+    const { data: menuData, error: menuErr } = await supabase
+      .from('Menu')
+      .select('menu_like_count')
+      .eq('menu_id', menuId)
+      .limit(1);
+    if (menuErr) throw menuErr;
+    if (!menuData || menuData.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบเมนู' });
+    }
+
+    let newCount = menuData[0].menu_like_count || 0;
+    let liked = false;
+
+    if (existingLike && existingLike.length > 0) {
+      const { error: deleteErr } = await supabase
+        .from('MenuLike')
+        .delete()
+        .eq('menu_id', menuId)
+        .eq('user_id', userId);
+      if (deleteErr) throw deleteErr;
+      newCount = Math.max(0, newCount - 1);
+    } else {
+      const { error: insertErr } = await supabase
+        .from('MenuLike')
+        .insert([{ menu_id: menuId, user_id: userId }]);
+      if (insertErr) throw insertErr;
+      newCount += 1;
+      liked = true;
+    }
+
+    const { error: updateErr } = await supabase
+      .from('Menu')
+      .update({ menu_like_count: newCount })
+      .eq('menu_id', menuId);
+    if (updateErr) throw updateErr;
+
+    res.json({ like_count: newCount, liked });
+  } catch (error) {
+    console.error('Error toggling menu like:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการกดไลค์เมนู' });
   }
 });
 

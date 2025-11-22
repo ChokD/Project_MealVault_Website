@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import RecipeCard from '../components/RecipeCard'; // เราจะใช้ RecipeCard เดิมที่สวยงามของเรา
+import { API_URL, IMAGE_URL } from '../config/api';
 
 function MealDbSearchPage() {
   const [searchParams] = useSearchParams();
@@ -21,7 +22,7 @@ function MealDbSearchPage() {
       setLoading(true);
       try {
         // ยิง API ไปที่ API ใหม่เพื่อกรองด้วยวัตถุดิบ
-        const response = await fetch(`http://localhost:3000/api/thai-food/filter.php?i=${query}`);
+        const response = await fetch(`${API_URL}/thai-food/filter.php?i=${query}`);
         const data = await response.json();
         setRecipes(data.meals || []);
       } catch (error) {
