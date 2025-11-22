@@ -206,7 +206,7 @@ function LoginPage() {
                   </div>
                   {isGoogleEnabled ? (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-center gap-2 text-sm text-gray-600 flex-wrap">
+                      <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
                         <input
                           id="terms-checkbox"
                           type="checkbox"
@@ -214,7 +214,7 @@ function LoginPage() {
                           onChange={handleCheckboxToggle}
                           className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 cursor-pointer"
                         />
-                        <label htmlFor="terms-checkbox" className="flex items-center gap-1 text-sm">
+                        <label htmlFor="terms-checkbox" className="flex items-center gap-1">
                           ฉันยอมรับ
                           <button
                             type="button"
@@ -226,8 +226,9 @@ function LoginPage() {
                         </label>
                       </div>
                       <div className="flex justify-center">
-                        <div className={`relative w-full max-w-[220px] sm:max-w-[260px] transition duration-200 ${!hasAcceptedTerms ? 'opacity-40' : ''}`} style={{overflow: 'hidden'}}>
+                        <div className={`relative w-full max-w-xs transition duration-200 ${!hasAcceptedTerms ? 'opacity-40' : ''}`}>
                           <GoogleLogin
+                            width="300"
                             onSuccess={handleGoogleSuccess}
                             onError={handleGoogleError}
                             text="signin_with"
