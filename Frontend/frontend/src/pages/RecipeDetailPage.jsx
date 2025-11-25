@@ -190,6 +190,7 @@ function RecipeDetailPage() {
 
   // ตรวจสอบว่าเป็นเจ้าของสูตรหรือไม่
   const isOwner = recipe?.isUserRecipe && recipe?.user_id && user?.user_id === recipe.user_id;
+  const isAdmin = user?.user_role === 'admin';
 
   // ฟังก์ชันสำหรับกด like/unlike สูตรอาหาร
   const handleToggleLike = async () => {
@@ -337,17 +338,19 @@ function RecipeDetailPage() {
                   
                   {token && (
                     <>
-                      {isOwner && (
+                      {(isOwner || isAdmin) && (
                         <>
-                          <button
-                            onClick={() => navigate(`/menus/${recipeId}/edit`)}
-                            className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4l10.768-10.768a1 1 0 000-1.414l-2.586-2.586a1 1 0 00-1.414 0L4 16v4z" />
-                            </svg>
-                            แก้ไขสูตรอาหาร
-                          </button>
+                          {isOwner && (
+                            <button
+                              onClick={() => navigate(`/menus/${recipeId}/edit`)}
+                              className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 20h4l10.768-10.768a1 1 0 000-1.414l-2.586-2.586a1 1 0 00-1.414 0L4 16v4z" />
+                              </svg>
+                              แก้ไขสูตรอาหาร
+                            </button>
+                          )}
                           <button
                             onClick={() => setIsDeleteModalOpen(true)}
                             disabled={deleting}
@@ -360,7 +363,7 @@ function RecipeDetailPage() {
                           </button>
                         </>
                       )}
-                      {!isOwner && (
+                      {!isOwner && !isAdmin && (
                         <button
                           onClick={() => setIsReportModalOpen(true)}
                           className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"

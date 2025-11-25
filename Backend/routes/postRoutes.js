@@ -1002,6 +1002,7 @@ router.delete('/recipes/:recipeId', authMiddleware, async (req, res) => {
   try {
     const { recipeId } = req.params;
     const loggedInUserId = req.user.id;
+    const isAdmin = req.user.user_role === 'admin';
 
     if (!supabase) {
       console.error('Supabase client is not initialized');
@@ -1019,8 +1020,8 @@ router.delete('/recipes/:recipeId', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'ไม่พบสูตรอาหารนี้' });
     }
 
-    // ตรวจสอบว่าเป็นเจ้าของสูตรหรือไม่
-    if (recipe.user_id !== loggedInUserId) {
+    // ตรวจสอบว่าเป็นเจ้าของสูตรหรือเป็น admin
+    if (recipe.user_id !== loggedInUserId && !isAdmin) {
       return res.status(403).json({ message: 'คุณไม่มีสิทธิ์ลบสูตรอาหารนี้' });
     }
 
@@ -1035,7 +1036,7 @@ router.delete('/recipes/:recipeId', authMiddleware, async (req, res) => {
       throw delErr;
     }
 
-    console.log(`Recipe deleted successfully: ${recipeId}`);
+    console.log(`Recipe deleted successfully: ${recipeId} by ${isAdmin ? 'admin' : 'owner'}`);
     res.json({ message: 'ลบสูตรอาหารสำเร็จ' });
   } catch (error) {
     console.error('Error deleting recipe:', error);
