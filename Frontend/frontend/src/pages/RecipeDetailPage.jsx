@@ -190,7 +190,7 @@ function RecipeDetailPage() {
 
   // ตรวจสอบว่าเป็นเจ้าของสูตรหรือไม่
   const isOwner = recipe?.isUserRecipe && recipe?.user_id && user?.user_id === recipe.user_id;
-  const isAdmin = user?.user_role === 'admin';
+  const isAdmin = user?.isAdmin === true;
 
   // ฟังก์ชันสำหรับกด like/unlike สูตรอาหาร
   const handleToggleLike = async () => {

@@ -159,6 +159,15 @@ router.post('/login', async (req, res) => {
     
     console.log(`✅ Login successful for user: ${user_email}\n`);
 
+    // ตรวจสอบว่าเป็น admin หรือไม่
+    const { data: adminCheck } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', user.user_id)
+      .limit(1);
+    
+    const isAdmin = adminCheck && adminCheck.length > 0;
+
     // ตรวจสอบว่า JWT_SECRET ถูกตั้งค่าไว้
     if (!process.env.JWT_SECRET) {
       console.error('❌ JWT_SECRET is not set in .env file');
@@ -170,7 +179,8 @@ router.post('/login', async (req, res) => {
     const payload = {
       user: {
         id: user.user_id,
-        email: user.user_email
+        email: user.user_email,
+        user_role: isAdmin ? 'admin' : 'user'
       }
     };
 
@@ -248,10 +258,20 @@ router.post('/auth/google', async (req, res) => {
       isNewUser = true;
     }
 
+    // ตรวจสอบว่าเป็น admin หรือไม่
+    const { data: adminCheck } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', user.user_id)
+      .limit(1);
+    
+    const isAdmin = adminCheck && adminCheck.length > 0;
+
     const payloadToken = {
       user: {
         id: user.user_id,
         email: user.user_email,
+        user_role: isAdmin ? 'admin' : 'user'
       },
     };
 
