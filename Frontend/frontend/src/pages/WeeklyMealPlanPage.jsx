@@ -289,10 +289,10 @@ function WeeklyMealPlanPage() {
     }
   };
 
-  const printShoppingList = () => {
+  const downloadShoppingList = () => {
     const hasItems = Object.values(shopping).some(dayList => dayList.length > 0);
     if (!hasItems) {
-      alert('ยังไม่มีรายการของซื้อ กรุณาสร้างรายการก่อน');
+      alert('ยังไม่มีรายการซื้อของ กรุณาสร้างรายการก่อน');
       return;
     }
 
@@ -330,7 +330,7 @@ function WeeklyMealPlanPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>รายการของซื้อ - MealVault</title>
+          <title>รายการซื้อของ - MealVault</title>
           <style>
             @media print {
               @page {
@@ -404,7 +404,7 @@ function WeeklyMealPlanPage() {
           </style>
         </head>
         <body>
-          <h1>รายการของซื้อ</h1>
+          <h1>รายการซื้อของ</h1>
           <div class="date">วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH', { 
             year: 'numeric', 
             month: 'long', 
@@ -431,7 +431,7 @@ function WeeklyMealPlanPage() {
   const saveShoppingList = () => {
     const hasItems = Object.values(shopping).some(dayList => dayList.length > 0);
     if (!hasItems) {
-      alert('ยังไม่มีรายการของซื้อ กรุณาสร้างรายการก่อน');
+      alert('ยังไม่มีรายการซื้อของ กรุณาสร้างรายการก่อน');
       return;
     }
 
@@ -452,7 +452,7 @@ function WeeklyMealPlanPage() {
     };
 
     // สร้างเนื้อหาไฟล์
-    let content = `รายการของซื้อ - MealVault\n`;
+    let content = `รายการซื้อของ - MealVault\n`;
     content += `วันที่สร้าง: ${dateStr}\n`;
     content += `${'='.repeat(40)}\n\n`;
     
@@ -479,7 +479,7 @@ function WeeklyMealPlanPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `รายการของซื้อ_${new Date().toISOString().split('T')[0]}.txt`;
+    link.download = `รายการซื้อของ_${new Date().toISOString().split('T')[0]}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -511,7 +511,7 @@ function WeeklyMealPlanPage() {
               </button>
               <button onClick={generateShoppingList} disabled={generating || !token} className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed">
                 <span className="i-heroicons-shopping-cart-20-solid" />
-                {generating ? 'กำลังสร้าง...' : 'สร้างรายการของซื้อ'}
+                {generating ? 'กำลังสร้าง...' : 'สร้างรายการซื้อของ'}
               </button>
             </div>
           </div>
@@ -556,7 +556,7 @@ function WeeklyMealPlanPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center">🛒</div>
-                <h2 className="font-semibold text-gray-900">รายการของซื้อ</h2>
+                <h2 className="font-semibold text-gray-900">รายการซื้อของ</h2>
                 {generating && <span className="text-sm text-gray-500">กำลังสร้าง...</span>}
               </div>
               {Object.values(shopping).some(dayList => dayList.length > 0) && (
@@ -585,7 +585,7 @@ function WeeklyMealPlanPage() {
               )}
             </div>
             {!Object.values(shopping).some(dayList => dayList.length > 0) ? (
-              <div className="text-gray-500 text-sm">ยังไม่มีรายการ กดปุ่ม "สร้างรายการของซื้อ" เพื่อสร้าง</div>
+              <div className="text-gray-500 text-sm">ยังไม่มีรายการ กดปุ่ม "สร้างรายการซื้อของ" เพื่อสร้าง</div>
             ) : (
               <div className="space-y-6">
                 {DAYS.map(day => {

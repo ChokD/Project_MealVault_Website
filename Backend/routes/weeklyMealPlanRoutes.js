@@ -427,7 +427,7 @@ router.get('/weekly-meal-plan/calculate-calories', authMiddleware, async (req, r
   }
 });
 
-// GET /api/weekly-meal-plan/shopping-list - สร้างรายการของซื้อจาก weekly meal plan
+// GET /api/weekly-meal-plan/shopping-list - สร้างรายการซื้อของจาก weekly meal plan
 router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -472,7 +472,7 @@ router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) =
       menuMap.set(menu.menu_id, menu);
     }
 
-    // สร้างรายการของซื้อแยกตามวัน
+    // สร้างรายการซื้อของแยกตามวัน
     const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const shoppingListByDay = {};
 
@@ -489,7 +489,7 @@ router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) =
       planByDay[item.day].push(item);
     }
 
-    // สร้างรายการของซื้อสำหรับแต่ละวัน
+    // สร้างรายการซื้อของสำหรับแต่ละวัน
     for (const day of DAYS) {
       if (!planByDay[day] || planByDay[day].length === 0) {
         continue;
@@ -535,7 +535,7 @@ router.get('/weekly-meal-plan/shopping-list', authMiddleware, async (req, res) =
     res.json(shoppingListByDay);
   } catch (error) {
     console.error('Error generating shopping list:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรายการของซื้อ' });
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างรายการซื้อของ' });
   }
 });
 
