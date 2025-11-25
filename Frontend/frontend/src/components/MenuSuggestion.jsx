@@ -112,7 +112,7 @@ function MenuSuggestion() {
               {results.map(item => (
                 <div 
                   key={item.menu_id} 
-                  onClick={() => navigate(`/recipe/${item.menu_id}`)}
+                  onClick={() => navigate(`/menus/${item.menu_id}`)}
                   className="bg-white rounded-2xl shadow-lg overflow-hidden cursor-pointer hover:shadow-xl transition-shadow duration-300"
                 >
                   <div className="relative">
