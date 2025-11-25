@@ -192,6 +192,16 @@ function RecipeDetailPage() {
   const isOwner = recipe?.isUserRecipe && recipe?.user_id && user?.user_id === recipe.user_id;
   const isAdmin = user?.isAdmin === true;
 
+  // Debug logging
+  console.log('=== Recipe Delete Permission Check ===');
+  console.log('User:', user);
+  console.log('isAdmin:', isAdmin);
+  console.log('isOwner:', isOwner);
+  console.log('recipe.user_id:', recipe?.user_id);
+  console.log('user.user_id:', user?.user_id);
+  console.log('Can delete:', isOwner || isAdmin);
+  console.log('====================================');
+
   // ฟังก์ชันสำหรับกด like/unlike สูตรอาหาร
   const handleToggleLike = async () => {
     if (!token) {
@@ -230,6 +240,12 @@ function RecipeDetailPage() {
   const handleDeleteRecipe = async () => {
     if (!token || !recipeId) return;
     
+    console.log('=== Attempting to delete recipe ===');
+    console.log('recipeId:', recipeId);
+    console.log('token exists:', !!token);
+    console.log('isAdmin:', isAdmin);
+    console.log('isOwner:', isOwner);
+    
     setDeleting(true);
     try {
       const response = await fetch(`${API_URL}/recipes/${recipeId}`, {
@@ -240,6 +256,8 @@ function RecipeDetailPage() {
       });
 
       const data = await response.json();
+      console.log('Delete response:', response.status, data);
+      
       if (!response.ok) {
         throw new Error(data.message || 'ไม่สามารถลบสูตรอาหารได้');
       }
@@ -247,6 +265,7 @@ function RecipeDetailPage() {
       alert('ลบสูตรอาหารสำเร็จ');
       navigate('/menus');
     } catch (error) {
+      console.error('Delete error:', error);
       alert('เกิดข้อผิดพลาด: ' + error.message);
     } finally {
       setDeleting(false);
