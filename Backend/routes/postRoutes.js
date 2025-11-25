@@ -997,12 +997,11 @@ router.post('/recipes/:recipeId/like', authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /api/recipes/:recipeId - ลบสูตรอาหาร (สำหรับเจ้าของสูตรเท่านั้น)
+// DELETE /api/recipes/:recipeId - ลบสูตรอาหาร (สำหรับเจ้าของสูตรหรือ Admin)
 router.delete('/recipes/:recipeId', authMiddleware, async (req, res) => {
   try {
     const { recipeId } = req.params;
     const loggedInUserId = req.user.id;
-    const isAdmin = req.user.user_role === 'admin';
 
     if (!supabase) {
       console.error('Supabase client is not initialized');
@@ -1019,6 +1018,15 @@ router.delete('/recipes/:recipeId', authMiddleware, async (req, res) => {
     if (findErr || !recipe) {
       return res.status(404).json({ message: 'ไม่พบสูตรอาหารนี้' });
     }
+
+    // ตรวจสอบว่าเป็น admin หรือไม่
+    const { data: admins, error: adminErr } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', loggedInUserId)
+      .limit(1);
+    if (adminErr) throw adminErr;
+    const isAdmin = !!(admins && admins.length > 0);
 
     // ตรวจสอบว่าเป็นเจ้าของสูตรหรือเป็น admin
     if (recipe.user_id !== loggedInUserId && !isAdmin) {
