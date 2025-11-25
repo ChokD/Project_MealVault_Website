@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_URL, IMAGE_URL } from '../config/api';
 
 function ChipInput({ label, placeholder, values, setValues }) {
@@ -43,6 +44,7 @@ function ChipInput({ label, placeholder, values, setValues }) {
 }
 
 function MenuSuggestion() {
+  const navigate = useNavigate();
   const [likes, setLikes] = useState([]);
   const [allergies, setAllergies] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -108,7 +110,11 @@ function MenuSuggestion() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {results.map(item => (
-                <div key={item.menu_id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div 
+                  key={item.menu_id} 
+                  onClick={() => navigate(`/recipe/${item.menu_id}`)}
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden cursor-pointer hover:shadow-xl transition-shadow duration-300"
+                >
                   <div className="relative">
                     <img src={item.menu_image || 'https://via.placeholder.com/400x300?text=Menu'} alt={item.menu_name} className="w-full h-48 object-cover" />
                   </div>
