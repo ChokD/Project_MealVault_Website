@@ -428,6 +428,136 @@ function WeeklyMealPlanPage() {
     }, 250);
   };
 
+  const printShoppingList = () => {
+    const hasItems = Object.values(shopping).some(dayList => dayList.length > 0);
+    if (!hasItems) {
+      alert('ยังไม่มีรายการซื้อของ กรุณาสร้างรายการก่อน');
+      return;
+    }
+
+    const dateStr = new Date().toLocaleDateString('th-TH', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric'
+    });
+
+    const dayNames = {
+      'Sun': 'อาทิตย์',
+      'Mon': 'จันทร์',
+      'Tue': 'อังคาร',
+      'Wed': 'พุธ',
+      'Thu': 'พฤหัสบดี',
+      'Fri': 'ศุกร์',
+      'Sat': 'เสาร์'
+    };
+
+    let itemsHtml = '';
+    for (const day of DAYS) {
+      if (shopping[day] && shopping[day].length > 0) {
+        itemsHtml += `
+          <div class="day-section">
+            <h2 class="day-title">วัน${dayNames[day]}</h2>
+            <ul>
+              ${shopping[day].map((item, idx) => `
+                <li>
+                  <span class="item-name">${idx + 1}. ${item.name}</span>
+                  ${item.measure ? `<span class="item-measure">(${item.measure})</span>` : ''}
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `;
+      }
+    }
+
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>รายการซื้อของ - MealVault</title>
+          <style>
+            @media print {
+              @page {
+                margin: 0.8cm;
+              }
+              * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              padding: 20px;
+              margin: 0;
+              max-width: 100%;
+            }
+            h1 {
+              color: #059669;
+              border-bottom: 2px solid #059669;
+              padding-bottom: 8px;
+              margin-top: 0;
+              margin-bottom: 12px;
+              font-size: 24px;
+            }
+            .date {
+              color: #666;
+              margin-bottom: 15px;
+              font-size: 14px;
+            }
+            .day-section {
+              margin-bottom: 25px;
+              page-break-inside: avoid;
+            }
+            .day-title {
+              color: #059669;
+              font-size: 18px;
+              margin-bottom: 8px;
+              padding-bottom: 4px;
+              border-bottom: 1px solid #ddd;
+              margin-top: 0;
+            }
+            ul {
+              list-style: none;
+              padding: 0;
+              margin: 0;
+            }
+            li {
+              padding: 6px 0;
+              border-bottom: 1px solid #eee;
+              font-size: 15px;
+            }
+            li:last-child {
+              border-bottom: none;
+            }
+            .item-name {
+              font-weight: 600;
+              color: #333;
+            }
+            .item-measure {
+              color: #666;
+              font-size: 13px;
+              margin-left: 4px;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>รายการซื้อของ</h1>
+          <div class="date">วันที่สร้าง: ${dateStr}</div>
+          ${itemsHtml}
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   const saveShoppingList = () => {
     const hasItems = Object.values(shopping).some(dayList => dayList.length > 0);
     if (!hasItems) {
