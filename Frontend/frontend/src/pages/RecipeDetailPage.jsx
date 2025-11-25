@@ -140,7 +140,13 @@ function RecipeDetailPage() {
           // ดึงเมนูจากระบบ (Thai Food API)
           const response = await fetch(`${API_URL}/thai-food/lookup.php?i=${recipeId}`);
           const data = await response.json();
-          setRecipe(data.meals ? data.meals[0] : null);
+          console.log('Thai Food API Response:', data); // Debug log
+          if (data.meals && data.meals.length > 0) {
+            setRecipe(data.meals[0]);
+          } else {
+            console.error('No meals found in response');
+            setRecipe(null);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch recipe details:", error);
