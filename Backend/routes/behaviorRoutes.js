@@ -3,6 +3,14 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 
+// Test endpoint
+router.get('/behavior/test', (req, res) => {
+  res.json({ 
+    message: 'Behavior routes are working!', 
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // Optional auth middleware: decode token if provided, but don't fail when missing
 const optionalAuth = (req, res, next) => {
   const authHeader = req.header('Authorization');
