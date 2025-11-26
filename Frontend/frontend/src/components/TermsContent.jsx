@@ -147,7 +147,7 @@ const TermsContent = ({ className = '' }) => (
         <div>
           <h3 className="font-semibold text-gray-900 mb-2">3.7 การติดต่อ</h3>
           <p className="text-sm">
-            หากคุณมีคำถามเกี่ยวกับนโยบายคุ้มครองข้อมูลส่วนบุคคลหรือต้องการใช้สิทธิ์ตามกฎหมาย PDPA กรุณาติดต่อเราที่อีเมล: privacy@mealvault.com
+            หากคุณมีคำถามเกี่ยวกับนโยบายคุ้มครองข้อมูลส่วนบุคคลหรือต้องการใช้สิทธิ์ตามกฎหมาย PDPA กรุณาติดต่อเราที่อีเมล: tanupongwud@gmail.com
           </p>
         </div>
       </div>
