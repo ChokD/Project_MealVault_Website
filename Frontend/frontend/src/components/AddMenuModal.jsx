@@ -13,6 +13,8 @@ function AddMenuModal({ isOpen, onClose, onSuccess, token, categories }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -27,6 +29,8 @@ function AddMenuModal({ isOpen, onClose, onSuccess, token, categories }) {
         menu_source_url: ''
       });
       setError('');
+      setShowDuplicateWarning(false);
+      setDuplicateInfo(null);
     }
   }, [isOpen]);
 
@@ -69,6 +73,14 @@ function AddMenuModal({ isOpen, onClose, onSuccess, token, categories }) {
       });
 
       const data = await response.json();
+
+      // Check for duplicate detection response (409 Conflict)
+      if (response.status === 409 && data.duplicateCheck) {
+        setDuplicateInfo(data.duplicateCheck);
+        setShowDuplicateWarning(true);
+        setLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'เกิดข้อผิดพลาดในการเพิ่มเมนู');
@@ -261,6 +273,74 @@ function AddMenuModal({ isOpen, onClose, onSuccess, token, categories }) {
           </div>
         </form>
       </div>
+
+      {/* Duplicate Warning Modal */}
+      {showDuplicateWarning && duplicateInfo && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
+                duplicateInfo.isDuplicate ? 'bg-red-100' : 'bg-orange-100'
+              }`}>
+                <svg className={`w-6 h-6 ${duplicateInfo.isDuplicate ? 'text-red-600' : 'text-orange-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 mb-1">
+                  {duplicateInfo.isDuplicate ? '🚫 พบเมนูซ้ำซ้อน' : '⚠️ พบเมนูคล้ายกัน'}
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  {duplicateInfo.isDuplicate 
+                    ? 'เมนูนี้คล้ายกับเมนูที่มีอยู่แล้วมากกว่า 90% ไม่สามารถเพิ่มได้'
+                    : `พบเมนูที่คล้ายกัน ${duplicateInfo.score}%`
+                  }
+                </p>
+                
+                {duplicateInfo.similarMenu && (
+                  <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-gray-500 mb-1">เมนูที่คล้ายกัน:</p>
+                    <p className="text-sm font-medium text-gray-800">{duplicateInfo.similarMenu.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">ID: {duplicateInfo.similarMenu.id}</p>
+                  </div>
+                )}
+
+                {duplicateInfo.details && (
+                  <div className="space-y-2 mb-4">
+                    <p className="text-xs font-medium text-gray-700">ความคล้ายกัน:</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">ชื่อเมนู:</span>
+                        <span className="font-medium">{duplicateInfo.details.title}%</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">วัตถุดิบ:</span>
+                        <span className="font-medium">{duplicateInfo.details.ingredients}%</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">ขั้นตอน:</span>
+                        <span className="font-medium">{duplicateInfo.details.steps}%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDuplicateWarning(false);
+                  setDuplicateInfo(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                {duplicateInfo.isDuplicate ? 'ปิด' : 'แก้ไข'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
