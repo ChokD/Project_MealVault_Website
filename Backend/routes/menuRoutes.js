@@ -2,6 +2,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const express = require('express');
 const router = express.Router();
 const { supabase } = require('../config/supabase');
+const { checkRecipeDuplicate } = require('../utils/duplicateDetection');
 
 
 // สร้าง API Endpoint สำหรับค้นหาเมนูอาหาร
@@ -73,6 +74,48 @@ router.post('/menus', authMiddleware, async (req, res) => {
 
     if (!menu_name || !menu_description || !menu_recipe) {
       return res.status(400).json({ message: 'กรุณากรอกข้อมูลเมนูให้ครบถ้วน' });
+    }
+
+    // 3. เช็คความซ้ำซ้อนกับเมนูที่มีอยู่แล้ว
+    const { data: existingMenus, error: fetchErr } = await supabase
+      .from('Menu')
+      .select('menu_id, menu_name, menu_recipe');
+    
+    if (fetchErr) throw fetchErr;
+
+    if (existingMenus && existingMenus.length > 0) {
+      const newMenuData = {
+        title: menu_name,
+        ingredients: menu_recipe, // menu_recipe มักจะมีทั้งวัตถุดิบและวิธีทำรวมกัน
+        steps: menu_recipe
+      };
+
+      for (const existing of existingMenus) {
+        const existingMenuData = {
+          title: existing.menu_name,
+          ingredients: existing.menu_recipe,
+          steps: existing.menu_recipe
+        };
+
+        const duplicateCheck = checkRecipeDuplicate(newMenuData, existingMenuData);
+        
+        // ถ้าความเหมือนกัน >= 40% ให้เตือน
+        if (duplicateCheck.confidence === 'high' || duplicateCheck.confidence === 'medium') {
+          return res.status(409).json({ 
+            message: 'พบเมนูที่คล้ายกันอยู่แล้ว',
+            duplicateCheck: {
+              isDuplicate: duplicateCheck.isDuplicate,
+              confidence: duplicateCheck.confidence,
+              score: duplicateCheck.scores.overall,
+              similarMenu: {
+                id: existing.menu_id,
+                name: existing.menu_name
+              },
+              details: duplicateCheck.scores
+            }
+          });
+        }
+      }
     }
 
     const newMenu = {
