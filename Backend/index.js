@@ -36,6 +36,18 @@ app.get('/', (req, res) => {
   res.send('Hello, MealVault Backend!');
 });
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    routes: {
+      behavior: 'connected',
+      debug: 'connected'
+    }
+  });
+});
+
 // 6. นำ Route ทั้งหมดมาใช้งาน (สำคัญที่สุด)
 app.use('/api', userRoutes);
 app.use('/api', menuRoutes); 

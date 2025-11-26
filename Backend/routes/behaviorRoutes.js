@@ -11,6 +11,52 @@ router.get('/behavior/test', (req, res) => {
   });
 });
 
+// Check behavior tables endpoint
+router.get('/behavior/check-tables', async (req, res) => {
+  try {
+    const results = {};
+
+    // Check UserPostView
+    const { data: postViews, error: postError, count: postCount } = await supabase
+      .from('UserPostView')
+      .select('*', { count: 'exact' })
+      .limit(3);
+    
+    results.UserPostView = {
+      exists: !postError,
+      error: postError?.message || null,
+      rowCount: postCount || 0,
+      sampleData: postViews || []
+    };
+
+    // Check UserMenuView
+    const { data: menuViews, error: menuError, count: menuCount } = await supabase
+      .from('UserMenuView')
+      .select('*', { count: 'exact' })
+      .limit(3);
+    
+    results.UserMenuView = {
+      exists: !menuError,
+      error: menuError?.message || null,
+      rowCount: menuCount || 0,
+      sampleData: menuViews || []
+    };
+
+    res.json({
+      success: true,
+      message: 'Behavior tracking tables status',
+      tables: results,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error checking tables',
+      error: error.message
+    });
+  }
+});
+
 // Optional auth middleware: decode token if provided, but don't fail when missing
 const optionalAuth = (req, res, next) => {
   const authHeader = req.header('Authorization');
