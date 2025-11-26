@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
+import DuplicateWarningModal from '../components/DuplicateWarningModal';
 import { API_URL, IMAGE_URL } from '../config/api';
 
 const emptyIngredient = { name: '', amount: '' };
@@ -24,6 +25,11 @@ function CreateRecipePage() {
   const [success, setSuccess] = useState('');
   const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
   const [plagiarismWarning, setPlagiarismWarning] = useState(null);
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [isOriginal, setIsOriginal] = useState(true);
+  const [duplicateData, setDuplicateData] = useState(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [forceContinue, setForceContinue] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -53,15 +59,15 @@ function CreateRecipePage() {
     setSteps(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const checkPlagiarism = async () => {
+  const checkDuplicate = async () => {
     const filteredIngredients = ingredients.filter(item => item.name.trim());
     const filteredSteps = steps.filter(item => item.detail.trim());
 
     setCheckingPlagiarism(true);
-    setPlagiarismWarning(null);
+    setDuplicateData(null);
     
     try {
-      const response = await fetch(`${API_URL}/plagiarism/check-recipe`, {
+      const response = await fetch(`${API_URL}/recipes/check-duplicate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -69,21 +75,20 @@ function CreateRecipePage() {
         },
         body: JSON.stringify({
           title: recipeTitle,
-          summary: recipeSummary,
-          ingredients: filteredIngredients,
-          steps: filteredSteps.map((item, index) => ({
-            order: index + 1,
-            detail: item.detail
-          }))
+          ingredients: filteredIngredients.map(ing => `${ing.name} ${ing.amount}`).join(', '),
+          steps: filteredSteps.map(s => s.detail).join('\n')
         })
       });
 
       const data = await response.json();
-      if (data.plagiarismCheck && !data.isOriginal) {
-        setPlagiarismWarning(data.plagiarismCheck);
+      if (!response.ok) {
+        throw new Error(data.message || 'ไม่สามารถตรวจสอบได้');
       }
+
+      return data; // { canPost, risk, overallScore, duplicateMatches, patternAnalysis }
     } catch (error) {
-      console.error('Plagiarism check failed:', error);
+      console.error('Duplicate check failed:', error);
+      return null;
     } finally {
       setCheckingPlagiarism(false);
     }
@@ -118,8 +123,15 @@ function CreateRecipePage() {
       return;
     }
 
-    // Check plagiarism before submitting
-    await checkPlagiarism();
+    // Check duplicate before submitting
+    if (!forceContinue) {
+      const duplicateCheck = await checkDuplicate();
+      if (duplicateCheck && (duplicateCheck.risk === 'high' || duplicateCheck.risk === 'medium')) {
+        setDuplicateData(duplicateCheck);
+        setShowDuplicateModal(true);
+        return; // Stop submission and show modal
+      }
+    }
 
     setSubmitting(true);
     try {
@@ -131,6 +143,8 @@ function CreateRecipePage() {
       formData.append('cook_time_minutes', cookTime);
       formData.append('total_time_minutes', computedTotalTime === '' ? '' : computedTotalTime);
       formData.append('servings', servings);
+      formData.append('source_url', sourceUrl);
+      formData.append('is_original', isOriginal);
       formData.append('ingredients', JSON.stringify(filteredIngredients));
       formData.append('steps', JSON.stringify(filteredSteps.map((item, index) => ({
         order: index + 1,
@@ -244,6 +258,29 @@ function CreateRecipePage() {
                       value={servings}
                       onChange={(e) => setServings(e.target.value)}
                     />
+                  </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">แหล่งอ้างอิง (ถ้ามี)</label>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/recipe"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      value={sourceUrl}
+                      onChange={(e) => setSourceUrl(e.target.value)}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">ระบุ URL หากสูตรนี้ดัดแปลงจากแหล่งอื่น</p>
+                  </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isOriginal}
+                        onChange={(e) => setIsOriginal(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">นี่เป็นสูตรต้นฉบับของฉัน</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">หากเป็นสูตรที่คุณคิดค้นเองทั้งหมด โปรดเลือกช่องนี้</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">เวลาเตรียม (นาที)</label>
@@ -391,6 +428,24 @@ function CreateRecipePage() {
           </div>
         </div>
       </main>
+      
+      <DuplicateWarningModal
+        isOpen={showDuplicateModal}
+        onClose={() => {
+          setShowDuplicateModal(false);
+          setDuplicateData(null);
+          setForceContinue(false);
+        }}
+        onContinue={() => {
+          setShowDuplicateModal(false);
+          setForceContinue(true);
+          // Re-trigger form submission
+          setTimeout(() => {
+            document.querySelector('form').requestSubmit();
+          }, 100);
+        }}
+        duplicateData={duplicateData || {}}
+      />
     </div>
   );
 }
