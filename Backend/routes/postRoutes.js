@@ -1351,7 +1351,7 @@ router.post('/recipes/check-duplicate', authMiddleware, async (req, res) => {
       
       const comparison = checkRecipeDuplicate(newRecipe, existingRecipe);
       
-      if (comparison.overallScore >= 50) {  // Only report significant matches
+      if (comparison.overallScore >= 70) {  // Only report matches 70%+ (raised from 50%)
         duplicateMatches.push({
           recipe_id: existing.recipe_id,
           recipe_title: existing.recipe_title,
@@ -1369,21 +1369,21 @@ router.post('/recipes/check-duplicate', authMiddleware, async (req, res) => {
     // Sort by similarity
     duplicateMatches.sort((a, b) => b.similarity - a.similarity);
     
-    // Calculate overall risk
+    // Calculate overall risk (stricter: 90% for high risk)
     const overallScore = Math.round(Math.max(patternAnalysis.suspicionScore || 0, highestScore));
-    const risk = overallScore >= 70 ? 'high' : overallScore >= 50 ? 'medium' : 'low';
+    const risk = overallScore >= 90 ? 'high' : overallScore >= 70 ? 'medium' : 'low';
     
     res.json({
       success: true,
-      canPost: risk !== 'high',  // Block if high risk
+      canPost: risk !== 'high',  // Block if high risk (90%+)
       risk,
       overallScore,
       patternAnalysis,
       duplicateMatches: duplicateMatches.slice(0, 5),  // Return top 5
       message: risk === 'high' 
-        ? 'พบสูตรที่คล้ายกันมาก กรุณาตรวจสอบอีกครั้ง'
+        ? 'พบสูตรที่คล้ายกันมาก (90%+) กรุณาตรวจสอบอีกครั้ง'
         : risk === 'medium'
-        ? 'พบสูตรที่คล้ายกันบางส่วน แต่สามารถโพสต์ได้'
+        ? 'พบสูตรที่คล้ายกันบางส่วน (70-89%) แต่สามารถโพสต์ได้'
         : 'ไม่พบสูตรที่ซ้ำกัน'
     });
     
