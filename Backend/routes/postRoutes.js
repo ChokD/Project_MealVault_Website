@@ -6,6 +6,10 @@ const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/supabaseUploadMiddleware');
 const { createNotification } = require('./notificationRoutes');
 const { moderateContent } = require('./contentModerationRoutes');
+const { 
+  checkRecipeDuplicate, 
+  analyzeSuspiciousPatterns 
+} = require('../utils/duplicateDetection');
 
 // --- PUBLIC ROUTES ---
 
@@ -1246,6 +1250,233 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
       console.error('Error toggling like:', error);
       res.status(500).json({ message: 'เกิดข้อผิดพลาด' });
     }
+});
+
+// ============================================
+// DUPLICATE DETECTION ENDPOINTS
+// ============================================
+
+// POST /api/recipes/check-duplicate - ตรวจสอบสูตรซ้ำก่อนสร้าง
+router.post('/recipes/check-duplicate', authMiddleware, async (req, res) => {
+  try {
+    const { recipe_name, ingredients, steps, source_url, is_original } = req.body;
+    
+    if (!recipe_name) {
+      return res.status(400).json({ message: 'กรุณาระบุชื่อสูตรอาหาร' });
+    }
+    
+    const newRecipe = {
+      recipe_name,
+      ingredients: ingredients || [],
+      steps: steps || [],
+      source_url,
+      is_original
+    };
+    
+    // 1. Check pattern analysis
+    const patternAnalysis = analyzeSuspiciousPatterns(newRecipe);
+    
+    // 2. Check against existing recipes
+    const { data: existingRecipes, error } = await supabase
+      .from('UserRecipe')
+      .select('recipe_id, recipe_name, ingredients, steps, user_id')
+      .limit(100);  // Check recent 100 recipes
+    
+    if (error) throw error;
+    
+    const duplicateMatches = [];
+    let highestScore = 0;
+    
+    for (const existing of existingRecipes || []) {
+      const comparison = checkRecipeDuplicate(newRecipe, existing);
+      
+      if (comparison.score >= 50) {  // Only report significant matches
+        duplicateMatches.push({
+          recipe_id: existing.recipe_id,
+          recipe_name: existing.recipe_name,
+          similarity_score: comparison.score,
+          details: comparison.details,
+          confidence: comparison.confidence
+        });
+        
+        if (comparison.score > highestScore) {
+          highestScore = comparison.score;
+        }
+      }
+    }
+    
+    // Calculate overall risk
+    const overallScore = Math.max(patternAnalysis.suspicionScore, highestScore);
+    const risk = overallScore >= 70 ? 'high' : overallScore >= 40 ? 'medium' : 'low';
+    
+    res.json({
+      success: true,
+      canPost: risk !== 'high',  // Block if high risk
+      risk,
+      overallScore,
+      patternAnalysis,
+      duplicateMatches,
+      message: risk === 'high' 
+        ? 'พบสูตรที่คล้ายกันมาก กรุณาตรวจสอบอีกครั้ง'
+        : risk === 'medium'
+        ? 'พบสูตรที่คล้ายกันบางส่วน แต่สามารถโพสต์ได้'
+        : 'ไม่พบสูตรที่ซ้ำกัน'
+    });
+    
+  } catch (error) {
+    console.error('Error checking duplicate:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการตรวจสอบ'
+    });
+  }
+});
+
+// POST /api/recipes/:recipeId/report-duplicate - รายงานสูตรซ้ำ
+router.post('/recipes/:recipeId/report-duplicate', authMiddleware, async (req, res) => {
+  try {
+    const { recipeId } = req.params;
+    const { original_recipe_id, reason } = req.body;
+    const userId = req.user.id;
+    
+    if (!original_recipe_id) {
+      return res.status(400).json({ message: 'กรุณาระบุสูตรต้นฉบับที่ถูกคัดลอก' });
+    }
+    
+    // Check if recipes exist
+    const { data: recipes } = await supabase
+      .from('UserRecipe')
+      .select('recipe_id, recipe_name, ingredients, steps')
+      .in('recipe_id', [recipeId, original_recipe_id]);
+    
+    if (!recipes || recipes.length !== 2) {
+      return res.status(404).json({ message: 'ไม่พบสูตรอาหารที่ระบุ' });
+    }
+    
+    const originalRecipe = recipes.find(r => r.recipe_id === original_recipe_id);
+    const suspectedRecipe = recipes.find(r => r.recipe_id === recipeId);
+    
+    // Calculate similarity
+    const comparison = checkRecipeDuplicate(suspectedRecipe, originalRecipe);
+    
+    // Insert duplicate report
+    const { data, error } = await supabase
+      .from('RecipeDuplicateReport')
+      .insert([{
+        original_recipe_id,
+        suspected_recipe_id: recipeId,
+        similarity_score: comparison.score,
+        match_type: 'combined',
+        reported_by: userId,
+        status: 'pending'
+      }])
+      .select()
+      .single();
+    
+    if (error) {
+      // Check if already reported
+      if (error.code === '23505') {
+        return res.status(400).json({ message: 'คุณได้รายงานสูตรนี้แล้ว' });
+      }
+      throw error;
+    }
+    
+    res.json({
+      success: true,
+      message: 'รายงานสูตรซ้ำเรียบร้อย ทีมงานจะตรวจสอบภายใน 24 ชั่วโมง',
+      report: data
+    });
+    
+  } catch (error) {
+    console.error('Error reporting duplicate:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการรายงาน'
+    });
+  }
+});
+
+// GET /api/duplicate-reports - Admin: ดูรายงานสูตรซ้ำ
+router.get('/duplicate-reports', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Check if admin
+    const { data: admin } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', userId)
+      .single();
+    
+    if (!admin) {
+      return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึง' });
+    }
+    
+    const { data: reports, error } = await supabase
+      .from('RecipeDuplicateReport')
+      .select(`
+        *,
+        original:original_recipe_id (recipe_name, user_id),
+        suspected:suspected_recipe_id (recipe_name, user_id),
+        reporter:reported_by (user_fname, user_email)
+      `)
+      .order('reported_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    res.json({
+      success: true,
+      reports: reports || []
+    });
+    
+  } catch (error) {
+    console.error('Error fetching duplicate reports:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาด' });
+  }
+});
+
+// PUT /api/duplicate-reports/:reportId - Admin: อัปเดตสถานะรายงาน
+router.put('/duplicate-reports/:reportId', authMiddleware, async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    const { status, admin_notes } = req.body;
+    const userId = req.user.id;
+    
+    // Check if admin
+    const { data: admin } = await supabase
+      .from('Admin')
+      .select('admin_id')
+      .eq('admin_id', userId)
+      .single();
+    
+    if (!admin) {
+      return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึง' });
+    }
+    
+    const { data, error } = await supabase
+      .from('RecipeDuplicateReport')
+      .update({
+        status,
+        admin_notes,
+        reviewed_by: userId,
+        reviewed_at: new Date().toISOString()
+      })
+      .eq('id', reportId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    res.json({
+      success: true,
+      message: 'อัปเดตสถานะรายงานเรียบร้อย',
+      report: data
+    });
+    
+  } catch (error) {
+    console.error('Error updating duplicate report:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาด' });
+  }
 });
 
 
