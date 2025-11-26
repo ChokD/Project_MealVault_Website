@@ -135,5 +135,117 @@ router.get('/check-user/:email', async (req, res) => {
   }
 });
 
+// GET /api/debug/check-behavior-tables - ตรวจสอบ behavior tracking tables
+router.get('/check-behavior-tables', async (req, res) => {
+  try {
+    const results = {};
+
+    // Check UserPostView
+    const { data: postViews, error: postError } = await supabase
+      .from('UserPostView')
+      .select('*')
+      .limit(5);
+    
+    results.UserPostView = {
+      exists: !postError,
+      error: postError?.message || null,
+      count: postViews?.length || 0,
+      sample: postViews?.[0] || null
+    };
+
+    // Check UserMenuView
+    const { data: menuViews, error: menuError } = await supabase
+      .from('UserMenuView')
+      .select('*')
+      .limit(5);
+    
+    results.UserMenuView = {
+      exists: !menuError,
+      error: menuError?.message || null,
+      count: menuViews?.length || 0,
+      sample: menuViews?.[0] || null
+    };
+
+    // Check UserIngredientPreference
+    const { data: ingredients, error: ingredientError } = await supabase
+      .from('UserIngredientPreference')
+      .select('*')
+      .limit(5);
+    
+    results.UserIngredientPreference = {
+      exists: !ingredientError,
+      error: ingredientError?.message || null,
+      count: ingredients?.length || 0,
+      sample: ingredients?.[0] || null
+    };
+
+    // Check UserSearchHistory
+    const { data: searches, error: searchError } = await supabase
+      .from('UserSearchHistory')
+      .select('*')
+      .limit(5);
+    
+    results.UserSearchHistory = {
+      exists: !searchError,
+      error: searchError?.message || null,
+      count: searches?.length || 0,
+      sample: searches?.[0] || null
+    };
+
+    res.json({
+      success: true,
+      message: 'Behavior tracking tables check complete',
+      tables: results
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error checking behavior tables',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/debug/test-post-view - ทดสอบการเพิ่ม post view
+router.post('/test-post-view', async (req, res) => {
+  const { user_id, cpost_id } = req.body;
+
+  if (!user_id || !cpost_id) {
+    return res.status(400).json({
+      message: 'user_id and cpost_id are required',
+      example: { user_id: 'U123', cpost_id: 'CP123' }
+    });
+  }
+
+  try {
+    // Try to insert
+    const { data, error } = await supabase
+      .from('UserPostView')
+      .insert([{ user_id, cpost_id }])
+      .select();
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to insert post view',
+        error: error.message,
+        details: error
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Post view tracked successfully',
+      data: data
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error testing post view',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
 
