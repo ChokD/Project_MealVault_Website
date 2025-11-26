@@ -34,7 +34,12 @@ CREATE INDEX IF NOT EXISTS idx_recipe_is_original ON "UserRecipe" (is_original);
 -- 4. Enable RLS
 ALTER TABLE "RecipeDuplicateReport" ENABLE ROW LEVEL SECURITY;
 
--- 5. Create policies
+-- 5. Drop existing policies if they exist
+DROP POLICY IF EXISTS duplicate_report_insert ON "RecipeDuplicateReport";
+DROP POLICY IF EXISTS duplicate_report_select_own ON "RecipeDuplicateReport";
+DROP POLICY IF EXISTS duplicate_report_admin_all ON "RecipeDuplicateReport";
+
+-- 6. Create policies
 -- Allow anyone to report duplicates
 CREATE POLICY duplicate_report_insert ON "RecipeDuplicateReport"
   FOR INSERT
@@ -55,7 +60,7 @@ CREATE POLICY duplicate_report_admin_all ON "RecipeDuplicateReport"
     )
   );
 
--- 6. Add comment documentation
+-- 7. Add comment documentation
 COMMENT ON TABLE "RecipeDuplicateReport" IS 'Tracks suspected duplicate recipes for admin review';
 COMMENT ON COLUMN "UserRecipe".source_url IS 'Original source URL if recipe is adapted from external source';
 COMMENT ON COLUMN "UserRecipe".is_original IS 'True if user claims recipe is their original creation';
