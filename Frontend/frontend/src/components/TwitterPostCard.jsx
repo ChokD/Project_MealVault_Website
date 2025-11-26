@@ -49,7 +49,19 @@ function TwitterPostCard({ post, onDeleteClick, onDeleteComment, highlightedComm
     };
     
     fetchPostDetails();
-  }, [post.cpost_id, token]);
+
+    // Track post view when post is rendered (displayed on screen)
+    if (token && user?.user_id && post.cpost_id) {
+      fetch(`${API_URL}/behavior/post/view`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ cpost_id: post.cpost_id, user_id: user.user_id })
+      }).catch(err => console.error('Failed to track post view:', err));
+    }
+  }, [post.cpost_id, token, user]);
 
   useEffect(() => {
     const onDocClick = (e) => {

@@ -49,18 +49,6 @@ function CommunityPage() {
       const postExists = posts.some(p => p.cpost_id === postId);
       
       if (postExists) {
-        // Track post view
-        if (token && user?.user_id) {
-          fetch(`${API_URL}/behavior/post/view`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ cpost_id: postId, user_id: user.user_id })
-          }).catch(err => console.error('Failed to track post view:', err));
-        }
-
         // Scroll ไปที่โพสต์ (ปรับ offset เพื่อไม่ให้ถูก navbar ทับ)
         const scrollTimeout = setTimeout(() => {
           const element = document.getElementById(`post-${postId}`);
@@ -75,7 +63,7 @@ function CommunityPage() {
         return () => clearTimeout(scrollTimeout);
       }
     }
-  }, [searchParams, posts, token, user]);
+  }, [searchParams, posts]);
 
   const handleDeletePostClick = (postId) => {
     setItemToDelete({ id: postId, type: 'post' });

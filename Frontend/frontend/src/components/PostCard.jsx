@@ -1,12 +1,10 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
 import { API_URL, IMAGE_URL } from '../config/api';
 
 function PostCard({ post }) {
   if (!post) return null;
 
-  const { token, user } = useContext(AuthContext);
   const primaryImage = (post.cpost_images && post.cpost_images.length > 0)
     ? post.cpost_images[0]
     : post.cpost_image;
@@ -32,24 +30,10 @@ function PostCard({ post }) {
     }
   };
 
-  const handlePostClick = (e) => {
-    // Track post view when card is clicked
-    if (token && user?.user_id && post.cpost_id) {
-      fetch(`${API_URL}/behavior/post/view`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ cpost_id: post.cpost_id, user_id: user.user_id })
-      }).catch(err => console.error('Failed to track post view:', err));
-    }
-  };
-
   // แสดงผลแบบต่างกันสำหรับโพสต์ที่มีรูปและไม่มีรูป
   if (!hasImage) {
     return (
-      <Link to={`/community?post=${post.cpost_id}`} onClick={handlePostClick} className="block group">
+      <Link to={`/community?post=${post.cpost_id}`} className="block group">
         <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-100">
           <div className="flex items-start gap-3 mb-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -94,7 +78,7 @@ function PostCard({ post }) {
 
   return (
     // ทำให้การ์ดทั้งใบเป็นลิงก์ไปยังหน้ารายละเอียดของโพสต์
-    <Link to={`/community?post=${post.cpost_id}`} onClick={handlePostClick} className="w-full h-full block group relative overflow-hidden rounded-xl shadow-lg">
+    <Link to={`/community?post=${post.cpost_id}`} className="w-full h-full block group relative overflow-hidden rounded-xl shadow-lg">
       <img 
         src={imageUrl} 
         alt={post.cpost_title} 
