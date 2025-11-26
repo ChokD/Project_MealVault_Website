@@ -115,38 +115,53 @@ function checkRecipeDuplicate(newRecipe, existingRecipe) {
   };
   
   // 1. Compare titles (weight: 20%)
-  if (newRecipe.recipe_name && existingRecipe.recipe_name) {
-    scores.title = calculateTextSimilarity(
-      newRecipe.recipe_name,
-      existingRecipe.recipe_name
-    );
+  const newTitle = newRecipe.title || newRecipe.recipe_name || newRecipe.recipe_title || '';
+  const existingTitle = existingRecipe.title || existingRecipe.recipe_name || existingRecipe.recipe_title || '';
+  
+  if (newTitle && existingTitle) {
+    scores.title = calculateTextSimilarity(newTitle, existingTitle);
   }
   
   // 2. Compare ingredients (weight: 40%)
-  if (newRecipe.ingredients && existingRecipe.ingredients) {
-    const newIngredients = Array.isArray(newRecipe.ingredients) 
-      ? newRecipe.ingredients.map(i => i.name || i)
-      : [];
-    const existingIngredients = Array.isArray(existingRecipe.ingredients)
-      ? existingRecipe.ingredients.map(i => i.name || i)
-      : [];
+  const newIngredients = newRecipe.ingredients || '';
+  const existingIngredients = existingRecipe.ingredients || '';
+  
+  if (newIngredients && existingIngredients) {
+    // Handle both string and array formats
+    const newIngredientsText = typeof newIngredients === 'string' 
+      ? newIngredients 
+      : Array.isArray(newIngredients)
+      ? newIngredients.map(i => (typeof i === 'string' ? i : (i.name || ''))).join(' ')
+      : '';
     
-    scores.ingredients = calculateJaccardSimilarity(
-      newIngredients,
-      existingIngredients
-    );
+    const existingIngredientsText = typeof existingIngredients === 'string'
+      ? existingIngredients
+      : Array.isArray(existingIngredients)
+      ? existingIngredients.map(i => (typeof i === 'string' ? i : (i.name || ''))).join(' ')
+      : '';
+    
+    scores.ingredients = calculateTextSimilarity(newIngredientsText, existingIngredientsText);
   }
   
   // 3. Compare steps (weight: 40%)
-  if (newRecipe.steps && existingRecipe.steps) {
-    const newSteps = Array.isArray(newRecipe.steps)
-      ? newRecipe.steps.map(s => s.detail || s)
-      : [];
-    const existingSteps = Array.isArray(existingRecipe.steps)
-      ? existingRecipe.steps.map(s => s.detail || s)
-      : [];
+  const newSteps = newRecipe.steps || '';
+  const existingSteps = existingRecipe.steps || '';
+  
+  if (newSteps && existingSteps) {
+    // Handle both string and array formats
+    const newStepsText = typeof newSteps === 'string'
+      ? newSteps
+      : Array.isArray(newSteps)
+      ? newSteps.map(s => (typeof s === 'string' ? s : (s.detail || ''))).join(' ')
+      : '';
     
-    scores.steps = calculateJaccardSimilarity(newSteps, existingSteps);
+    const existingStepsText = typeof existingSteps === 'string'
+      ? existingSteps
+      : Array.isArray(existingSteps)
+      ? existingSteps.map(s => (typeof s === 'string' ? s : (s.detail || ''))).join(' ')
+      : '';
+    
+    scores.steps = calculateTextSimilarity(newStepsText, existingStepsText);
   }
   
   // Calculate weighted overall score
