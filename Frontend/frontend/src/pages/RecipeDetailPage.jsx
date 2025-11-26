@@ -166,7 +166,21 @@ function RecipeDetailPage() {
         try {
           // หา menu_id
           const info = await findMenuIdByName(recipe.strMeal);
-          if (info) setMenuId(info.id);
+          if (info) {
+            setMenuId(info.id);
+            
+            // Track menu view
+            if (user?.user_id) {
+              fetch(`${API_URL}/behavior/menu/view`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ menu_id: info.id, user_id: user.user_id })
+              }).catch(err => console.error('Failed to track menu view:', err));
+            }
+          }
           
           // ดึง plan
           const planData = await fetchPlanFromAPI(token);
@@ -177,7 +191,7 @@ function RecipeDetailPage() {
       };
       loadPlanAndMenuId();
     }
-  }, [recipe, token]);
+  }, [recipe, token, user]);
 
   // Reload plan เมื่อเปลี่ยนวันหรือมื้อ
   useEffect(() => {
@@ -221,6 +235,18 @@ function RecipeDetailPage() {
 
       setLikeCount(data.like_count || 0);
       setLiked(data.liked || false);
+
+      // Track like behavior if user liked (not unliked) and we have menu_id
+      if (data.liked && menuId && user?.user_id) {
+        fetch(`${API_URL}/behavior/menu/like`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ menu_id: menuId, user_id: user.user_id })
+        }).catch(err => console.error('Failed to track like:', err));
+      }
     } catch (error) {
       console.error('Error toggling like:', error);
       alert(error.message || 'เกิดข้อผิดพลาดในการกดไลค์สูตรอาหาร');
@@ -495,6 +521,18 @@ function RecipeDetailPage() {
                       await addMenuToPlan(pickDay, pickMeal, menuId, token);
                       setAdded('เพิ่มแล้ว!');
                       setTimeout(() => setAdded(''), 3000);
+                      
+                      // Track meal plan addition (strong preference signal)
+                      if (user?.user_id) {
+                        fetch(`${API_URL}/behavior/menu/meal-plan`, {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({ menu_id: menuId, user_id: user.user_id })
+                        }).catch(err => console.error('Failed to track meal plan:', err));
+                      }
                       
                       // Reload plan
                       const planData = await fetchPlanFromAPI(token);

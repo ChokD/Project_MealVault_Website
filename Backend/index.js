@@ -17,6 +17,7 @@ const mealCalendarRoutes = require('./routes/mealCalendarRoutes');
 const weeklyMealPlanRoutes = require('./routes/weeklyMealPlanRoutes');
 const thaiFoodRoutes = require('./routes/thaiFoodRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const behaviorRoutes = require('./routes/behaviorRoutes'); // User behavior tracking
 const debugRoutes = require('./routes/debugRoutes'); // Debug routes
 
 // 2. สร้างแอปพลิเคชัน express
@@ -48,6 +49,7 @@ app.use('/api', mealCalendarRoutes);
 app.use('/api', weeklyMealPlanRoutes);
 app.use('/api', thaiFoodRoutes);
 app.use('/api', notificationRoutes);
+app.use('/api', behaviorRoutes); // User behavior tracking
 app.use('/api/debug', debugRoutes); // Debug routes (ลบออกเมื่อเสร็จแล้ว)
 
 // 7. สั่งให้เซิร์ฟเวอร์เริ่มทำงาน
