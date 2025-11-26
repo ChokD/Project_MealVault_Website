@@ -174,7 +174,7 @@ function RecipeCard({ recipe, token, user, onDelete, onReport, recipeRef, isHigh
         <div className="mt-auto flex gap-3">
           <button
             type="button"
-            onClick={() => navigate(`/menus/${recipe.recipe_id || recipe.cpost_id}`)}
+            onClick={() => navigate(`/menus/${recipe.recipe_id || recipe.cpost_id}`, { state: { from: 'menus' } })}
             className="flex-1 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow"
           >
             ดูรายละเอียด

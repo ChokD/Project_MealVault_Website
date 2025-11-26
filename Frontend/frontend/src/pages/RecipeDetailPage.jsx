@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -74,6 +74,7 @@ async function addMenuToPlan(day, mealType, menuId, token) {
 function RecipeDetailPage() {
   const { recipeId } = useParams(); // ดึง ID ของเมนูมาจาก URL
   const navigate = useNavigate();
+  const location = useLocation();
   const { token, user } = useContext(AuthContext);
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -277,7 +278,14 @@ function RecipeDetailPage() {
       }
 
       alert('ลบสูตรอาหารสำเร็จ');
-      navigate('/community');
+      
+      // ตรวจสอบว่ามาจากหน้าไหน
+      const from = location.state?.from;
+      if (from === 'menus' || location.pathname.includes('/menus/')) {
+        navigate('/menus');
+      } else {
+        navigate('/community');
+      }
     } catch (error) {
       console.error('Delete error:', error);
       alert('เกิดข้อผิดพลาด: ' + error.message);
