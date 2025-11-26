@@ -111,7 +111,7 @@ function EditRecipePage() {
     setPlagiarismWarning(null);
 
     try {
-      const response = await fetch(`${API_URL}/plagiarism/check-recipe`, {
+      const response = await fetch(`${API_URL}/recipes/check-duplicate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -119,17 +119,16 @@ function EditRecipePage() {
         },
         body: JSON.stringify({
           title: recipeTitle,
-          summary: recipeSummary,
-          ingredients: filteredIngredients,
-          steps: filteredSteps.map((item, index) => ({ order: index + 1, detail: item.detail }))
+          ingredients: filteredIngredients.map(i => i.name).join(', '),
+          steps: filteredSteps.map(s => s.detail).join(', ')
         })
       });
       const data = await response.json();
-      if (data.plagiarismCheck && !data.isOriginal) {
-        setPlagiarismWarning(data.plagiarismCheck);
+      if (data.canPost === false || data.risk === 'high' || data.risk === 'medium') {
+        setPlagiarismWarning(data);
       }
     } catch (err) {
-      console.error('Plagiarism check failed:', err);
+      console.error('Duplicate check failed:', err);
     } finally {
       setCheckingPlagiarism(false);
     }
