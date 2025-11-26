@@ -671,7 +671,9 @@ router.post('/recipes', authMiddleware, ...upload.single('recipe_image'), modera
     total_time_minutes,
     servings,
     ingredients,
-    steps
+    steps,
+    source_url,
+    is_original
   } = req.body;
 
   if (!recipe_title) {
@@ -708,6 +710,8 @@ router.post('/recipes', authMiddleware, ...upload.single('recipe_image'), modera
       ingredients: parsedIngredients,
       steps: parsedSteps,
       recipe_image: recipeImageUrl,
+      source_url: source_url || null,
+      is_original: is_original !== undefined ? (is_original === 'true' || is_original === true) : true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -1256,21 +1260,56 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
 // DUPLICATE DETECTION ENDPOINTS
 // ============================================
 
+// GET /api/recipes/recent - ดึงสูตรล่าสุดสำหรับรายงานซ้ำ
+router.get('/recipes/recent', authMiddleware, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    
+    const { data: recipes, error } = await supabase
+      .from('UserRecipe')
+      .select(`
+        recipe_id,
+        recipe_title,
+        recipe_summary,
+        user_id,
+        User:user_id (
+          user_fname,
+          user_lname
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    
+    const formattedRecipes = (recipes || []).map(recipe => ({
+      recipe_id: recipe.recipe_id,
+      recipe_title: recipe.recipe_title,
+      recipe_summary: recipe.recipe_summary,
+      user_fname: recipe.User?.user_fname || 'ผู้ใช้',
+      user_lname: recipe.User?.user_lname || ''
+    }));
+    
+    res.json(formattedRecipes);
+  } catch (error) {
+    console.error('Error fetching recent recipes:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลสูตร' });
+  }
+});
+
 // POST /api/recipes/check-duplicate - ตรวจสอบสูตรซ้ำก่อนสร้าง
 router.post('/recipes/check-duplicate', authMiddleware, async (req, res) => {
   try {
-    const { recipe_name, ingredients, steps, source_url, is_original } = req.body;
+    const { title, ingredients, steps } = req.body;
     
-    if (!recipe_name) {
+    if (!title) {
       return res.status(400).json({ message: 'กรุณาระบุชื่อสูตรอาหาร' });
     }
     
     const newRecipe = {
-      recipe_name,
-      ingredients: ingredients || [],
-      steps: steps || [],
-      source_url,
-      is_original
+      title,
+      ingredients: ingredients || '',
+      steps: steps || ''
     };
     
     // 1. Check pattern analysis
@@ -1279,7 +1318,19 @@ router.post('/recipes/check-duplicate', authMiddleware, async (req, res) => {
     // 2. Check against existing recipes
     const { data: existingRecipes, error } = await supabase
       .from('UserRecipe')
-      .select('recipe_id, recipe_name, ingredients, steps, user_id')
+      .select(`
+        recipe_id, 
+        recipe_title, 
+        ingredients, 
+        steps, 
+        user_id,
+        source_url,
+        User:user_id (
+          user_fname,
+          user_lname
+        )
+      `)
+      .order('created_at', { ascending: false })
       .limit(100);  // Check recent 100 recipes
     
     if (error) throw error;
@@ -1288,26 +1339,39 @@ router.post('/recipes/check-duplicate', authMiddleware, async (req, res) => {
     let highestScore = 0;
     
     for (const existing of existingRecipes || []) {
-      const comparison = checkRecipeDuplicate(newRecipe, existing);
+      const existingRecipe = {
+        title: existing.recipe_title,
+        ingredients: Array.isArray(existing.ingredients) 
+          ? existing.ingredients.map(ing => typeof ing === 'string' ? ing : `${ing.name} ${ing.amount}`).join(', ')
+          : String(existing.ingredients || ''),
+        steps: Array.isArray(existing.steps)
+          ? existing.steps.map(step => typeof step === 'object' ? step.detail : step).join('\n')
+          : String(existing.steps || '')
+      };
       
-      if (comparison.score >= 50) {  // Only report significant matches
+      const comparison = checkRecipeDuplicate(newRecipe, existingRecipe);
+      
+      if (comparison.overallScore >= 50) {  // Only report significant matches
         duplicateMatches.push({
           recipe_id: existing.recipe_id,
-          recipe_name: existing.recipe_name,
-          similarity_score: comparison.score,
-          details: comparison.details,
-          confidence: comparison.confidence
+          recipe_title: existing.recipe_title,
+          similarity: Math.round(comparison.overallScore),
+          creator_username: existing.User?.user_fname || 'ผู้ใช้',
+          source_url: existing.source_url
         });
         
-        if (comparison.score > highestScore) {
-          highestScore = comparison.score;
+        if (comparison.overallScore > highestScore) {
+          highestScore = comparison.overallScore;
         }
       }
     }
     
+    // Sort by similarity
+    duplicateMatches.sort((a, b) => b.similarity - a.similarity);
+    
     // Calculate overall risk
-    const overallScore = Math.max(patternAnalysis.suspicionScore, highestScore);
-    const risk = overallScore >= 70 ? 'high' : overallScore >= 40 ? 'medium' : 'low';
+    const overallScore = Math.round(Math.max(patternAnalysis.suspicionScore || 0, highestScore));
+    const risk = overallScore >= 70 ? 'high' : overallScore >= 50 ? 'medium' : 'low';
     
     res.json({
       success: true,
@@ -1315,7 +1379,7 @@ router.post('/recipes/check-duplicate', authMiddleware, async (req, res) => {
       risk,
       overallScore,
       patternAnalysis,
-      duplicateMatches,
+      duplicateMatches: duplicateMatches.slice(0, 5),  // Return top 5
       message: risk === 'high' 
         ? 'พบสูตรที่คล้ายกันมาก กรุณาตรวจสอบอีกครั้ง'
         : risk === 'medium'
@@ -1346,7 +1410,7 @@ router.post('/recipes/:recipeId/report-duplicate', authMiddleware, async (req, r
     // Check if recipes exist
     const { data: recipes } = await supabase
       .from('UserRecipe')
-      .select('recipe_id, recipe_name, ingredients, steps')
+      .select('recipe_id, recipe_title, ingredients, steps')
       .in('recipe_id', [recipeId, original_recipe_id]);
     
     if (!recipes || recipes.length !== 2) {
@@ -1356,8 +1420,29 @@ router.post('/recipes/:recipeId/report-duplicate', authMiddleware, async (req, r
     const originalRecipe = recipes.find(r => r.recipe_id === original_recipe_id);
     const suspectedRecipe = recipes.find(r => r.recipe_id === recipeId);
     
+    // Prepare recipes for comparison
+    const original = {
+      title: originalRecipe.recipe_title,
+      ingredients: Array.isArray(originalRecipe.ingredients) 
+        ? originalRecipe.ingredients.map(ing => typeof ing === 'string' ? ing : `${ing.name} ${ing.amount}`).join(', ')
+        : String(originalRecipe.ingredients || ''),
+      steps: Array.isArray(originalRecipe.steps)
+        ? originalRecipe.steps.map(step => typeof step === 'object' ? step.detail : step).join('\n')
+        : String(originalRecipe.steps || '')
+    };
+    
+    const suspected = {
+      title: suspectedRecipe.recipe_title,
+      ingredients: Array.isArray(suspectedRecipe.ingredients) 
+        ? suspectedRecipe.ingredients.map(ing => typeof ing === 'string' ? ing : `${ing.name} ${ing.amount}`).join(', ')
+        : String(suspectedRecipe.ingredients || ''),
+      steps: Array.isArray(suspectedRecipe.steps)
+        ? suspectedRecipe.steps.map(step => typeof step === 'object' ? step.detail : step).join('\n')
+        : String(suspectedRecipe.steps || '')
+    };
+    
     // Calculate similarity
-    const comparison = checkRecipeDuplicate(suspectedRecipe, originalRecipe);
+    const comparison = checkRecipeDuplicate(suspected, original);
     
     // Insert duplicate report
     const { data, error } = await supabase
@@ -1365,7 +1450,7 @@ router.post('/recipes/:recipeId/report-duplicate', authMiddleware, async (req, r
       .insert([{
         original_recipe_id,
         suspected_recipe_id: recipeId,
-        similarity_score: comparison.score,
+        similarity_score: Math.round(comparison.overallScore),
         match_type: 'combined',
         reported_by: userId,
         status: 'pending'
@@ -1416,9 +1501,9 @@ router.get('/duplicate-reports', authMiddleware, async (req, res) => {
       .from('RecipeDuplicateReport')
       .select(`
         *,
-        original:original_recipe_id (recipe_name, user_id),
-        suspected:suspected_recipe_id (recipe_name, user_id),
-        reporter:reported_by (user_fname, user_email)
+        OriginalRecipe:original_recipe_id (recipe_id, recipe_title, user_id),
+        SuspectedRecipe:suspected_recipe_id (recipe_id, recipe_title, user_id),
+        Reporter:reported_by (user_id, user_fname, user_email)
       `)
       .order('reported_at', { ascending: false });
     
