@@ -171,18 +171,18 @@ function checkRecipeDuplicate(newRecipe, existingRecipe) {
     (scores.steps * 0.4)
   );
   
-  // Determine if duplicate based on thresholds (stricter: 90%)
+  // Determine if duplicate based on thresholds (lowered to 40% warning)
   const isDuplicate = 
-    scores.overall >= 90 ||  // Overall very similar (raised from 70 to 90)
-    (scores.title >= 95 && scores.ingredients >= 90) ||  // Almost identical name + ingredients
-    (scores.ingredients >= 95 && scores.steps >= 90);  // Almost identical content
+    scores.overall >= 90 ||  // Overall very similar - BLOCK
+    (scores.title >= 95 && scores.ingredients >= 90) ||  // Almost identical name + ingredients - BLOCK
+    (scores.ingredients >= 95 && scores.steps >= 90);  // Almost identical content - BLOCK
   
   return {
     isDuplicate,
     score: scores.overall,
     overallScore: scores.overall,
     details: scores,
-    confidence: isDuplicate ? 'high' : scores.overall >= 70 ? 'medium' : 'low'  // Adjusted threshold
+    confidence: isDuplicate ? 'high' : scores.overall >= 40 ? 'medium' : 'low'  // Warning at 40%+
   };
 }
 
